@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# ClusterSizer runtime artefakti - ne pripadaju u repo
+crash.log
+*.clsz
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

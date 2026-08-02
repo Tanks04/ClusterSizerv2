@@ -1,0 +1,5 @@
+name,site,vcpu,ram_gb,disk_gb,powered_on,dr_protected,dr_vcpu,dr_ram_gb,dr_disk_gb,notes
+app-web-01,Primary,4,16,200,True,True,2,8,200,"replicira se, manji footprint na DR"
+app-web-02,Primary,4,16,200,True,False,0,0,0,ne replicira se (test/dev)
+db-prod-01,Primary,8,64,1000,True,True,8,64,1000,"1:1 replika, kritična baza"
+file-srv-01,Primary,2,8,2000,True,False,0,0,0,

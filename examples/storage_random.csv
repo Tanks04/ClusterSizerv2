@@ -1,0 +1,4 @@
+name,site,vendor,model,raw_capacity_tb,usable_capacity_tb,raid_overhead_percent,notes
+san-p01,Primary,Pure Storage,FlashArray//X70,250,200,20,"all-flash, prod"
+san-p02,Primary,NetApp,AFF A400,150,115,23.3,replica target
+san-dr01,DR,Pure Storage,FlashArray//C60,180,144,20,DR array

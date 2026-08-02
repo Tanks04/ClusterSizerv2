@@ -1,0 +1,48 @@
+pyinstaller --name ClusterSizer --onedir --windowed --noconfirm --clean ^
+  --exclude-module tkinter --exclude-module unittest --exclude-module test ^
+  --exclude-module pydoc --exclude-module doctest ^
+  main.py
+  
+  
+  Najveći dobitak: PySide6-Essentials umjesto PySide6
+
+Aplikacija koristi samo QtWidgets, QtCore, QtGui — a puni PySide6 paket povlači i PySide6-Addons (QtWebEngine, QtMultimedia, QtQuick/QML, QtPdf, QtCharts...) čak i ako ih ne importaš, jer PyInstaller-ov hook zna preagresivno skenirati. PySide6-Essentials je službeni odvojeni paket (isti moduli, bez Addonsa) — ako ga instaliraš umjesto full PySide6, ti moduli fizički nisu ni na disku pa PyInstaller nema što ni pronaći:
+
+bash
+pip uninstall PySide6 PySide6-Addons -y
+pip install PySide6-Essentials
+
+(app kod se ne mijenja — PySide6.QtWidgets itd. rade identično)
+
+Build komanda
+bash
+pyinstaller --name ClusterSizer --onedir --windowed --noconfirm --clean ^
+  --exclude-module tkinter --exclude-module unittest --exclude-module test ^
+  --exclude-module pydoc --exclude-module doctest ^
+  main.py
+
+(^ je Windows CMD line-continuation; u PowerShellu koristi ` umjesto toga)
+
+Ručno obrezivanje nakon builda (drugi najveći dobitak)
+
+U dist\ClusterSizer\_internal\ (PyInstaller 6.x) ili dist\ClusterSizer\ (5.x) postoji opengl32sw.dll — Mesa software OpenGL fallback, sam za sebe zna biti 15-25MB, a treba ti samo ako pokrećeš na mašini bez ikakvih GPU drajvera (rijetko na normalnom Windows laptopu):
+
+powershell
+Remove-Item "dist\ClusterSizer\_internal\opengl32sw.dll" -ErrorAction SilentlyContinue
+
+Zatim iz ...\PySide6\plugins\ možeš obrisati foldere koje app ne koristi (nema mreže, nema SVG ikona, nema touch inputa):
+
+powershell
+$plugins = "dist\ClusterSizer\_internal\PySide6\plugins"
+Remove-Item "$plugins\tls" -Recurse -ErrorAction SilentlyContinue
+Remove-Item "$plugins\networkinformation" -Recurse -ErrorAction SilentlyContinue
+Remove-Item "$plugins\generic" -Recurse -ErrorAction SilentlyContinue
+Remove-Item "$plugins\iconengines" -Recurse -ErrorAction SilentlyContinue
+
+Napomena: točan put ovisi o verziji PyInstaller-a (6.x je uveo _internal podfolder), a ne mogu ti to testirati sa svoje strane (nemam Windows/PyInstaller ovdje). Testiraj nakon brisanja — ako app ne pokrene, taj folder je ipak trebao, vrati ga nazad.
+
+Što bih NE dirao
+--onedir je ispravan izbor, ostavi ga tako. --onefile daje manji pojedinačni fajl ali raspakira sve u temp na SVAKO pokretanje = sporiji start svaki put. Za desktop alat koji se pokreće više puta, onedir pobjeđuje.
+UPX kompresija (--upx-dir) može dodatno stisnuti DLL-ove, ali zna okinuti antivirus false-positive na Windowsima — ne bih se time zamarao za interni sysadmin alat.
+
+Realno očekivanje: Essentials swap + opengl32sw.dll brisanje bi te trebalo spustiti s ~40MB na negdje oko 15-25MB.

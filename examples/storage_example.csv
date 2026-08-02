@@ -1,0 +1,3 @@
+name,site,vendor,model,raw_capacity_tb,usable_capacity_tb,raid_overhead_percent,notes
+san-p01,Primary,Pure Storage,FlashArray//X,200,160,20,
+san-dr01,DR,Pure Storage,FlashArray//C,100,80,20,DR array

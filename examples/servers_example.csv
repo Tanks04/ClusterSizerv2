@@ -1,0 +1,5 @@
+name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,threads_per_core,ram_gb,cpu_frequency,warranty_expiry,nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,notes
+esxi-p01,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,1024,2.0,2027-06-01,2,0,2,0,0,0,
+esxi-p02,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,1024,2.0,2027-06-01,2,0,2,0,0,0,
+esxi-p03,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,1024,2.0,2027-06-01,2,0,2,0,0,0,
+esxi-dr01,DR,Dell,PowerEdge R650,Intel,Xeon Gold 6330,2,28,2,768,2.0,2027-06-01,2,0,2,0,0,0,DR host

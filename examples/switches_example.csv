@@ -1,0 +1,4 @@
+name,site,vendor,model,switch_type,ports_1g,ports_10g,ports_25g,ports_40g,ports_100g,ports_fc,notes
+sw-p01,Primary,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,ToR switch A
+sw-p02,Primary,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,ToR switch B (redundancy)
+sw-dr01,DR,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,
