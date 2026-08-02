@@ -60,3 +60,6 @@ Vidi [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Ovaj alat je nastao u suradnji s Claude-om (Anthropic) — od prve ideje do
 zadnjeg bugfixa.
+
+Iako je i kod i app besplatan, a kao i ideja ponuđen besplatno, ako smatrate da 
+Vam se sviđa, možete uplatiti koji EUR za pivu i whisky autoru programa <3
