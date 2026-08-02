@@ -4,9 +4,7 @@ ClusterSizer je nastao iz jednog konkretnog, dosadnog problema: sysadmin
 sastavlja HW za novi cluster, pa mora ručno zbrajati CPU, RAM, storage i
 mrežne portove u Excelu, po treći put te godine, i svaki put ispočetka.
 
-Alat je napravljen u suradnji čovjeka i AI-a (Claude, Anthropic) - i
-namjerno to ne skrivamo, jer mislimo da je to danas normalan način rada, a
-ne nešto što treba zamagliti sitnim printom.
+Alat je napravljen u suradnji čovjeka i AI-a (Claude, Anthropic)!
 
 Podjela je otprilike ovakva: ideja, zahtjevi, sysadmin logika ("DR-ovi
 često nisu 1:1 replicirani", "treba ctrl+klik za multi-select", "nemoj
