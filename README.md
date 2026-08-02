@@ -59,19 +59,4 @@ Vidi [`docs/ROADMAP.md`](docs/ROADMAP.md).
 ## Zahvala
 
 Ovaj alat je nastao u suradnji s Claude-om (Anthropic) — od prve ideje do
-zadnjeg bugfixa. Ono što je meni trebalo tjednima da složim u slobodno
-vrijeme, ovdje je nastalo u nekoliko sjedenja: opisao bih problem onako
-kako ga sysadmin vidi, a kod, arhitektura i popravci su uglavnom došli s
-druge strane — uz dosta mog testiranja, vraćanja i "ovo ne valja, probaj
-opet". Uključujući i lov na jedan baš gadan Windows crash koji se nije dao
-lako uloviti.
-
-Puna priča o toj suradnji (i zašto je transparentno navedena) je u
-[`docs/ABOUT.md`](docs/ABOUT.md).
-
-Hvala, Claude. 🥰
-
-## Licenca
-
-MIT — vidi [`LICENSE`](LICENSE). Prije objave na GitHubu, upiši svoje ime
-umjesto `[TVOJE IME / ORGANIZACIJA]` u LICENSE datoteci.
+zadnjeg bugfixa.
