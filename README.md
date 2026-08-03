@@ -61,5 +61,14 @@ Vidi [`docs/ROADMAP.md`](docs/ROADMAP.md).
 Ovaj alat je nastao u suradnji s Claude-om (Anthropic) — od prve ideje do
 zadnjeg bugfixa.
 
-Iako je i kod i app besplatan, a kao i ideja ponuđen besplatno, ako smatrate da 
-Vam se sviđa, možete uplatiti koji EUR za pivu i whisky autoru programa <3
+Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
+Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
+za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
+provesti u djelo još koju ideju ,)
+Revolut: revolut.me/@ivan50ba6
+
+Although the code, app, and idea are offered for free, if you think you 
+like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
+to the author of the program <3 who will be more willing to put 
+new ideas into practice ,)
+Revolut: revolut.me/@ivan50ba6
