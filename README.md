@@ -22,6 +22,20 @@ zaboravi, a zadnje otkrije.
 Nije monitoring alat (ne gleda što cluster stvarno radi live), nego alat
 za **planiranje prije nego što se HW naruči ili raspiše**.
 
+
+ClusterSizer
+
+A desktop tool for system administrators: size virtualization clusters, analyze resource utilization 
+and plan disaster recovery (DR) capacity — without manually adding everything up in Excel for the third time.
+
+About the Application
+
+ClusterSizer helps you plan infrastructure for virtualization clusters. Enter your servers (quantity, CPU sockets, cores, RAM), storage (Primary and DR), and virtual machines, and the tool instantly calculates total available resources, CPU/RAM/storage oversubscription, whether the cluster can withstand the loss of a host (N+1), and whether the DR site actually has enough capacity to handle a failover.
+
+It is designed for the moment when you're preparing a proposal or planning a new cluster and need quick answers to questions like: "How much RAM do I really need?", "Can these five servers handle the workload if one fails?", or "Does the DR site have enough capacity to take over production—and only for the VMs that are actually replicated, not every VM?" It also covers the networking side by tracking which switches still have available 25GbE ports and how each server is physically connected, because those details are usually the first to be overlooked and the last to be discovered.
+
+ClusterSizer is not a monitoring tool—it doesn't monitor the live state of a running cluster. Instead, it's a planning and sizing tool used before hardware is ordered or procurement begi
+
 ## Značajke
 
 - **Servers** — site (Primary/DR), socketi/jezgre/threadovi/RAM/GHz, NIC
