@@ -27,7 +27,7 @@ from .pages.settings_page import SettingsPage
 
 class MainWindow(QMainWindow):
 
-    VERSION = "2.0.3"
+    VERSION = "2.0.4"
 
     def __init__(self, project_service: ProjectService):
         super().__init__()
@@ -150,8 +150,8 @@ class MainWindow(QMainWindow):
             return True
         answer = QMessageBox.question(
             self,
-            "Nespremljene promjene",
-            "Trenutni projekt ima nespremljene promjene. Nastaviti bez spremanja?",
+            "Unsaved changes",
+            "The current project has unsaved changes. Continue without saving?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
         )
         return answer == QMessageBox.StandardButton.Yes
@@ -216,7 +216,7 @@ class MainWindow(QMainWindow):
 
     def _import_csv(self):
         kinds = ["Servers", "Storage", "VMs", "Switches", "Connections"]
-        kind, ok = QInputDialog.getItem(self, "Import CSV", "Uvezi u:", kinds, editable=False)
+        kind, ok = QInputDialog.getItem(self, "Import CSV", "Import into:", kinds, editable=False)
         if not ok:
             return
 
@@ -235,15 +235,15 @@ class MainWindow(QMainWindow):
                 count = self.project_service.import_switches_csv(path)
             else:
                 count, _skipped = self.project_service.import_connections_csv(path)
-            QMessageBox.information(self, "Import", f"Uvezeno {count} redaka u {kind}.")
+            QMessageBox.information(self, "Import", f"Imported {count} row(s) into {kind}.")
         except CsvSchemaError as exc:
-            QMessageBox.warning(self, "Kriva datoteka", str(exc))
+            QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
 
     def _export_csv(self):
         kinds = ["Servers", "Storage", "VMs", "Switches", "Connections"]
-        kind, ok = QInputDialog.getItem(self, "Export CSV", "Izvezi:", kinds, editable=False)
+        kind, ok = QInputDialog.getItem(self, "Export CSV", "Export:", kinds, editable=False)
         if not ok:
             return
 
@@ -266,7 +266,7 @@ class MainWindow(QMainWindow):
                 self.project_service.export_switches_csv(path)
             else:
                 self.project_service.export_connections_csv(path)
-            QMessageBox.information(self, "Export", f"{kind} izvezeno.")
+            QMessageBox.information(self, "Export", f"{kind} exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
@@ -275,8 +275,8 @@ class MainWindow(QMainWindow):
             self,
             "About ClusterSizer",
             f"ClusterSizer {self.VERSION}\n\n"
-            "Capacity planning tool za virtualnu infrastrukturu: "
-            "serveri, storage, VM-ovi i DR sizing.",
+            "Capacity planning tool for virtualized infrastructure: "
+            "servers, storage, VMs, and DR sizing.",
         )
 
     def closeEvent(self, event):

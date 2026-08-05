@@ -24,12 +24,12 @@ def _fmt_ratio(ratio: float | None, as_percent: bool = False) -> str:
 def _fmt_bool(value: bool | None) -> str:
     if value is None:
         return "n/a"
-    return "DA" if value else "NE"
+    return "YES" if value else "NO"
 
 
 class ReportsPage(QWidget):
-    """Generira čitljivi tekstualni izvještaj cijelog projekta, spreman za
-    export ili copy-paste u ticket/e-mail."""
+    """Generates a readable text report of the whole project, ready for
+    export or copy-paste into a ticket/email."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
@@ -98,7 +98,7 @@ class ReportsPage(QWidget):
             lines.append("")
 
         lines.append("[DR READINESS] (failover Primary -> DR)")
-        lines.append(f"  DR-protected VM-ova : {dr_check.protected_vm_count}")
+        lines.append(f"  DR-protected VMs    : {dr_check.protected_vm_count}")
         lines.append(f"  Failover vCPU demand: {dr_check.failover_vcpu_demand}")
         lines.append(f"  Failover RAM demand : {dr_check.failover_ram_demand_gb:.0f} GB")
         lines.append(f"  Failover disk demand: {dr_check.failover_disk_demand_gb / 1024:.2f} TB")
@@ -118,12 +118,12 @@ class ReportsPage(QWidget):
             return
         try:
             Path(path).write_text(self._build_report_text(), encoding="utf-8")
-            QMessageBox.information(self, "Export", "Izvještaj izvezen.")
+            QMessageBox.information(self, "Export", "Report exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
     def _export_all_csv(self):
-        folder = QFileDialog.getExistingDirectory(self, "Odaberi folder za export")
+        folder = QFileDialog.getExistingDirectory(self, "Choose export folder")
         if not folder:
             return
         try:
@@ -131,7 +131,7 @@ class ReportsPage(QWidget):
             self.service.export_storages_csv(Path(folder) / "storage.csv")
             self.service.export_vms_csv(Path(folder) / "vms.csv")
             QMessageBox.information(
-                self, "Export", "servers.csv, storage.csv i vms.csv su spremljeni."
+                self, "Export", "servers.csv, storage.csv, and vms.csv have been saved."
             )
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))

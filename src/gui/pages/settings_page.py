@@ -1,13 +1,16 @@
 from PySide6.QtWidgets import (
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
+from src.calculations.thresholds import PRESETS
 from src.services.project_service import ProjectService
 
 
@@ -22,8 +25,8 @@ def _ratio_spin(value: float, suffix: str = "") -> QDoubleSpinBox:
 
 
 class SettingsPage(QWidget):
-    """Pragovi upozorenja za oversubscription izračune. Primjenjuju se odmah
-    na Summary/Dashboard/VMs stranicama nakon klika na 'Apply'."""
+    """Warning thresholds for oversubscription calculations. Applied
+    immediately on the Summary/Dashboard/VMs pages after clicking 'Apply'."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
@@ -37,11 +40,53 @@ class SettingsPage(QWidget):
         layout = QVBoxLayout(self)
 
         info = QLabel(
-            "Pragovi upozorenja koriste se za bojanje statusa (OK / Warning / "
-            "Critical) na Summary i VMs stranicama."
+            "Warning thresholds are used to color the status (OK / Warning / "
+            "Critical) on the Summary and VMs pages."
         )
         info.setWordWrap(True)
         layout.addWidget(info)
+
+        #
+        # Recommended presets
+        #
+
+        preset_box = QGroupBox("Recommended Presets (by hypervisor)")
+        preset_layout = QVBoxLayout(preset_box)
+
+        preset_row = QHBoxLayout()
+        self.preset_combo = QComboBox()
+        for preset in PRESETS:
+            self.preset_combo.addItem(preset.label, preset.key)
+        self.preset_combo.currentIndexChanged.connect(self._update_preset_description)
+        preset_row.addWidget(self.preset_combo)
+
+        apply_preset_button = QPushButton("Use This Preset")
+        apply_preset_button.clicked.connect(self._use_preset)
+        preset_row.addWidget(apply_preset_button)
+
+        preset_layout.addLayout(preset_row)
+
+        self.preset_description_label = QLabel("")
+        self.preset_description_label.setWordWrap(True)
+        self.preset_description_label.setStyleSheet("color: #757575; font-style: italic;")
+        preset_layout.addWidget(self.preset_description_label)
+
+        note = QLabel(
+            "These are commonly-cited starting points, not official vendor "
+            "guarantees - actual safe ratios always depend on your workload "
+            "mix. \"Use This Preset\" only fills in the fields below; click "
+            "\"Apply\" to actually save."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #757575; font-style: italic;")
+        preset_layout.addWidget(note)
+
+        layout.addWidget(preset_box)
+        self._update_preset_description()
+
+        #
+        # Manual thresholds
+        #
 
         cpu_box = QGroupBox("CPU Oversubscription (vCPU : physical core)")
         cpu_form = QFormLayout(cpu_box)
@@ -72,6 +117,22 @@ class SettingsPage(QWidget):
         layout.addWidget(apply_button)
 
         layout.addStretch()
+
+    def _selected_preset(self):
+        key = self.preset_combo.currentData()
+        return next((p for p in PRESETS if p.key == key), PRESETS[0])
+
+    def _update_preset_description(self):
+        self.preset_description_label.setText(self._selected_preset().description)
+
+    def _use_preset(self):
+        t = self._selected_preset().thresholds
+        self.cpu_warning_spin.setValue(t.cpu_warning_ratio)
+        self.cpu_critical_spin.setValue(t.cpu_critical_ratio)
+        self.ram_warning_spin.setValue(t.ram_warning_ratio * 100)
+        self.ram_critical_spin.setValue(t.ram_critical_ratio * 100)
+        self.storage_warning_spin.setValue(t.storage_warning_ratio * 100)
+        self.storage_critical_spin.setValue(t.storage_critical_ratio * 100)
 
     def _load_from_service(self):
         t = self.service.thresholds

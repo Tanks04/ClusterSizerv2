@@ -13,17 +13,18 @@ from src.persistence import csv_io, project_repository
 
 
 class ProjectService(QObject):
-    """Centralna servisna klasa za rad s aktivnim projektom.
+    """Central service class for working with the active project.
 
-    `changed` je opći signal (za Dashboard/Summary/Reports/naslov prozora -
-    stranice kojima treba znati o BILO kojoj promjeni). servers_changed /
-    storages_changed / vms_changed / network_changed su uži signali - svaka
-    CRUD tablica se pretplati SAMO na svoj, da se ne radi beginResetModel()
-    na tablicama čiji se podaci uopće nisu promijenili. Ovo nije samo
-    performansa: veliki broj nepotrebnih model-reseta odjednom (npr. dodaš
-    jedan Storage i sve od Servera do Networka se resetira) povećava šansu
-    da se pogodi timing-osjetljiv Qt/PySide bug (vidi ROADMAP - crash na
-    Windowsima vezan za QHeaderView.ResizeToContents).
+    `changed` is the general signal (for Dashboard/Summary/Reports/window
+    title - pages that need to know about ANY change). servers_changed /
+    storages_changed / vms_changed / network_changed are narrower signals -
+    each CRUD table subscribes to ONLY its own, so it doesn't run
+    beginResetModel() on tables whose data hasn't changed at all. This
+    isn't just about performance: a large number of unnecessary model
+    resets at once (e.g. adding one Storage entry resetting everything
+    from Servers to Network) increases the chance of hitting a
+    timing-sensitive Qt/PySide bug (see ROADMAP - a Windows crash tied to
+    QHeaderView.ResizeToContents).
     """
 
     changed = Signal()
@@ -67,16 +68,16 @@ class ProjectService(QObject):
         self.changed.emit()
 
     def touch(self) -> None:
-        """Generalni SINKRONI notify - za promjene koje nisu vezane za jedan
-        entitet (npr. rename projekta, promjena thresholda). Sigurno je
-        sinkrono jer se zove iz običnih button-click handlera, ne iz
-        tabličnog setData() (za taj slučaj koristi touch_servers/
-        touch_storages/touch_vms, koji su namjerno odgođeni)."""
+        """General SYNCHRONOUS notify - for changes not tied to a single
+        entity (e.g. renaming the project, changing thresholds). Safe to be
+        synchronous since it's called from plain button-click handlers, not
+        from a table's setData() (for that case use touch_servers/
+        touch_storages/touch_vms, which are deliberately deferred)."""
         self._notify()
 
     def touch_servers(self) -> None:
-        """Odgođeni notify (QTimer) za inline edit na Servers tablici - vidi
-        napomenu u touch_* metodama niže o zašto je odgoda nužna."""
+        """Deferred notify (QTimer) for inline edits on the Servers table -
+        see the note in the touch_* methods below on why the delay is needed."""
         QTimer.singleShot(0, lambda: self._notify(self.servers_changed))
 
     def touch_storages(self) -> None:
@@ -86,7 +87,7 @@ class ProjectService(QObject):
         QTimer.singleShot(0, lambda: self._notify(self.vms_changed))
 
     # ------------------------------------------------------------------
-    # Projekt: new / save / load
+    # Project: new / save / load
     # ------------------------------------------------------------------
 
     def new_project(self) -> None:
@@ -128,7 +129,7 @@ class ProjectService(QObject):
         self._notify(self.servers_changed)
 
     def add_servers(self, servers: list[Server]) -> None:
-        """Batch dodavanje - jedan changed signal za cijelu grupu."""
+        """Batch add - a single changed signal for the whole group."""
         self._project.servers.extend(servers)
         self._notify(self.servers_changed)
 
@@ -232,8 +233,8 @@ class ProjectService(QObject):
     def remove_switches(self, switches: list[NetworkSwitch]) -> None:
         removed_uids = {s.uid for s in switches}
         self._project.switches = [s for s in self._project.switches if s.uid not in removed_uids]
-        # Veze koje su visile na obrisanom switchu postaju orphan zapisi -
-        # ne brišemo ih automatski (vidi NetworkConnection docstring).
+        # Connections that referenced the deleted switch become orphan
+        # records - we don't auto-delete them (see NetworkConnection docstring).
         self._notify(self.network_changed)
 
     def clear_switches(self) -> None:
@@ -273,7 +274,7 @@ class ProjectService(QObject):
         self._notify(self.network_changed)
 
     def import_connections_csv(self, path: str | Path) -> tuple[int, int]:
-        """Vraća (broj uvezenih, broj preskočenih zbog nepoznatog server/switch imena)."""
+        """Returns (number imported, number skipped due to unknown server/switch name)."""
         new_connections, skipped = csv_io.import_connections(
             path, self._project.servers, self._project.switches
         )

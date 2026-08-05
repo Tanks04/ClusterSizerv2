@@ -25,8 +25,8 @@ from ..widgets.multi_select_table import MultiSelectTableView
 
 
 class NetworkPage(QWidget):
-    """Network tab: switchevi (port inventar) + veze server<->switch.
-    Potpuno opcionalno - ako se ne popuni, ostatak alata radi normalno."""
+    """Network tab: switches (port inventory) + server<->switch connections.
+    Fully optional - if left unfilled, the rest of the tool works normally."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
@@ -73,8 +73,8 @@ class NetworkPage(QWidget):
         main_layout.addLayout(overview_layout)
 
         note = QLabel(
-            "Network podaci su opcionalni - ako ih ne popuniš, ostatak alata "
-            "radi normalno. Popunjeno samo pomaže vidjeti slobodne/zauzete portove."
+            "Network data is optional - if you don't fill it in, the rest of "
+            "the tool works normally. Filling it in just helps you see free/used ports."
         )
         note.setWordWrap(True)
         note.setStyleSheet("color: #757575; font-style: italic;")
@@ -214,7 +214,7 @@ class NetworkPage(QWidget):
     def _edit_switch(self):
         rows = self.switch_table.selected_rows()
         if len(rows) != 1:
-            QMessageBox.information(self, "Edit", "Odaberi točno jedan switch u tablici.")
+            QMessageBox.information(self, "Edit", "Select exactly one switch in the table.")
             return
         row = rows[0]
         switch = self.switch_model.switch_at(row)
@@ -225,12 +225,12 @@ class NetworkPage(QWidget):
     def _delete_switches(self):
         switches = self._selected_switches()
         if not switches:
-            QMessageBox.information(self, "Delete", "Odaberi barem jedan switch u tablici.")
+            QMessageBox.information(self, "Delete", "Select at least one switch in the table.")
             return
         confirm = QMessageBox.question(
             self, "Delete",
-            f"Obrisati {len(switches)} switch(eva)? Veze koje na njih referenciraju "
-            "ostaju kao 'orphan' zapisi (neće se automatski obrisati).",
+            f"Delete {len(switches)} switch(es)? Connections referencing them "
+            "stay as 'orphan' records (they won't be auto-deleted).",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.remove_switches(switches)
@@ -238,7 +238,7 @@ class NetworkPage(QWidget):
     def _duplicate_switches(self):
         switches = self._selected_switches()
         if not switches:
-            QMessageBox.information(self, "Copy", "Odaberi barem jedan switch u tablici.")
+            QMessageBox.information(self, "Copy", "Select at least one switch in the table.")
             return
         import copy, uuid
         for switch in switches:
@@ -253,9 +253,9 @@ class NetworkPage(QWidget):
             return
         try:
             count = self.service.import_switches_csv(path)
-            QMessageBox.information(self, "Import", f"Uvezeno {count} switcheva.")
+            QMessageBox.information(self, "Import", f"Imported {count} switch(es).")
         except CsvSchemaError as exc:
-            QMessageBox.warning(self, "Kriva datoteka", str(exc))
+            QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
 
@@ -265,7 +265,7 @@ class NetworkPage(QWidget):
             return
         try:
             self.service.export_switches_csv(path)
-            QMessageBox.information(self, "Export", "Switchevi izvezeni.")
+            QMessageBox.information(self, "Export", "Switches exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
@@ -273,7 +273,7 @@ class NetworkPage(QWidget):
         if not self.service.project.switches:
             return
         confirm = QMessageBox.question(
-            self, "Clear All", f"Obrisati SVIH {len(self.service.project.switches)} switcheva?"
+            self, "Clear All", f"Delete ALL {len(self.service.project.switches)} switch(es)?"
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_switches()
@@ -289,7 +289,7 @@ class NetworkPage(QWidget):
         if not self.service.project.servers or not self.service.project.switches:
             QMessageBox.information(
                 self, "Connection",
-                "Dodaj barem jedan server (Servers tab) i jedan switch prije nego dodaš vezu.",
+                "Add at least one server (Servers tab) and one switch before adding a connection.",
             )
             return
         dialog = ConnectionDialog(self.service.project, parent=self)
@@ -299,7 +299,7 @@ class NetworkPage(QWidget):
     def _edit_connection(self):
         rows = self.connection_table.selected_rows()
         if len(rows) != 1:
-            QMessageBox.information(self, "Edit", "Odaberi točno jednu vezu u tablici.")
+            QMessageBox.information(self, "Edit", "Select exactly one connection in the table.")
             return
         row = rows[0]
         connection = self.connection_model.connection_at(row)
@@ -312,16 +312,16 @@ class NetworkPage(QWidget):
     def _delete_connections(self):
         connections = self._selected_connections()
         if not connections:
-            QMessageBox.information(self, "Delete", "Odaberi barem jednu vezu u tablici.")
+            QMessageBox.information(self, "Delete", "Select at least one connection in the table.")
             return
-        confirm = QMessageBox.question(self, "Delete", f"Obrisati {len(connections)} veza?")
+        confirm = QMessageBox.question(self, "Delete", f"Delete {len(connections)} connection(s)?")
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.remove_connections(connections)
 
     def _duplicate_connections(self):
         connections = self._selected_connections()
         if not connections:
-            QMessageBox.information(self, "Copy", "Odaberi barem jednu vezu u tablici.")
+            QMessageBox.information(self, "Copy", "Select at least one connection in the table.")
             return
         import copy, uuid
         for connection in connections:
@@ -335,12 +335,12 @@ class NetworkPage(QWidget):
             return
         try:
             count, skipped = self.service.import_connections_csv(path)
-            msg = f"Uvezeno {count} veza."
+            msg = f"Imported {count} connection(s)."
             if skipped:
-                msg += f" Preskočeno {skipped} (server/switch ime ne postoji u projektu)."
+                msg += f" Skipped {skipped} (server/switch name not found in the project)."
             QMessageBox.information(self, "Import", msg)
         except CsvSchemaError as exc:
-            QMessageBox.warning(self, "Kriva datoteka", str(exc))
+            QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
 
@@ -350,7 +350,7 @@ class NetworkPage(QWidget):
             return
         try:
             self.service.export_connections_csv(path)
-            QMessageBox.information(self, "Export", "Veze izvezene.")
+            QMessageBox.information(self, "Export", "Connections exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
@@ -358,7 +358,7 @@ class NetworkPage(QWidget):
         if not self.service.project.connections:
             return
         confirm = QMessageBox.question(
-            self, "Clear All", f"Obrisati SVIH {len(self.service.project.connections)} veza?"
+            self, "Clear All", f"Delete ALL {len(self.service.project.connections)} connection(s)?"
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_connections()

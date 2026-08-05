@@ -57,7 +57,7 @@ class StorageDialog(QDialog):
         self.overhead_spin.setReadOnly(True)
         self.overhead_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
         self.overhead_spin.setToolTip(
-            "Izračunato automatski iz Raw/Usable (RAID, erasure coding, itd.)"
+            "Calculated automatically from Raw/Usable (RAID, erasure coding, etc.)"
         )
         layout.addRow("RAID/EC Overhead", self.overhead_spin)
 

@@ -109,7 +109,7 @@ class VirtualMachinesPage(QWidget):
     def _edit_vm(self):
         rows = self.table.selected_rows()
         if len(rows) != 1:
-            QMessageBox.information(self, "Edit", "Odaberi točno jedan VM u tablici.")
+            QMessageBox.information(self, "Edit", "Select exactly one VM in the table.")
             return
 
         row = rows[0]
@@ -121,17 +121,17 @@ class VirtualMachinesPage(QWidget):
     def _delete_selected(self):
         vms = self._selected_vms()
         if not vms:
-            QMessageBox.information(self, "Delete", "Odaberi barem jedan VM u tablici.")
+            QMessageBox.information(self, "Delete", "Select at least one VM in the table.")
             return
 
-        confirm = QMessageBox.question(self, "Delete", f"Obrisati {len(vms)} VM(ova)?")
+        confirm = QMessageBox.question(self, "Delete", f"Delete {len(vms)} VM(s)?")
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.remove_vms(vms)
 
     def _duplicate_selected(self):
         vms = self._selected_vms()
         if not vms:
-            QMessageBox.information(self, "Copy", "Odaberi barem jedan VM u tablici.")
+            QMessageBox.information(self, "Copy", "Select at least one VM in the table.")
             return
 
         import copy
@@ -149,9 +149,9 @@ class VirtualMachinesPage(QWidget):
             return
         try:
             count = self.service.import_vms_csv(path)
-            QMessageBox.information(self, "Import", f"Uvezeno {count} VM-ova.")
+            QMessageBox.information(self, "Import", f"Imported {count} VM(s).")
         except CsvSchemaError as exc:
-            QMessageBox.warning(self, "Kriva datoteka", str(exc))
+            QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
 
@@ -161,7 +161,7 @@ class VirtualMachinesPage(QWidget):
             return
         try:
             self.service.export_vms_csv(path)
-            QMessageBox.information(self, "Export", "VM-ovi izvezeni.")
+            QMessageBox.information(self, "Export", "VMs exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
@@ -170,7 +170,7 @@ class VirtualMachinesPage(QWidget):
             return
         confirm = QMessageBox.question(
             self, "Clear All",
-            f"Obrisati SVIH {len(self.service.project.vms)} VM-ova? Ovo se ne može poništiti.",
+            f"Delete ALL {len(self.service.project.vms)} VM(s)? This cannot be undone.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_vms()

@@ -1,4 +1,4 @@
-"""Spremanje/učitavanje ClusterProject-a kao JSON (.clsz) datoteke."""
+"""Saving/loading a ClusterProject as a JSON (.clsz) file."""
 
 import json
 from dataclasses import asdict, fields
@@ -47,11 +47,11 @@ def load_project(path: str | Path) -> ClusterProject:
 
 
 def _build(cls, row: dict):
-    """Gradi dataclass instancu ignorirajući nepoznata polja (npr. datoteka
-    spremljena starijom/novijom verzijom aplikacije) - sprječava da otvaranje
-    projekta pukne zbog manjeg schema drifta. Nedostajuća polja (npr. .clsz
-    spremljen prije nego su nic_* polja dodana na Server) padaju na default
-    vrijednost dataclass-a."""
+    """Builds a dataclass instance while ignoring unknown fields (e.g. a file
+    saved by an older/newer app version) - prevents opening a project from
+    breaking over minor schema drift. Missing fields (e.g. a .clsz saved
+    before the nic_* fields were added to Server) fall back to the
+    dataclass default."""
     known = {f.name for f in fields(cls)}
     filtered = {k: v for k, v in row.items() if k in known}
     return cls(**filtered)

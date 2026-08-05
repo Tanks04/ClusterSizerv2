@@ -9,8 +9,8 @@ from ..widgets.status_badge import StatusBadge
 
 
 class SummaryPage(QWidget):
-    """Dubinski pregled: Primary vs DR, oversubscription, DR readiness.
-    Ovo je stranica koja odgovara na pitanje "imam li dovoljno resursa?"."""
+    """Deep-dive view: Primary vs DR, oversubscription, DR readiness.
+    This is the page that answers "do I have enough resources?"."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
@@ -48,7 +48,7 @@ class SummaryPage(QWidget):
 
         dr_layout = QHBoxLayout()
 
-        dr_title = QLabel("DR Readiness (potpuni failover Primary \u2192 DR):")
+        dr_title = QLabel("DR Readiness (full failover Primary \u2192 DR):")
         dr_title_font = dr_title.font()
         dr_title_font.setBold(True)
         dr_title.setFont(dr_title_font)
@@ -82,15 +82,15 @@ class SummaryPage(QWidget):
         if dr_check.ready is None:
             self.dr_badge.set_status(Status.UNKNOWN)
             self.dr_detail_label.setText(
-                "Nema definiranih servera/storagea na DR lokaciji - dodaj ih na "
-                "Servers/Storage stranicama da se izračuna DR spremnost."
+                "No servers/storage defined at the DR site - add them on the "
+                "Servers/Storage pages to calculate DR readiness."
             )
         elif dr_check.ready:
             self.dr_badge.set_status(Status.OK)
             self.dr_detail_label.setText(
-                f"DR lokacija ima dovoljno kapaciteta za failover: "
-                f"{dr_check.protected_vm_count} DR-protected VM-ova (+ ono što već "
-                f"radi na DR-u) traži {dr_check.failover_vcpu_demand} vCPU / "
+                f"The DR site has enough capacity for failover: "
+                f"{dr_check.protected_vm_count} DR-protected VM(s) (+ what's already "
+                f"running on DR) need {dr_check.failover_vcpu_demand} vCPU / "
                 f"{dr_check.failover_ram_demand_gb:.0f} GB / "
                 f"{dr_check.failover_disk_demand_gb / 1024:.1f} TB."
             )
@@ -104,9 +104,9 @@ class SummaryPage(QWidget):
             if dr_check.storage_ok is False:
                 problems.append("Storage")
             self.dr_detail_label.setText(
-                f"DR lokacija NEMA dovoljno kapaciteta za failover. Nedostaje: "
-                f"{', '.join(problems)}. Potražnja: {dr_check.protected_vm_count} "
-                f"DR-protected VM-ova ({dr_check.failover_vcpu_demand} vCPU / "
+                f"The DR site does NOT have enough capacity for failover. Missing: "
+                f"{', '.join(problems)}. Demand: {dr_check.protected_vm_count} "
+                f"DR-protected VM(s) ({dr_check.failover_vcpu_demand} vCPU / "
                 f"{dr_check.failover_ram_demand_gb:.0f} GB / "
                 f"{dr_check.failover_disk_demand_gb / 1024:.1f} TB)."
             )

@@ -22,11 +22,11 @@ class Server:
 
     cpu_frequency: float
 
-    warranty_expiry: str = ""  # slobodan format npr. "2027-05-01", "-" ako nepoznato
+    warranty_expiry: str = ""  # free format e.g. "2027-05-01", "-" if unknown
 
-    # NIC inventar - broj fizičkih portova po brzini. Koristi se na Network
-    # tabu za praćenje slobodnih/zauzetih portova. Potpuno opcionalno -
-    # ako ostane 0, server se jednostavno ne pojavljuje u network izračunu.
+    # NIC inventory - number of physical ports per speed. Used on the
+    # Network tab to track free/used ports. Fully optional - if left at 0,
+    # the server simply doesn't show up in the network calculations.
     nic_1g: int = 0
     nic_10g: int = 0
     nic_25g: int = 0

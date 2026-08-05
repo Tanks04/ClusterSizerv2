@@ -26,8 +26,8 @@ def _bar(ratio: float | None, max_percent: int = 200) -> QProgressBar:
 
 
 class SiteCapacityWidget(QFrame):
-    """Kartica koja prikazuje kompletno stanje jedne lokacije (Primary/DR):
-    fizički kapacitet, potražnju VM-ova, oversubscription omjere i N+1 status.
+    """Card showing the complete state of one site (Primary/DR): physical
+    capacity, VM demand, oversubscription ratios, and N+1 status.
     """
 
     def __init__(self, title: str, parent=None):
@@ -128,6 +128,6 @@ class SiteCapacityWidget(QFrame):
         if report.n_plus_one_ok is None:
             self.n1_label.setText("n/a")
         elif report.n_plus_one_ok:
-            self.n1_label.setText("\u2705 Da")
+            self.n1_label.setText("\u2705 Yes")
         else:
-            self.n1_label.setText("\u274c Ne")
+            self.n1_label.setText("\u274c No")

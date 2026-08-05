@@ -1,12 +1,12 @@
-"""Čista logika za Network tab: koliko je portova po brzini deklarirano na
-svakom uređaju (server/switch) nasuprot koliko ih Connection zapisi troše.
+"""Pure logic for the Network tab: how many ports per speed are declared on
+each device (server/switch) versus how many Connection records consume.
 
-Napomena o granularnosti: ovo prati AGREGATNI broj portova po brzini
-(npr. "Switch1 ima 4x 25G, iskorišteno 3"), ne pojedinačni fizički port sa
-svojim ID-jem/labelom. Dovoljno za overcommit upozorenje ("nemaš više
-slobodnih 25G portova"), ali ne sprječava da dvije veze "dijele" isti
-fizički port broj - za to bi trebao puni per-port model (razmatran, ali
-namjerno ostavljen za kasnije zbog omjera trud/korist)."""
+Note on granularity: this tracks the AGGREGATE port count per speed
+(e.g. "Switch1 has 4x 25G, 3 used"), not an individual physical port with
+its own ID/label. Enough for an overcommit warning ("no free 25G ports
+left"), but doesn't stop two connections from "sharing" the same physical
+port number - that would need a full per-port model (considered, but
+deliberately left for later given the effort/benefit ratio)."""
 
 from dataclasses import dataclass
 
@@ -68,8 +68,8 @@ def format_usage(usages: list[PortUsage]) -> str:
 
 
 def site_port_usage(switches: list[NetworkSwitch], connections: list[NetworkConnection]) -> list[PortUsage]:
-    """Agregirano slobodno/zauzeto po brzini, preko svih switcheva jedne
-    lokacije - za brzi pregled na vrhu Network taba."""
+    """Aggregated free/used per speed, across all switches at one site -
+    for the quick overview at the top of the Network tab."""
     totals = {speed: 0 for speed in SPEED_OPTIONS}
     used = {speed: 0 for speed in SPEED_OPTIONS}
 

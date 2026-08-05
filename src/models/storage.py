@@ -4,7 +4,7 @@ import uuid
 
 @dataclass
 class Storage:
-    """Predstavlja jedan storage sustav (SAN/NAS/lokalni) na Primary ili DR lokaciji."""
+    """Represents one storage system (SAN/NAS/local) at the Primary or DR site."""
 
     uid: str
     name: str
@@ -14,9 +14,9 @@ class Storage:
     model: str
 
     raw_capacity_tb: float
-    usable_capacity_tb: float  # nakon RAID/erasure coding overheada
+    usable_capacity_tb: float  # after RAID/erasure coding overhead
 
-    raid_overhead_percent: float  # informativno, koliko je "pojedeno" od raw -> usable
+    raid_overhead_percent: float  # informational only - how much is "eaten" going from raw -> usable
 
     notes: str = ""
 

@@ -7,8 +7,8 @@ from ..widgets.summary_widget import SummaryWidget
 
 
 class DashboardPage(QWidget):
-    """Landing stranica: brzi pregled cijelog projekta (oba site-a zajedno).
-    Za detaljnu Primary/DR analizu vidi Summary stranicu."""
+    """Landing page: quick overview of the whole project (both sites
+    combined). For a detailed Primary/DR breakdown, see the Summary page."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
@@ -30,7 +30,7 @@ class DashboardPage(QWidget):
         self.title_label.setFont(title_font)
         layout.addWidget(self.title_label)
 
-        self.subtitle_label = QLabel("Capacity planning za virtualnu infrastrukturu")
+        self.subtitle_label = QLabel("Capacity planning for virtualized infrastructure")
         layout.addWidget(self.subtitle_label)
 
         grid = QGridLayout()

@@ -4,9 +4,9 @@ import uuid
 
 @dataclass
 class NetworkSwitch:
-    """Predstavlja jedan mrežni switch. Port inventar je po brzini/mediju
-    (isti pristup kao Server.nic_* polja) - jednostavno za unos, dovoljno
-    za "slobodno/zauzeto" izračun na Network tabu."""
+    """Represents one network switch. Port inventory is by speed/media
+    (same approach as Server.nic_* fields) - simple to enter, enough for
+    the "free/used" calculation on the Network tab."""
 
     uid: str
     name: str

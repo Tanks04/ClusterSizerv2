@@ -12,9 +12,9 @@ DR = "DR"
 
 @dataclass
 class ClusterProject:
-    """Predstavlja jedan ClusterSizer projekt: serveri, storage, VM-ovi i
-    mreža na Primary i DR lokaciji, te sve izvedene metrike potrebne za
-    kapacitivno planiranje."""
+    """Represents one ClusterSizer project: servers, storage, VMs and
+    network at the Primary and DR site, plus all derived metrics needed
+    for capacity planning."""
 
     name: str = "New Project"
 
@@ -25,7 +25,7 @@ class ClusterProject:
     connections: list[NetworkConnection] = field(default_factory=list)
 
     # ------------------------------------------------------------------
-    # Filtriranje po lokaciji
+    # Filtering by site
     # ------------------------------------------------------------------
 
     def servers_at(self, site: str) -> list[Server]:
@@ -41,7 +41,7 @@ class ClusterProject:
         return [s for s in self.switches if s.site == site]
 
     # ------------------------------------------------------------------
-    # Ukupni (cijeli projekt, oba site-a)
+    # Totals (whole project, both sites)
     # ------------------------------------------------------------------
 
     @property
@@ -61,7 +61,7 @@ class ClusterProject:
         return sum(server.total_threads for server in self.servers)
 
     # ------------------------------------------------------------------
-    # Fizički kapacitet po lokaciji
+    # Physical capacity by site
     # ------------------------------------------------------------------
 
     def physical_cores(self, site: str) -> int:
@@ -77,7 +77,7 @@ class ClusterProject:
         return sum(s.usable_capacity_gb for s in self.storages_at(site))
 
     # ------------------------------------------------------------------
-    # Potražnja (VM-ovi) po lokaciji - "što stvarno radi ovdje danas"
+    # Demand (VMs) by site - "what's actually running here today"
     # ------------------------------------------------------------------
 
     def vm_vcpu_demand(self, site: str) -> int:
@@ -90,11 +90,11 @@ class ClusterProject:
         return sum(v.disk_gb for v in self.vms_at(site))
 
     # ------------------------------------------------------------------
-    # Oversubscription (potražnja / fizički kapacitet), po lokaciji
+    # Oversubscription (demand / physical capacity), by site
     # ------------------------------------------------------------------
 
     def cpu_oversubscription_ratio(self, site: str) -> float | None:
-        """vCPU : physical core. None ako nema fizičkih jezgri (dijeljenje s 0)."""
+        """vCPU : physical core. None if there are no physical cores (division by 0)."""
         cores = self.physical_cores(site)
         if cores == 0:
             return None
@@ -113,13 +113,13 @@ class ClusterProject:
         return self.vm_disk_demand_gb(site) / usable
 
     # ------------------------------------------------------------------
-    # N+1 provjera (izdrži li cluster ispad jednog domaćina na toj lokaciji)
+    # N+1 check (does the cluster survive losing one host at this site)
     # ------------------------------------------------------------------
 
     def n_plus_one_ok(self, site: str) -> bool | None:
-        """True ako klaster na danoj lokaciji i dalje ima dovoljno RAM-a i
-        jezgri za sve VM-ove kada bi ispao jedan (najveći) host. None ako
-        na toj lokaciji nema servera."""
+        """True if the cluster at this site still has enough RAM and cores
+        for all VMs if the single (largest) host went down. None if there
+        are no servers at this site."""
         site_servers = self.servers_at(site)
         if not site_servers:
             return None
@@ -134,12 +134,12 @@ class ClusterProject:
         return ram_ok and cpu_ok
 
     # ------------------------------------------------------------------
-    # DR failover potražnja - "što bi DR morao ponijeti u slučaju potpunog
-    # ispada Primary lokacije". NIJE isto što i vm_vcpu_demand(DR): to su
-    # VM-ovi koji već danas rade na DR-u, dok je ovo VM-ovi koji bi tek
-    # DOŠLI na DR (samo oni s dr_protected=True), po njihovom DR footprintu
-    # (koji smije biti manji od Primary footprinta), PLUS ono što na DR-u
-    # već fizički radi.
+    # DR failover demand - "what DR would have to carry if the Primary
+    # site went down completely". This is NOT the same as vm_vcpu_demand(DR):
+    # that's VMs already running on DR today, while this is VMs that would
+    # NEWLY arrive on DR (only the ones with dr_protected=True), at their
+    # DR footprint (which may be smaller than the Primary footprint), PLUS
+    # whatever is already physically running on DR.
     # ------------------------------------------------------------------
 
     def dr_failover_vcpu_demand(self) -> int:
@@ -164,8 +164,8 @@ class ClusterProject:
         return sum(1 for v in self.vms_at(PRIMARY) if v.dr_protected)
 
     # ------------------------------------------------------------------
-    # DR spremnost: može li DR lokacija preuzeti sve dr_protected VM-ove
-    # (po njihovom DR footprintu) plus ono što na DR-u već radi?
+    # DR readiness: can the DR site take on all dr_protected VMs (at their
+    # DR footprint) plus whatever is already running on DR?
     # ------------------------------------------------------------------
 
     def dr_cpu_ok(self) -> bool | None:
@@ -184,8 +184,8 @@ class ClusterProject:
         return self.usable_storage_gb(DR) >= self.dr_failover_disk_demand_gb()
 
     def dr_ready(self) -> bool | None:
-        """None ako DR lokacija uopće nema definiranih resursa (nema smisla
-        ocjenjivati spremnost)."""
+        """None if the DR site has no resources defined at all (no point
+        evaluating readiness)."""
         checks = [self.dr_cpu_ok(), self.dr_ram_ok(), self.dr_storage_ok()]
         if all(c is None for c in checks):
             return None

@@ -1,5 +1,5 @@
 server_name,switch_name,speed,media,switch_port_label,purpose,notes
 esxi-p01,sw-p01,25G,SFP28,Eth1/1,Data,
-esxi-p01,sw-p02,25G,SFP28,Eth1/1,Data,redundantna veza
+esxi-p01,sw-p02,25G,SFP28,Eth1/1,Data,redundant link
 esxi-p02,sw-p01,25G,SFP28,Eth1/2,Data,
-esxi-p02,sw-p02,25G,SFP28,Eth1/2,Data,redundantna veza
+esxi-p02,sw-p02,25G,SFP28,Eth1/2,Data,redundant link

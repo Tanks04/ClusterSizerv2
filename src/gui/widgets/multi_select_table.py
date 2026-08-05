@@ -3,18 +3,19 @@ from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QMenu, QTableView
 
 
 class MultiSelectTableView(QTableView):
-    """QTableView s ugrađenim Ctrl/Shift multi-selectom, Delete tipkom i
-    desni-klik kontekstnim menijem (Edit/Copy/Delete). Zajednička komponenta
-    za sve CRUD tablice u aplikaciji (Servers/Storage/VMs/Network...).
+    """QTableView with built-in Ctrl/Shift multi-select, Delete key, and a
+    right-click context menu (Edit/Copy/Delete). Shared component for all
+    CRUD tables in the app (Servers/Storage/VMs/Network...).
 
-    Namjerno NE koristi trajni QHeaderView.ResizeToContents mod - taj mod
-    prisiljava Qt da preračuna širine stupaca pri SVAKOM model resetu, a
-    pogotovo pri prvom stvarnom prikazu taba koji je do tad bio konstruiran
-    ali skriven (Qt odgađa layout skrivenih widgeta). To je poznato
-    nestabilna kombinacija na nekim Qt/PySide verzijama na Windowsima
-    (access violation bez ikakvog Python tracebacka). Umjesto toga:
-    Interactive mod (korisnik ručno širi kolone) + jednokratni odgođeni
-    resizeColumnsToContents() nakon populacije, pozvan preko auto_size_columns().
+    Deliberately does NOT use the persistent QHeaderView.ResizeToContents
+    mode - that mode forces Qt to recompute column widths on EVERY model
+    reset, and especially on the first real display of a tab that was
+    constructed but stayed hidden until then (Qt defers layout for hidden
+    widgets). That's a known-unstable combination on some Qt/PySide
+    versions on Windows (access violation with no Python traceback at
+    all). Instead: Interactive mode (the user manually resizes columns) +
+    a one-shot deferred resizeColumnsToContents() after populating, called
+    via auto_size_columns().
     """
 
     delete_requested = Signal()
@@ -40,10 +41,11 @@ class MultiSelectTableView(QTableView):
         self.doubleClicked.connect(lambda _: self.edit_requested.emit())
 
     def auto_size_columns(self) -> None:
-        """Jednom izračunaj širine stupaca prema trenutnom sadržaju. Zove se
-        nakon set_servers()/set_vms()/itd. Odgođeno preko QTimer.singleShot,
-        NE direktno - da izračun sigurno padne u trenutak kad je Qt već
-        završio show/layout ciklus taba, ne usred njega."""
+        """Compute column widths once, based on current content. Called
+        after set_servers()/set_vms()/etc. Deferred via QTimer.singleShot,
+        NOT called directly - so the calculation is guaranteed to land
+        after Qt has finished the tab's show/layout cycle, not in the
+        middle of it."""
         QTimer.singleShot(0, self._do_auto_size)
 
     def _do_auto_size(self) -> None:
@@ -51,7 +53,7 @@ class MultiSelectTableView(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
 
     def selected_rows(self) -> list[int]:
-        """Sortirane, jedinstvene selektirane row-indekse."""
+        """Sorted, unique selected row indices."""
         rows = {index.row() for index in self.selectionModel().selectedRows()}
         return sorted(rows)
 

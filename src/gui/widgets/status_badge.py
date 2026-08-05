@@ -4,15 +4,15 @@ from PySide6.QtWidgets import QLabel
 from src.calculations.thresholds import Status
 
 _COLORS = {
-    Status.OK: "#2e7d32",        # zelena
-    Status.WARNING: "#ed6c02",   # narančasta
-    Status.CRITICAL: "#c62828",  # crvena
-    Status.UNKNOWN: "#757575",   # siva
+    Status.OK: "#2e7d32",        # green
+    Status.WARNING: "#ed6c02",   # orange
+    Status.CRITICAL: "#c62828",  # red
+    Status.UNKNOWN: "#757575",   # gray
 }
 
 
 class StatusBadge(QLabel):
-    """Mala obojena oznaka statusa (OK / Warning / Critical / Unknown)."""
+    """Small colored status badge (OK / Warning / Critical / Unknown)."""
 
     def __init__(self, status: Status = Status.UNKNOWN, parent=None):
         super().__init__(parent)

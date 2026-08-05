@@ -1,74 +1,84 @@
 # ClusterSizer
 
-**Desktop alat za sysadmine: sastavljanje HW-a za cluster, pregled
-opterećenja i DR sizing — bez ručnog zbrajanja u Excelu po treći put.**
+**A desktop tool for sysadmins: sizing HW for a cluster, tracking load, and
+DR sizing — without manually adding it all up in Excel for the third time.**
 
-## O aplikaciji
+## About
 
-ClusterSizer pomaže kod planiranja infrastrukture za virtualizacijski
-cluster. Upišeš servere (broj, socketi, jezgre, RAM), storage (Primary i
-DR), i virtualke — alat odmah izračuna ukupne resurse, oversubscription
-(CPU/RAM/storage), izdrži li cluster ispad jednog hosta (N+1), i ima li DR
-lokacija stvarno dovoljno kapaciteta za failover.
+ClusterSizer helps with planning infrastructure for a virtualization
+cluster. Enter your servers (count, sockets, cores, RAM), storage (Primary
+and DR), and VMs — the tool immediately calculates total resources,
+oversubscription (CPU/RAM/storage), whether the cluster survives losing
+one host (N+1), and whether the DR site actually has enough capacity for
+failover.
 
-Zamišljen je za onaj trenutak kad sastavljaš ponudu ili plan za novi
-cluster i moraš odgovoriti na pitanja tipa: "koliko RAM-a mi realno treba",
-"hoće li ovih 5 servera izdržati ako jedan padne", "ima li DR dovoljno
-snage da preuzme produkciju, i to za VM-ove koji se STVARNO repliciraju,
-ne za sve". Uz to vodi i mrežnu stranu — koji switch ima slobodnih 25G
-portova, i kako je koji server fizički povezan — jer se to inače prvo
-zaboravi, a zadnje otkrije.
+It's built for that moment when you're putting together a quote or plan
+for a new cluster and need to answer questions like: "how much RAM do I
+actually need", "will these 5 servers hold up if one goes down", "does DR
+have enough capacity to take over production, and specifically for the
+VMs that ACTUALLY replicate, not all of them". It also covers the
+network side — which switch has free 25G ports, and how each server is
+physically connected — since that's usually the first thing forgotten and
+the last thing discovered.
 
-Nije monitoring alat (ne gleda što cluster stvarno radi live), nego alat
-za **planiranje prije nego što se HW naruči ili raspiše**.
+It's not a monitoring tool (it doesn't look at what the cluster is
+actually doing live), but a tool for **planning before the HW is ordered
+or the tender is written**.
 
-## Značajke
+## Features
 
-- **Servers** — site (Primary/DR), socketi/jezgre/threadovi/RAM/GHz, NIC
-  inventar. Batch dodavanje N identičnih servera odjednom. Inline editing
-  direktno u tablici.
-- **Storage** — Primary/DR, raw/usable kapacitet, RAID/EC overhead se
-  računa automatski.
-- **VMs** — svaki VM može biti označen kao *DR Protected* sa svojim
-  vlastitim DR footprintom (vcpu/ram/disk) — jer DR replike često nisu 1:1
-  s produkcijom, i DR izračun to poštuje.
-- **Network** — switchevi (port inventar po brzini: 1G/10G/25G/40G/100G/FC)
-  i veze server↔switch, sa slobodno/zauzeto pregledom po brzini.
-  Potpuno opcionalno.
-- **Summary** — Primary vs DR jedno pored drugog: kapacitet, potražnja,
-  oversubscription (OK/Warning/Critical), N+1 provjera, DR Readiness.
-- **Reports** — čitljivi tekstualni izvještaj + CSV export svih podataka.
-- Multi-select posvuda (Ctrl/Shift-klik, Delete, desni klik → Edit/Copy/
-  Delete), strogo tipizirani CSV import (svaki tab prima samo svoj format),
-  "Clear All" po tabu, spremanje/učitavanje projekta (`.clsz`, JSON).
+- **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, NIC
+  inventory. Batch-add N identical servers at once. Inline editing
+  directly in the table.
+- **Storage** — Primary/DR, raw/usable capacity, RAID/EC overhead is
+  calculated automatically.
+- **VMs** — every VM can be flagged as *DR Protected* with its own DR
+  footprint (vcpu/ram/disk) — since DR replicas are often not a 1:1 match
+  with production, and the DR calculation respects that.
+- **Network** — switches (port inventory by speed: 1G/10G/25G/40G/100G/FC)
+  and server↔switch connections, with a free/used overview by speed.
+  Fully optional.
+- **Summary** — Primary vs DR side by side: capacity, demand,
+  oversubscription (OK/Warning/Critical), N+1 check, DR Readiness.
+- **Settings** — recommended oversubscription presets by hypervisor
+  vendor (VMware, Hyper-V, Proxmox/KVM, Citrix Hypervisor), or set your
+  own thresholds manually.
+- **Reports** — readable text report + CSV export of all data.
+- Multi-select everywhere (Ctrl/Shift-click, Delete, right-click → Edit/
+  Copy/Delete), strictly-typed CSV import (each tab only accepts its own
+  format), a "Clear All" button per tab, project save/load (`.clsz`, JSON).
 
-## Pokretanje
+## Running it
 
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-Primjeri CSV-a za sve tipove (servers/storage/vms/switches/connections) su
-u `examples/`.
+Example CSVs for every type (servers/storage/vms/switches/connections)
+are in `examples/`.
 
-## Status i povijest promjena
+## Status and changelog
 
-Vidi [`docs/ROADMAP.md`](docs/ROADMAP.md).
+See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Zahvala
+## Thanks
 
-Ovaj alat je nastao u suradnji s Claude-om (Anthropic) — od prve ideje do
-zadnjeg bugfixa.
+This tool was built in collaboration with Claude (Anthropic) — from the
+first idea to the last bugfix. What would have taken me weeks to put
+together in my spare time came together here in a handful of sessions:
+I'd describe the problem the way a sysadmin sees it, and the code,
+architecture, and fixes mostly came from the other side — with plenty of
+my own testing, pushback, and "that's not right, try again." Including
+hunting down one particularly nasty Windows crash that didn't want to be
+found.
 
-Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
-Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
-za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
-provesti u djelo još koju ideju ,)
-Revolut: revolut.me/@ivan50ba6
+The full story of that collaboration (and why it's stated openly) is in
+[`docs/ABOUT.md`](docs/ABOUT.md).
 
-Although the code, app, and idea are offered for free, if you think you 
-like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
-to the author of the program <3 who will be more willing to put 
-new ideas into practice ,)
-Revolut: revolut.me/@ivan50ba6
+Thanks, Claude. 🥰
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Before publishing on GitHub, replace
+`[YOUR NAME / ORGANIZATION]` in the LICENSE file with your own name.

@@ -1,11 +1,13 @@
-"""CSV import/export za servere, storage, VM-ove, switcheve i mrežne veze.
+"""CSV import/export for servers, storage, VMs, switches, and network
+connections.
 
-Format je namjerno jednostavan (jedan red = jedan objekt, header = nazivi
-polja) da ga sysadmin može napraviti/urediti u Excelu bez dodatnih alata.
+The format is deliberately simple (one row = one object, header = field
+names) so a sysadmin can create/edit it in Excel without extra tools.
 
-Svaki import_* provjerava da CSV header sadrži SVE očekivane kolone za taj
-tip prije nego počne parsirati - to sprječava npr. uvoz VM CSV-a na Servers
-tabu (i obratno), umjesto da tiho napravi retke s default vrijednostima.
+Every import_* function checks that the CSV header contains ALL expected
+columns for that type before it starts parsing - this prevents e.g.
+importing a VM CSV on the Servers tab (and vice versa), instead of
+silently creating rows with default values.
 """
 
 import csv
@@ -19,8 +21,8 @@ from src.models.network_connection import NetworkConnection
 
 
 class CsvSchemaError(ValueError):
-    """CSV header ne odgovara očekivanom tipu podataka (npr. pokušaj uvoza
-    VM CSV-a na Servers tab)."""
+    """CSV header does not match the expected data type (e.g. trying to
+    import a VM CSV on the Servers tab)."""
 
 
 SERVER_FIELDS = [
@@ -60,8 +62,8 @@ def _read_rows(path: str | Path, expected_fields: list[str], kind: str) -> list[
         missing = [field for field in expected_fields if field not in header]
         if missing:
             raise CsvSchemaError(
-                f"Ovo ne izgleda kao {kind} CSV - nedostaju kolone: {', '.join(missing)}. "
-                f"Provjeri da nisi uvezao krivu datoteku (npr. VMs CSV na Servers tabu)."
+                f"This doesn't look like a {kind} CSV - missing columns: {', '.join(missing)}. "
+                f"Check that you didn't import the wrong file (e.g. a VMs CSV on the Servers tab)."
             )
         return list(reader)
 
@@ -219,9 +221,10 @@ def export_switches(path: str | Path, switches: list[NetworkSwitch]) -> None:
 # ----------------------------------------------------------------------
 # Network connections
 # ----------------------------------------------------------------------
-# CSV format referencira server/switch po IMENU (ne uid-u) jer je čitljivije
-# za ručno uređivanje - import ih razrješava na trenutne uid-ove po imenu.
-# Ako ime ne postoji u projektu, veza se preskoči (broji se u "skipped").
+# The CSV format references server/switch by NAME (not uid) since that's
+# easier to hand-edit - import resolves them to current uids by name. If a
+# name doesn't exist in the project, the connection is skipped (counted in
+# "skipped").
 
 def import_connections(
     path: str | Path, servers: list[Server], switches: list[NetworkSwitch]

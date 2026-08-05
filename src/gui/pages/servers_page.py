@@ -120,7 +120,7 @@ class ServersPage(QWidget):
     def _edit_server(self):
         rows = self.table.selected_rows()
         if len(rows) != 1:
-            QMessageBox.information(self, "Edit", "Odaberi točno jedan server u tablici.")
+            QMessageBox.information(self, "Edit", "Select exactly one server in the table.")
             return
 
         row = rows[0]
@@ -132,13 +132,13 @@ class ServersPage(QWidget):
     def _delete_selected(self):
         servers = self._selected_servers()
         if not servers:
-            QMessageBox.information(self, "Delete", "Odaberi barem jedan server u tablici.")
+            QMessageBox.information(self, "Delete", "Select at least one server in the table.")
             return
 
         names = ", ".join(s.name or s.model or "?" for s in servers[:5])
         suffix = "..." if len(servers) > 5 else ""
         confirm = QMessageBox.question(
-            self, "Delete", f"Obrisati {len(servers)} server(a)? [{names}{suffix}]"
+            self, "Delete", f"Delete {len(servers)} server(s)? [{names}{suffix}]"
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.remove_servers(servers)
@@ -146,7 +146,7 @@ class ServersPage(QWidget):
     def _duplicate_selected(self):
         servers = self._selected_servers()
         if not servers:
-            QMessageBox.information(self, "Copy", "Odaberi barem jedan server u tablici.")
+            QMessageBox.information(self, "Copy", "Select at least one server in the table.")
             return
 
         import copy
@@ -167,9 +167,9 @@ class ServersPage(QWidget):
             return
         try:
             count = self.service.import_servers_csv(path)
-            QMessageBox.information(self, "Import", f"Uvezeno {count} servera.")
+            QMessageBox.information(self, "Import", f"Imported {count} server(s).")
         except CsvSchemaError as exc:
-            QMessageBox.warning(self, "Kriva datoteka", str(exc))
+            QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
 
@@ -179,7 +179,7 @@ class ServersPage(QWidget):
             return
         try:
             self.service.export_servers_csv(path)
-            QMessageBox.information(self, "Export", "Serveri izvezeni.")
+            QMessageBox.information(self, "Export", "Servers exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
@@ -188,7 +188,7 @@ class ServersPage(QWidget):
             return
         confirm = QMessageBox.question(
             self, "Clear All",
-            f"Obrisati SVIH {len(self.service.project.servers)} servera? Ovo se ne može poništiti.",
+            f"Delete ALL {len(self.service.project.servers)} server(s)? This cannot be undone.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_servers()

@@ -42,14 +42,14 @@ class ConnectionTableModel(QAbstractTableModel):
     def _server_name(self, uid: str) -> str:
         for s in self._servers_provider():
             if s.uid == uid:
-                return s.name or "(bez imena)"
-        return "⚠ (obrisan server)"
+                return s.name or "(unnamed)"
+        return "⚠ (deleted server)"
 
     def _switch_name(self, uid: str) -> str:
         for s in self._switches_provider():
             if s.uid == uid:
-                return s.name or "(bez imena)"
-        return "⚠ (obrisan switch)"
+                return s.name or "(unnamed)"
+        return "⚠ (deleted switch)"
 
     def data(self, index, role):
         if not index.isValid() or role != Qt.ItemDataRole.DisplayRole:

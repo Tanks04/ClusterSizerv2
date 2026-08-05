@@ -62,15 +62,15 @@ class VMDialog(QDialog):
         layout.addRow("", self.powered_check)
 
         #
-        # DR protection - VM-ovi često NISU 1:1 replicirani na DR, pa je
-        # footprint na DR svjesno odvojen od Primary footprinta.
+        # DR protection - VMs are often NOT replicated 1:1 to DR, so the
+        # DR footprint is deliberately kept separate from the Primary one.
         #
 
-        self.dr_check = QCheckBox("DR Protected (replicira se na DR)")
+        self.dr_check = QCheckBox("DR Protected (replicates to DR)")
         self.dr_check.toggled.connect(self._on_dr_toggled)
         layout.addRow("", self.dr_check)
 
-        self.dr_box = QGroupBox("DR footprint (koliko treba REZERVIRATI na DR-u)")
+        self.dr_box = QGroupBox("DR footprint (how much to RESERVE on DR)")
         dr_form = QFormLayout(self.dr_box)
 
         self.dr_vcpu_spin = QSpinBox()
@@ -115,9 +115,9 @@ class VMDialog(QDialog):
         self._dr_manually_edited = True
 
     def _sync_dr_defaults(self) -> None:
-        """Dok korisnik ne dirne DR polja ručno, drži ih sinkroniziranima s
-        Primary vrijednostima - većina VM-ova se ipak replicira 1:1, ovo je
-        samo praktičan default koji je lako promijeniti."""
+        """Until the user manually touches the DR fields, keep them synced
+        with the Primary values - most VMs are replicated 1:1 anyway, this
+        is just a practical default that's easy to change."""
         if self._dr_manually_edited:
             return
         self.dr_vcpu_spin.blockSignals(True)
@@ -145,7 +145,7 @@ class VMDialog(QDialog):
         self.dr_check.setChecked(vm.dr_protected)
         self.dr_box.setEnabled(vm.dr_protected)
 
-        self._dr_manually_edited = True  # ne prepisuj postojeće vrijednosti
+        self._dr_manually_edited = True  # don't overwrite existing values
         self.dr_vcpu_spin.setValue(vm.dr_vcpu or vm.vcpu)
         self.dr_ram_spin.setValue(vm.dr_ram_gb or vm.ram_gb)
         self.dr_disk_spin.setValue(vm.dr_disk_gb or vm.disk_gb)

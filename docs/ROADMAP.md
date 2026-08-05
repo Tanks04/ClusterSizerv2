@@ -1,84 +1,97 @@
 # ROADMAP
 
-## v2.0.3 (pravi fix za access violation)
+## v2.0.4 (English translation + oversubscription presets)
 
-- crash.log je pokazao "Windows fatal exception: access violation" unutar
-  app.exec() - pravi native crash, ne Python iznimka. Dva komplementarna
-  popravka:
-  1. QHeaderView.ResizeMode.ResizeToContents (trajni auto-resize mod)
-     zamijenjen s Interactive + jednokratni odgođeni resizeColumnsToContents()
-     (MultiSelectTableView.auto_size_columns(), pozvan iz refresh()).
-     Trajni ResizeToContents prisiljava Qt da preračuna layout pri svakom
-     model resetu, pogotovo rizično pri PRVOM stvarnom prikazu taba koji je
-     do tad bio konstruiran ali skriven (Qt odgađa layout skrivenih
-     widgeta) - poznato nestabilna kombinacija na Windowsima.
-  2. ProjectService.changed rastavljen na servers_changed / storages_changed
-     / vms_changed / network_changed - svaka CRUD tablica sad resetira SAMO
-     kad se njeni podaci stvarno promijene, umjesto da se svih 5 tablica
-     resetira na SVAKU promjenu bilo gdje. Manje nepotrebnih model-reseta =
-     manje prilika da se pogodi timing-osjetljiv Qt bug. Dashboard/Summary/
-     Reports/naslov prozora i dalje slušaju opći `changed` (trebaju znati o
-     bilo kojoj promjeni, ali ne rade beginResetModel na velikim tablicama).
+- Entire app translated from Croatian to English - UI labels, dialogs,
+  messages, tooltips, code comments/docstrings, README/ROADMAP/ABOUT, and
+  the example CSVs.
+- Settings page: added "Recommended Presets" by hypervisor vendor (VMware,
+  Hyper-V, Proxmox/KVM, Citrix Hypervisor) with commonly-cited vCPU:pCPU
+  starting ratios - "Use This Preset" fills in the threshold fields, still
+  requires "Apply" to actually save. See PRESETS in
+  `src/calculations/thresholds.py`.
 
-## v2.0.2 (dijagnostika)
+## v2.0.3 (the real fix for the access violation)
 
-- Crash na klik-na-tab bez ikakvog editiranja i dalje prijavljen nakon
-  v2.0.1 fixa (koji ostaje ispravan, ali očito nije jedini uzrok). Bez
-  radnog PySide6 okruženja za reprodukciju, dodana su dva sloja
-  dijagnostike u main.py: faulthandler (hvata prave native segfault-ove
-  i piše C+Python stack u crash.log) i globalni sys.excepthook (hvata
-  neuhvaćene Python iznimke unutar Qt callbackova, isto u crash.log).
-  Sljedeći crash bi trebao ostaviti trag u crash.log pored aplikacije.
+- crash.log showed "Windows fatal exception: access violation" inside
+  app.exec() - a real native crash, not a Python exception. Two
+  complementary fixes:
+  1. QHeaderView.ResizeMode.ResizeToContents (persistent auto-resize mode)
+     replaced with Interactive + a one-shot deferred resizeColumnsToContents()
+     (MultiSelectTableView.auto_size_columns(), called from refresh()).
+     Persistent ResizeToContents forces Qt to recompute layout on every
+     model reset, especially risky on the FIRST real display of a tab that
+     was constructed but stayed hidden until then (Qt defers layout for
+     hidden widgets) - a known-unstable combination on Windows.
+  2. ProjectService.changed split into servers_changed / storages_changed
+     / vms_changed / network_changed - each CRUD table now only resets
+     when its own data actually changed, instead of all 5 tables resetting
+     on every change anywhere. Fewer unnecessary model resets = fewer
+     chances to hit a timing-sensitive Qt bug. Dashboard/Summary/Reports/
+     window title still listen to the general `changed` (they need to know
+     about any change, but don't run beginResetModel on large tables).
+
+## v2.0.2 (diagnostics)
+
+- The crash-on-tab-click with no editing at all was still reported after
+  the v2.0.1 fix (which remains correct, but obviously wasn't the only
+  cause). Without a working PySide6 environment to reproduce it, two
+  diagnostic layers were added to main.py: faulthandler (catches real
+  native segfaults and writes the C+Python stack to crash.log) and a
+  global sys.excepthook (catches uncaught Python exceptions inside Qt
+  callbacks, also written to crash.log). The next crash should leave a
+  trace in crash.log next to the app.
 
 ## v2.0.1 (bugfix)
 
-- Ispravljen povremeni crash (bez poruke) kod klika na tab dok je bio
-  otvoren inline editor ćelije na Servers/Storage/VMs tabu. Uzrok:
-  reentrantni model reset (setData -> touch -> changed -> refresh ->
-  beginResetModel) dok je Qt još zatvarao editor. touch() sad odgađa
-  notify preko QTimer.singleShot(0, ...).
+- Fixed an intermittent crash (no message) when clicking a tab while an
+  inline cell editor was open on the Servers/Storage/VMs tab. Cause: a
+  reentrant model reset (setData -> touch -> changed -> refresh ->
+  beginResetModel) while Qt was still closing the editor. touch() now
+  defers the notify via QTimer.singleShot(0, ...).
 
-## v2 (gotovo)
+## v2 (done)
 
-- Multi-select posvuda: Ctrl/Shift-klik, Delete tipka na selekciji, desni
-  klik (Edit/Copy/Delete) - zajednicka MultiSelectTableView komponenta.
-- Batch dodavanje servera (N identicnih odjednom, auto-numerirana imena).
-- VM DR-protection: dr_protected flag + zaseban DR footprint (dr_vcpu,
-  dr_ram_gb, dr_disk_gb) - DR readiness racuna failover potraznju iz
-  DR-protected VM-ova po njihovom DR footprintu, ne iz svih Primary VM-ova.
-- Network tab: NetworkSwitch (port inventar po brzini: 1G/10G/25G/40G/
-  100G/FC) + Server NIC inventar + NetworkConnection (server<->switch).
-  Slobodno/zauzeto po brzini, s upozorenjem na overcommit. Potpuno
-  opcionalno - prazan Network tab ne blokira nista drugo.
-- "Clear All" po tabu (ne samo File > New za cijeli projekt) - za brzo
-  ciscenje krivo uvezenih podataka.
-- Strogo tipiziran CSV import - svaki tab prihvaca SAMO svoj format,
-  header se validira prije parsiranja (sprjecava npr. VM CSV na Servers
-  tabu).
-- docs/ABOUT.md - transparentna napomena o ljudsko-AI suradnji.
+- Multi-select everywhere: Ctrl/Shift-click, Delete key on the selection,
+  right-click (Edit/Copy/Delete) - shared MultiSelectTableView component.
+- Batch server add (N identical at once, auto-numbered names).
+- VM DR-protection: dr_protected flag + separate DR footprint (dr_vcpu,
+  dr_ram_gb, dr_disk_gb) - DR readiness calculates failover demand from
+  DR-protected VMs at their own DR footprint, not from all Primary VMs.
+- Network tab: NetworkSwitch (port inventory by speed: 1G/10G/25G/40G/
+  100G/FC) + Server NIC inventory + NetworkConnection (server<->switch).
+  Free/used by speed, with an overcommit warning. Fully optional - an
+  empty Network tab doesn't block anything else.
+- "Clear All" per tab (not just File > New for the whole project) - for
+  quickly cleaning up a wrongly-imported file.
+- Strictly-typed CSV import - each tab accepts ONLY its own format, the
+  header is validated before parsing (prevents e.g. a VM CSV on the
+  Servers tab).
+- docs/ABOUT.md - a transparent note on the human-AI collaboration.
 
-## v1 (gotovo, prije v2)
+## v1 (done, before v2)
 
-- Server / Storage / VM modeli, Primary/DR site.
-- Cluster totals (CPU, threads, RAM), oversubscription izracuni s
-  podesivim pragovima (Settings), N+1 provjera po lokaciji.
-- CRUD + inline editing, CSV import/export, spremanje/ucitavanje projekta
-  (.clsz, JSON), tekstualni izvjestaj.
+- Server / Storage / VM models, Primary/DR site.
+- Cluster totals (CPU, threads, RAM), oversubscription calculations with
+  adjustable thresholds (Settings), N+1 check per site.
+- CRUD + inline editing, CSV import/export, project save/load (.clsz,
+  JSON), text report.
 
-## Namjerno izvan v2 scope-a
+## Deliberately out of v2 scope
 
-- Per-port slot booking na mrezi (npr. "port #3 specificno zauzet") -
-  trenutno se prati samo agregatni broj portova po brzini po uredjaju.
-  Dovoljno za overcommit upozorenje, ne i za pun cable-management.
-- Live monitoring / integracija s vCenter-om, Proxmoxom i sl. - ClusterSizer
-  je alat za planiranje, ne za monitoring live infrastrukture.
-- Cijena/licenciranje (npr. vSphere core licensing kalkulacije).
-- Multi-cluster / multi-DR (trenutno je model Primary + jedan DR site).
-- Undo/redo u tablicama.
+- Per-port slot booking on the network side (e.g. "port #3 specifically
+  used") - currently only the aggregate port count per speed per device
+  is tracked. Enough for an overcommit warning, not for full cable
+  management.
+- Live monitoring / integration with vCenter, Proxmox, etc. - ClusterSizer
+  is a planning tool, not a live-infrastructure monitoring tool.
+- Pricing/licensing (e.g. vSphere core licensing calculations).
+- Multi-cluster / multi-DR (the model is currently Primary + one DR site).
+- Undo/redo in the tables.
 
-## Ideje za v3 (nisu potvrdjene, samo zabiljeska)
+## Ideas for v3 (not confirmed, just notes)
 
-- Per-port slot booking (ako se pokaze da agregatni brojac nije dovoljan).
-- vSphere/Proxmox core-licensing kalkulator kao dodatna stranica.
-- Vise od jedne DR lokacije.
+- Per-port slot booking (if the aggregate counter turns out not to be enough).
+- A vSphere/Proxmox core-licensing calculator as an extra page.
+- More than one DR site.
 - Undo/redo.

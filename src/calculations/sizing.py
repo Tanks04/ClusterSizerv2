@@ -1,5 +1,5 @@
-"""Čista izračunska logika za kapacitivno planiranje - bez ikakve ovisnosti o
-GUI-ju, da se može testirati i koristiti i iz Reports/CLI dijela ako zatreba."""
+"""Pure calculation logic for capacity planning - no dependency on the GUI,
+so it can be tested and reused from Reports/CLI if ever needed."""
 
 from dataclasses import dataclass
 

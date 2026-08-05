@@ -102,7 +102,7 @@ class StoragePage(QWidget):
     def _edit_storage(self):
         rows = self.table.selected_rows()
         if len(rows) != 1:
-            QMessageBox.information(self, "Edit", "Odaberi točno jedan storage u tablici.")
+            QMessageBox.information(self, "Edit", "Select exactly one storage system in the table.")
             return
 
         row = rows[0]
@@ -114,17 +114,17 @@ class StoragePage(QWidget):
     def _delete_selected(self):
         storages = self._selected_storages()
         if not storages:
-            QMessageBox.information(self, "Delete", "Odaberi barem jedan storage u tablici.")
+            QMessageBox.information(self, "Delete", "Select at least one storage system in the table.")
             return
 
-        confirm = QMessageBox.question(self, "Delete", f"Obrisati {len(storages)} storage sustav(a)?")
+        confirm = QMessageBox.question(self, "Delete", f"Delete {len(storages)} storage system(s)?")
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.remove_storages(storages)
 
     def _duplicate_selected(self):
         storages = self._selected_storages()
         if not storages:
-            QMessageBox.information(self, "Copy", "Odaberi barem jedan storage u tablici.")
+            QMessageBox.information(self, "Copy", "Select at least one storage system in the table.")
             return
 
         import copy
@@ -142,9 +142,9 @@ class StoragePage(QWidget):
             return
         try:
             count = self.service.import_storages_csv(path)
-            QMessageBox.information(self, "Import", f"Uvezeno {count} storage sustava.")
+            QMessageBox.information(self, "Import", f"Imported {count} storage system(s).")
         except CsvSchemaError as exc:
-            QMessageBox.warning(self, "Kriva datoteka", str(exc))
+            QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
 
@@ -154,7 +154,7 @@ class StoragePage(QWidget):
             return
         try:
             self.service.export_storages_csv(path)
-            QMessageBox.information(self, "Export", "Storage izvezen.")
+            QMessageBox.information(self, "Export", "Storage exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
@@ -163,8 +163,8 @@ class StoragePage(QWidget):
             return
         confirm = QMessageBox.question(
             self, "Clear All",
-            f"Obrisati SVIH {len(self.service.project.storages)} storage sustava? "
-            "Ovo se ne može poništiti.",
+            f"Delete ALL {len(self.service.project.storages)} storage system(s)? "
+            "This cannot be undone.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_storages()

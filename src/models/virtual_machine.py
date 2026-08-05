@@ -4,17 +4,17 @@ import uuid
 
 @dataclass
 class VirtualMachine:
-    """Predstavlja jednu virtualnu mašinu koja se računa u kapacitet klastera.
+    """Represents one virtual machine that counts toward cluster capacity.
 
-    dr_protected + dr_* polja postoje jer VM-ovi često NISU 1:1 replicirani
-    na DR (npr. replicira se s manje resursa, ili se uopće ne replicira).
-    Kad dr_protected=False, VM se ne računa u DR failover potražnju - samo
-    troši resurse na svojoj matičnoj (site) lokaciji.
+    dr_protected + dr_* fields exist because VMs are often NOT replicated
+    1:1 to DR (e.g. replicated with fewer resources, or not replicated at
+    all). When dr_protected=False, the VM is not counted in DR failover
+    demand - it only consumes resources at its home (site) location.
     """
 
     uid: str
     name: str
-    site: str  # "Primary" | "DR" - na kojem clusteru VM trenutno "živi"
+    site: str  # "Primary" | "DR" - which cluster the VM currently "lives" on
 
     vcpu: int
     ram_gb: float
@@ -22,8 +22,8 @@ class VirtualMachine:
 
     powered_on: bool = True
 
-    dr_protected: bool = False  # replicira li se ovaj VM na DR (failover)?
-    dr_vcpu: int = 0            # footprint na DR - može biti manji od vcpu
+    dr_protected: bool = False  # is this VM replicated to DR (failover)?
+    dr_vcpu: int = 0            # DR footprint - can be smaller than vcpu
     dr_ram_gb: float = 0.0
     dr_disk_gb: float = 0.0
 

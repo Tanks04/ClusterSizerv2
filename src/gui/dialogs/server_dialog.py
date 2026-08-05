@@ -125,7 +125,7 @@ class ServerDialog(QDialog):
         self.threads_spin.setValue(2)
 
         self.threads_spin.setToolTip(
-            "2 = Hyper-Threading/SMT uključen, 1 = isključen"
+            "2 = Hyper-Threading/SMT enabled, 1 = disabled"
         )
 
         layout.addRow("Threads / Core", self.threads_spin)
@@ -208,16 +208,16 @@ class ServerDialog(QDialog):
         outer.addWidget(nic_box)
 
         #
-        # Batch count - samo kod dodavanja novog servera. Serveri u istom
-        # clusteru su gotovo uvijek identični pa nema smisla tipkati N puta.
+        # Batch count - only when adding a new server. Servers in the same
+        # cluster are almost always identical, so no point typing N times.
         #
 
         self.count_spin = QSpinBox()
         self.count_spin.setRange(1, 64)
         self.count_spin.setValue(1)
         self.count_spin.setToolTip(
-            "Napravi N identičnih servera odjednom. Imena se auto-numeriraju "
-            "(npr. 'esxi' -> esxi-01, esxi-02, ...)."
+            "Create N identical servers at once. Names are auto-numbered "
+            "(e.g. 'esxi' -> esxi-01, esxi-02, ...)."
         )
 
         self.count_row_label = None
@@ -309,7 +309,7 @@ class ServerDialog(QDialog):
         server.nic_fc = self.nic_fc_spin.value()
 
     def get_server(self) -> Server:
-        """Za Edit mod (jedan server)."""
+        """For Edit mode (one server)."""
         server = Server.create_default()
 
         if self._uid:
@@ -321,8 +321,8 @@ class ServerDialog(QDialog):
         return server
 
     def get_servers(self) -> list[Server]:
-        """Za Add mod - vraća 1..N servera (batch), auto-numeriranih ako je
-        count > 1 i ako je uneseno ime."""
+        """For Add mode - returns 1..N servers (batch), auto-numbered if
+        count > 1 and a name was entered."""
         base_name = self.name_edit.text().strip()
         count = self.count_spin.value()
 
