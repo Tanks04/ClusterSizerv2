@@ -64,19 +64,20 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Thanks
 
-This tool was built in collaboration with Claude (Anthropic) — from the
-first idea to the last bugfix. What would have taken me weeks to put
-together in my spare time came together here in a handful of sessions:
-I'd describe the problem the way a sysadmin sees it, and the code,
-architecture, and fixes mostly came from the other side — with plenty of
-my own testing, pushback, and "that's not right, try again." Including
-hunting down one particularly nasty Windows crash that didn't want to be
-found.
+Ovaj alat je nastao u suradnji s Claude-om (Anthropic) — od prve ideje do
+zadnjeg bugfixa.
 
-The full story of that collaboration (and why it's stated openly) is in
-[`docs/ABOUT.md`](docs/ABOUT.md).
+Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
+Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
+za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
+provesti u djelo još koju ideju ,)
+Revolut: revolut.me/@ivan50ba6
 
-Thanks, Claude. 🥰
+Although the code, app, and idea are offered for free, if you think you 
+like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
+to the author of the program <3 who will be more willing to put 
+new ideas into practice ,)
+Revolut: revolut.me/@ivan50ba6
 
 ## License
 
