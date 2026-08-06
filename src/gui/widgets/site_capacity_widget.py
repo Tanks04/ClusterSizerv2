@@ -65,7 +65,7 @@ class SiteCapacityWidget(QFrame):
         grid.addWidget(self.storage_label, row, 1)
         row += 1
 
-        grid.addWidget(QLabel("VM demand (vCPU / RAM / Disk):"), row, 0)
+        grid.addWidget(QLabel("VM demand (powered-on vCPU/RAM, all Disk):"), row, 0)
         self.demand_label = QLabel("-")
         grid.addWidget(self.demand_label, row, 1)
         row += 1

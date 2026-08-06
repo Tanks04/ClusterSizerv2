@@ -25,25 +25,7 @@ It's not a monitoring tool (it doesn't look at what the cluster is
 actually doing live), but a tool for **planning before the HW is ordered
 or the tender is written**.
 
-<<<<<<< HEAD
 ## Features
-=======
-
-ClusterSizer
-
-A desktop tool for system administrators: size virtualization clusters, analyze resource utilization 
-and plan disaster recovery (DR) capacity — without manually adding everything up in Excel for the third time.
-
-About the Application
-
-ClusterSizer helps you plan infrastructure for virtualization clusters. Enter your servers (quantity, CPU sockets, cores, RAM), storage (Primary and DR), and virtual machines, and the tool instantly calculates total available resources, CPU/RAM/storage oversubscription, whether the cluster can withstand the loss of a host (N+1), and whether the DR site actually has enough capacity to handle a failover.
-
-It is designed for the moment when you're preparing a proposal or planning a new cluster and need quick answers to questions like: "How much RAM do I really need?", "Can these five servers handle the workload if one fails?", or "Does the DR site have enough capacity to take over production—and only for the VMs that are actually replicated, not every VM?" It also covers the networking side by tracking which switches still have available 25GbE ports and how each server is physically connected, because those details are usually the first to be overlooked and the last to be discovered.
-
-ClusterSizer is not a monitoring tool—it doesn't monitor the live state of a running cluster. Instead, it's a planning and sizing tool used before hardware is ordered or procurement begi
-
-## Značajke
->>>>>>> bfffacda52a6004c73fcdae3c04e87566a75ccc9
 
 - **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, NIC
   inventory. Batch-add N identical servers at once. Inline editing
@@ -82,18 +64,21 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Thanks
 
-Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
-Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
-za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
-provesti u djelo još koju ideju ,)
-Revolut: revolut.me/@ivan50ba6
+This tool was built in collaboration with Claude (Anthropic) — from the
+first idea to the last bugfix. What would have taken me weeks to put
+together in my spare time came together here in a handful of sessions:
+I'd describe the problem the way a sysadmin sees it, and the code,
+architecture, and fixes mostly came from the other side — with plenty of
+my own testing, pushback, and "that's not right, try again." Including
+hunting down one particularly nasty Windows crash that didn't want to be
+found.
 
-Although the code, app, and idea are offered for free, if you think you 
-like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
-to the author of the program <3 who will be more willing to put 
-new ideas into practice ,)
-Revolut: revolut.me/@ivan50ba6
+The full story of that collaboration (and why it's stated openly) is in
+[`docs/ABOUT.md`](docs/ABOUT.md).
+
+Thanks, Claude. 🥰
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE). Before publishing on GitHub, replace
+`[YOUR NAME / ORGANIZATION]` in the LICENSE file with your own name.

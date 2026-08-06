@@ -1,5 +1,17 @@
 # ROADMAP
 
+## v2.0.5 (bugfix: powered-off VMs)
+
+- CPU and RAM oversubscription (and N+1, and DR failover CPU/RAM demand)
+  were counting powered-off VMs as if they were consuming physical
+  CPU/RAM - they don't (a powered-off VM releases both back to the
+  hypervisor). Fixed: vm_vcpu_demand()/vm_ram_demand_gb() now only sum
+  VMs where powered_on=True. Disk demand is deliberately NOT filtered -
+  a powered-off VM's disk files still occupy space on the datastore, so
+  storage utilization and DR disk failover demand keep counting every VM
+  regardless of power state. UI labels updated (Summary, VMs page cards,
+  Reports) to make the powered-on-only scope explicit.
+
 ## v2.0.4 (English translation + oversubscription presets)
 
 - Entire app translated from Croatian to English - UI labels, dialogs,

@@ -79,12 +79,18 @@ class ClusterProject:
     # ------------------------------------------------------------------
     # Demand (VMs) by site - "what's actually running here today"
     # ------------------------------------------------------------------
+    # CPU and RAM are only consumed by a VM while it's actually powered
+    # on - a powered-off VM releases its CPU/RAM back to the hypervisor.
+    # Disk is NOT filtered by power state: a powered-off VM's disk files
+    # still sit on the datastore taking up space, so storage demand
+    # includes it regardless.
+    # ------------------------------------------------------------------
 
     def vm_vcpu_demand(self, site: str) -> int:
-        return sum(v.vcpu for v in self.vms_at(site))
+        return sum(v.vcpu for v in self.vms_at(site) if v.powered_on)
 
     def vm_ram_demand_gb(self, site: str) -> float:
-        return sum(v.ram_gb for v in self.vms_at(site))
+        return sum(v.ram_gb for v in self.vms_at(site) if v.powered_on)
 
     def vm_disk_demand_gb(self, site: str) -> float:
         return sum(v.disk_gb for v in self.vms_at(site))
@@ -140,17 +146,26 @@ class ClusterProject:
     # NEWLY arrive on DR (only the ones with dr_protected=True), at their
     # DR footprint (which may be smaller than the Primary footprint), PLUS
     # whatever is already physically running on DR.
+    #
+    # CPU/RAM only count PRIMARY VMs that are dr_protected AND currently
+    # powered on (a powered-off VM isn't consuming CPU/RAM anywhere right
+    # now, so it wouldn't need reserving on DR either). Disk is NOT
+    # filtered by power state, same reasoning as vm_disk_demand_gb: a
+    # replicated disk still occupies space on the DR target even while
+    # the source VM is powered off.
     # ------------------------------------------------------------------
 
     def dr_failover_vcpu_demand(self) -> int:
         protected = sum(
-            v.effective_dr_vcpu for v in self.vms_at(PRIMARY) if v.dr_protected
+            v.effective_dr_vcpu for v in self.vms_at(PRIMARY)
+            if v.dr_protected and v.powered_on
         )
         return protected + self.vm_vcpu_demand(DR)
 
     def dr_failover_ram_demand_gb(self) -> float:
         protected = sum(
-            v.effective_dr_ram_gb for v in self.vms_at(PRIMARY) if v.dr_protected
+            v.effective_dr_ram_gb for v in self.vms_at(PRIMARY)
+            if v.dr_protected and v.powered_on
         )
         return protected + self.vm_ram_demand_gb(DR)
 

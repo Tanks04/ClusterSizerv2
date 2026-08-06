@@ -84,8 +84,8 @@ class VirtualMachinesPage(QWidget):
         summary_layout = QHBoxLayout()
 
         self.card_vms = SummaryWidget("VMs", "0")
-        self.card_vcpu = SummaryWidget("vCPU Demand", "0")
-        self.card_ram = SummaryWidget("RAM Demand", "0 GB")
+        self.card_vcpu = SummaryWidget("vCPU Demand (Powered On)", "0")
+        self.card_ram = SummaryWidget("RAM Demand (Powered On)", "0 GB")
         self.card_cpu_ratio = SummaryWidget("CPU Oversub.", "-")
         self.card_ram_ratio = SummaryWidget("RAM Oversub.", "-")
         self.card_dr_protected = SummaryWidget("DR Protected", "0")
