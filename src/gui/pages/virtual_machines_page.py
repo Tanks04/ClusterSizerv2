@@ -74,7 +74,7 @@ class VirtualMachinesPage(QWidget):
         main_layout.addWidget(toolbar)
 
         self.table = MultiSelectTableView()
-        self.table.setModel(self.model)
+        self.table.set_source_model(self.model)
         self.table.edit_requested.connect(self._edit_vm)
         self.table.delete_requested.connect(self._delete_selected)
         self.table.copy_requested.connect(self._duplicate_selected)

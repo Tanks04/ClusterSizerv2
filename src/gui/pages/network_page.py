@@ -134,7 +134,7 @@ class NetworkPage(QWidget):
         layout.addWidget(toolbar)
 
         self.switch_table = MultiSelectTableView()
-        self.switch_table.setModel(self.switch_model)
+        self.switch_table.set_source_model(self.switch_model)
         self.switch_table.edit_requested.connect(self._edit_switch)
         self.switch_table.delete_requested.connect(self._delete_switches)
         self.switch_table.copy_requested.connect(self._duplicate_switches)
@@ -190,7 +190,7 @@ class NetworkPage(QWidget):
         layout.addWidget(toolbar)
 
         self.connection_table = MultiSelectTableView()
-        self.connection_table.setModel(self.connection_model)
+        self.connection_table.set_source_model(self.connection_model)
         self.connection_table.edit_requested.connect(self._edit_connection)
         self.connection_table.delete_requested.connect(self._delete_connections)
         self.connection_table.copy_requested.connect(self._duplicate_connections)

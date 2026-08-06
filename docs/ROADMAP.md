@@ -1,5 +1,17 @@
 # ROADMAP
 
+## v2.0.6 (bugfix: column sorting didn't actually sort)
+
+- setSortingEnabled(True) was on since v1, but the table models are plain
+  QAbstractTableModel subclasses that never implemented sort() - Qt's
+  default sort() does nothing, so clicking a header showed the arrow but
+  left row order untouched. Fixed properly: MultiSelectTableView now
+  wraps every table in a QSortFilterProxyModel (set_source_model()
+  instead of setModel()), so header clicks actually reorder rows -
+  Servers, Storage, VMs, Switches, Connections. selected_rows() maps
+  proxy rows back to source-model rows transparently, so no other page
+  code needed to change. Sorting is case-insensitive for text columns.
+
 ## v2.0.5 (bugfix: powered-off VMs)
 
 - CPU and RAM oversubscription (and N+1, and DR failover CPU/RAM demand)

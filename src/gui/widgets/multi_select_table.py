@@ -1,11 +1,12 @@
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QSortFilterProxyModel, QTimer, Signal
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QMenu, QTableView
 
 
 class MultiSelectTableView(QTableView):
-    """QTableView with built-in Ctrl/Shift multi-select, Delete key, and a
-    right-click context menu (Edit/Copy/Delete). Shared component for all
-    CRUD tables in the app (Servers/Storage/VMs/Network...).
+    """QTableView with built-in Ctrl/Shift multi-select, Delete key, a
+    right-click context menu (Edit/Copy/Delete), and working header-click
+    sorting. Shared component for all CRUD tables in the app (Servers/
+    Storage/VMs/Network...).
 
     Deliberately does NOT use the persistent QHeaderView.ResizeToContents
     mode - that mode forces Qt to recompute column widths on EVERY model
@@ -16,6 +17,12 @@ class MultiSelectTableView(QTableView):
     all). Instead: Interactive mode (the user manually resizes columns) +
     a one-shot deferred resizeColumnsToContents() after populating, called
     via auto_size_columns().
+
+    Sorting: setSortingEnabled(True) alone only shows the header arrow -
+    a plain QAbstractTableModel doesn't implement sort() itself, so
+    clicking a header does nothing to the row order. Call
+    set_source_model() instead of setModel() directly to get real
+    click-to-sort behaviour, via an internal QSortFilterProxyModel.
     """
 
     delete_requested = Signal()
@@ -24,6 +31,8 @@ class MultiSelectTableView(QTableView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self._proxy: QSortFilterProxyModel | None = None
 
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
@@ -40,6 +49,20 @@ class MultiSelectTableView(QTableView):
 
         self.doubleClicked.connect(lambda _: self.edit_requested.emit())
 
+    def set_source_model(self, model) -> None:
+        """Wraps `model` in a QSortFilterProxyModel and sets that as the
+        view's model, so header clicks actually reorder rows. Use this
+        instead of setModel() for every CRUD table - selected_rows() below
+        transparently maps proxy rows back to source-model rows, so page
+        code (self.model.server_at(row), etc.) never needs to know a proxy
+        is involved."""
+        proxy = QSortFilterProxyModel(self)
+        proxy.setSourceModel(model)
+        proxy.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        proxy.setDynamicSortFilter(True)
+        self.setModel(proxy)
+        self._proxy = proxy
+
     def auto_size_columns(self) -> None:
         """Compute column widths once, based on current content. Called
         after set_servers()/set_vms()/etc. Deferred via QTimer.singleShot,
@@ -53,8 +76,14 @@ class MultiSelectTableView(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
 
     def selected_rows(self) -> list[int]:
-        """Sorted, unique selected row indices."""
-        rows = {index.row() for index in self.selectionModel().selectedRows()}
+        """Sorted, unique selected row indices - always relative to the
+        SOURCE model, even if the view is currently sorted (translated
+        through the proxy set up by set_source_model())."""
+        rows = set()
+        for index in self.selectionModel().selectedRows():
+            if self._proxy is not None:
+                index = self._proxy.mapToSource(index)
+            rows.add(index.row())
         return sorted(rows)
 
     def keyPressEvent(self, event):

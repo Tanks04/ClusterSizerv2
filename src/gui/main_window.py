@@ -27,7 +27,7 @@ from .pages.settings_page import SettingsPage
 
 class MainWindow(QMainWindow):
 
-    VERSION = "2.0.5"
+    VERSION = "2.0.6"
 
     def __init__(self, project_service: ProjectService):
         super().__init__()
