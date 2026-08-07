@@ -23,11 +23,12 @@ from .pages.network_page import NetworkPage
 from .pages.summary_page import SummaryPage
 from .pages.reports_page import ReportsPage
 from .pages.settings_page import SettingsPage
+from .widgets.lazy_tab_container import LazyTabContainer
 
 
 class MainWindow(QMainWindow):
 
-    VERSION = "2.0.6"
+    VERSION = "2.1.2"
 
     def __init__(self, project_service: ProjectService):
         super().__init__()
@@ -111,16 +112,40 @@ class MainWindow(QMainWindow):
         tabs.setDocumentMode(True)
         tabs.setMovable(False)
 
-        tabs.addTab(DashboardPage(self.project_service), "Dashboard")
-        tabs.addTab(ServersPage(self.project_service), "Servers")
-        tabs.addTab(StoragePage(self.project_service), "Storage")
-        tabs.addTab(VirtualMachinesPage(self.project_service), "VMs")
-        tabs.addTab(NetworkPage(self.project_service), "Network")
-        tabs.addTab(SummaryPage(self.project_service), "Summary")
-        tabs.addTab(ReportsPage(self.project_service), "Reports")
-        tabs.addTab(SettingsPage(self.project_service), "Settings")
+        # Lazy construction: each page is only actually built the first
+        # time its tab becomes visible, never "constructed now, shown
+        # later" - see LazyTabContainer's docstring for why that matters
+        # on Windows.
+        page_specs = [
+            ("Dashboard", lambda: DashboardPage(self.project_service)),
+            ("Servers", lambda: ServersPage(self.project_service)),
+            ("Storage", lambda: StoragePage(self.project_service)),
+            ("VMs", lambda: VirtualMachinesPage(self.project_service)),
+            ("Network", lambda: NetworkPage(self.project_service)),
+            ("Summary", lambda: SummaryPage(self.project_service)),
+            ("Reports", lambda: ReportsPage(self.project_service)),
+            ("Settings", lambda: SettingsPage(self.project_service)),
+        ]
+
+        self._tab_containers: list[LazyTabContainer] = []
+        for label, factory in page_specs:
+            container = LazyTabContainer(factory)
+            tabs.addTab(container, label)
+            self._tab_containers.append(container)
+
+        tabs.currentChanged.connect(self._on_tab_changed)
+        self.tabs = tabs
 
         self.setCentralWidget(tabs)
+
+        # Build whichever tab is visible right away (index 0, Dashboard) -
+        # that one genuinely is being shown immediately, so it's not part
+        # of the hidden-then-shown pattern this is working around.
+        self._on_tab_changed(tabs.currentIndex())
+
+    def _on_tab_changed(self, index: int) -> None:
+        if 0 <= index < len(self._tab_containers):
+            self._tab_containers[index].ensure_built()
 
     def _create_statusbar(self):
 

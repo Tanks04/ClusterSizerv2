@@ -196,6 +196,12 @@ class ProjectService(QObject):
         self._project.vms.append(vm)
         self._notify(self.vms_changed)
 
+    def add_vms(self, vms: list[VirtualMachine]) -> None:
+        """Batch add - a single changed signal for the whole group (used by
+        the Smart Import wizard and CSV import)."""
+        self._project.vms.extend(vms)
+        self._notify(self.vms_changed)
+
     def update_vm(self, index: int, vm: VirtualMachine) -> None:
         self._project.vms[index] = vm
         self._notify(self.vms_changed)

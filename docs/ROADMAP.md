@@ -1,5 +1,70 @@
 # ROADMAP
 
+## v2.1.2 (better openpyxl-missing diagnostics)
+
+- "Reading .xlsx requires openpyxl" kept showing even after pip install -
+  almost certainly a different Python interpreter/venv running the app
+  than the one openpyxl was installed into (very common in IDEs like
+  Visual Studio, which often have their own selected interpreter separate
+  from a plain terminal's). The error message now shows sys.executable
+  (exactly which interpreter is running the app) and the precise
+  underlying import exception, plus the exact pip command to fix it for
+  that specific interpreter. The import guard was also broadened from
+  `except ImportError` to `except Exception`, in case a partially broken
+  install raises something else.
+- Also noted: an "Unhandled Python exception" log entry with a truncated
+  traceback (just the `def` line, no call site) is a normal, non-fatal
+  exception caught by our sys.excepthook inside a Qt-connected slot - Qt
+  reports and continues, it's not the access-violation crash. Left
+  uninvestigated per explicit request until a fuller traceback is available.
+
+## v2.1.1 (structural fix attempt: lazy tab construction)
+
+- The Windows access violation kept happening after the v2.0.3/v2.0.6
+  fixes, now reproducible on the FIRST click on ANY tab (Servers or VMs,
+  whichever was clicked first) right after a fresh launch - before any
+  user interaction. This points at the pattern itself, not a specific
+  widget: MainWindow used to construct all 8 pages up front, most of them
+  staying hidden until clicked. Every crash trigger found so far (first
+  QHeaderView.ResizeToContents, likely QSortFilterProxyModel's deferred
+  sort/layout since v2.0.6) has been some Qt computation deferred while a
+  widget is hidden, then catching up unsafely on first real show.
+  Structural fix: LazyTabContainer - each page is now only actually built
+  the moment its tab is first selected, never "constructed now, shown
+  later." This removes the whole pattern instead of chasing the next
+  specific trigger. Still unconfirmed on the reporter's machine as of
+  this entry - see the note requesting PySide6 version / Python
+  architecture / non-VS-launch test if it recurs.
+
+## v2.1.0 (Smart Import wizard - any VM export, not just our CSV format)
+
+- New "🧙 Smart Import" button on the VMs tab, next to the regular CSV
+  import. Reads CSV/XLSX/JSON, lets you pick which row is the real header
+  (handles messy exports with junk rows before the real data - the file
+  that prompted this feature had one, though it turned out to be from
+  manual editing, not a genuine vCenter export artifact - see the caveat
+  on the VMware preset below), maps source columns to ClusterSizer fields
+  (Name/vCPU/RAM/Disk/Power/Notes) with per-field unit selection
+  (auto-detect "8 GB" style text, or force a fixed unit for bare numbers
+  like Proxmox's byte counts), and shows a live "N VMs ready to import"
+  count before you commit.
+- 4 built-in starting-point profiles: VMware vCenter, RVTools (vInfo),
+  Nutanix Prism, Proxmox VE (pvesh JSON). These are convenience presets,
+  not guarantees - export formats drift between tool versions (and the
+  VMware one specifically was built from a file we later learned had been
+  hand-edited before we saw it, so it's explicitly marked "unverified
+  sample" - not confirmed to match a real untouched vCenter export). This
+  is exactly why manual mapping is the real mechanism underneath, not the
+  presets.
+- Mappings can be saved as named profiles at the user level
+  (~/.clustersizer/import_profiles.json, not tied to one project) - map
+  a new/unrecognized export once, every future import from that same
+  tool auto-matches by header signature and needs zero re-mapping.
+- New dependency: openpyxl (for reading .xlsx exports directly, without
+  a separate conversion step).
+- Scope: VMs only for this release - Servers/Storage/Network smart import
+  may follow later if it turns out to be worth the same treatment.
+
 ## v2.0.6 (bugfix: column sorting didn't actually sort)
 
 - setSortingEnabled(True) was on since v1, but the table models are plain

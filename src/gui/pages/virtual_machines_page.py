@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -12,6 +14,7 @@ from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
 
 from ..dialogs.vm_dialog import VMDialog
+from ..dialogs.import_wizard_dialog import ImportWizardDialog
 from ..models.vm_table_model import VMTableModel
 from ..widgets.summary_widget import SummaryWidget
 from ..widgets.multi_select_table import MultiSelectTableView
@@ -60,6 +63,15 @@ class VirtualMachinesPage(QWidget):
         import_action = QAction("📥 Import CSV", self)
         import_action.triggered.connect(self._import_csv)
         toolbar.addAction(import_action)
+
+        smart_import_action = QAction("🧙 Smart Import (any export)", self)
+        smart_import_action.setToolTip(
+            "Import a VMware/Nutanix/Proxmox/RVTools export (CSV, XLSX, or "
+            "JSON) by mapping its columns - works even if it's not our exact "
+            "CSV format."
+        )
+        smart_import_action.triggered.connect(self._smart_import)
+        toolbar.addAction(smart_import_action)
 
         export_action = QAction("📤 Export CSV", self)
         export_action.triggered.connect(self._export_csv)
@@ -154,6 +166,25 @@ class VirtualMachinesPage(QWidget):
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
             QMessageBox.critical(self, "Import Error", str(exc))
+
+    def _smart_import(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Smart Import - choose export file", "",
+            "Supported files (*.csv *.xlsx *.xlsm *.json);;All files (*)",
+        )
+        if not path:
+            return
+
+        dialog = ImportWizardDialog(Path(path), parent=self)
+        if dialog.exec():
+            vms = dialog.get_imported_vms()
+            if vms:
+                self.service.add_vms(vms)
+                skipped = dialog.get_skipped_count()
+                msg = f"Imported {len(vms)} VM(s)."
+                if skipped:
+                    msg += f" ({skipped} skipped by the profile's name filter.)"
+                QMessageBox.information(self, "Smart Import", msg)
 
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export VMs CSV", "vms.csv", "CSV (*.csv)")
