@@ -81,4 +81,5 @@ Revolut: revolut.me/@ivan50ba6
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE). Before publishing on GitHub, replace
+`[YOUR NAME / ORGANIZATION]` in the LICENSE file with your own name.
