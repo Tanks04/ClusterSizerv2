@@ -29,7 +29,7 @@ def _enable_crash_diagnostics() -> None:
        case the console isn't visible (e.g. launched without a terminal).
     """
     global _crash_log_file
-    _crash_log_file = open(CRASH_LOG_PATH, "a", encoding="utf-8", buffering=1)
+    _crash_log_file = open(CRASH_LOG_PATH, "a", encoding="utf-8", buffering=1)  # noqa: SIM115
     faulthandler.enable(file=_crash_log_file, all_threads=True)
 
     def _excepthook(exc_type, exc_value, exc_tb):
