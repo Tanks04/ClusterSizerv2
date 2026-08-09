@@ -1,5 +1,69 @@
 # ROADMAP
 
+## v2.3.0 (Dashboard merged into Summary, Compare redesigned)
+
+- Dashboard tab removed - its content (top-line cards) now lives at the
+  top of the Summary tab, shrunk ~50% (SummaryWidget got a `compact=True`
+  mode), with the existing Primary/DR deep-dive below it. One fewer tab,
+  same information, no more flipping between two "overview" tabs. Summary
+  is now the first/landing tab.
+- Compare tab redesigned around explicit, symmetric loading: Scenario A
+  and Scenario B are now BOTH loaded independently via "Load..." or "Use
+  Current Project" (a snapshot shortcut, no save-to-disk round trip
+  needed) - neither slot silently tracks the live active project anymore,
+  so what you're comparing can't drift out from under you while you're
+  looking at it.
+- Compare table: columns now stretch to fill the page (was cramped and
+  left-aligned), section headers (PRIMARY/DR/DR READINESS) are bold with
+  a shaded background, and rows where A and B differ are bold with a
+  highlighted background - differences jump out instead of requiring a
+  read-every-row comparison.
+- Added a compact "at a glance" delta card row at the bottom of Compare
+  (ΔServers/ΔCores/ΔRAM/ΔVMs/ΔStorage), same visual style as the
+  Dashboard cards, for a one-glance summary above the detailed table.
+- New src/calculations/comparison.py additions: build_delta_summary().
+
+## v2.2.1 (Compare page: explain identical A/B instead of looking broken)
+
+- Reported: saving a scenario copy AFTER making changes, then comparing
+  immediately, showed Scenario A and B as completely identical - looked
+  like a bug. It wasn't: the snapshot captures whatever state the active
+  project is in AT the moment you save it, so comparing right after with
+  nothing changed in between will always be identical by construction
+  (same idea as diffing a git commit against itself). Added
+  projects_are_identical() to comparison.py and a visible warning banner
+  on the Compare page explaining exactly this, instead of a silent
+  identical-looking table. Also reworded the "Scenario Saved" confirmation
+  and the Save Scenario Copy As tooltip to state the workflow implication
+  up front (snapshot now, keep editing, compare against it later).
+
+## v2.2.0 (Undo/Redo + Compare Scenarios)
+
+- Undo/Redo (Ctrl+Z / Ctrl+Y), snapshot-based: ProjectService pushes a
+  deep copy of the whole project before every structural mutation
+  (Add/Update/Remove/Clear/Import) across Servers/Storage/VMs/Switches/
+  Connections. Deliberately snapshot-based rather than a command pattern
+  with hand-written inverses - projects are small, so deep-copying the
+  whole thing on each change is cheap, and every mutating method only
+  needed one extra line. Scope: inline cell edits (double-click a table
+  cell, type a new number) are NOT on the undo stack - low-risk (just
+  retype it), and covering them would mean snapshotting on every
+  keystroke's commit. Undo covers the actions where it actually matters:
+  Add, Delete, Duplicate, Import, Clear All. New project / Open project
+  clears the undo history (a different project's undo history doesn't
+  mean anything).
+- New Compare tab: current (live) project vs. a second .clsz file loaded
+  read-only, side by side - servers/cores/RAM/storage, VM demand,
+  oversubscription, N+1, DR readiness, all under the SAME live
+  thresholds for a fair comparison. Loading Scenario B never touches the
+  active project.
+- New File menu action "Save Scenario Copy As..." - snapshots the
+  current project to a new file WITHOUT switching the active project to
+  it (unlike regular Save As), so you can branch off a "what-if" and keep
+  editing the original, then load the branch later on the Compare tab.
+- Comparison row-building logic lives in src/calculations/comparison.py,
+  no Qt dependency, same pattern as sizing.py/networking.py.
+
 ## v2.1.2 (better openpyxl-missing diagnostics)
 
 - "Reading .xlsx requires openpyxl" kept showing even after pip install -

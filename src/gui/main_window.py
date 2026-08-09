@@ -15,12 +15,12 @@ from ..services.project_service import ProjectService
 from ..persistence.project_repository import FILE_EXTENSION
 from ..persistence.csv_io import CsvSchemaError
 
-from .pages.dashboard_page import DashboardPage
 from .pages.servers_page import ServersPage
 from .pages.storage_page import StoragePage
 from .pages.virtual_machines_page import VirtualMachinesPage
 from .pages.network_page import NetworkPage
 from .pages.summary_page import SummaryPage
+from .pages.compare_page import ComparePage
 from .pages.reports_page import ReportsPage
 from .pages.settings_page import SettingsPage
 from .widgets.lazy_tab_container import LazyTabContainer
@@ -28,7 +28,7 @@ from .widgets.lazy_tab_container import LazyTabContainer
 
 class MainWindow(QMainWindow):
 
-    VERSION = "2.1.2"
+    VERSION = "2.3.0"
 
     def __init__(self, project_service: ProjectService):
         super().__init__()
@@ -54,6 +54,7 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
 
         file_menu = menu.addMenu("&File")
+        edit_menu = menu.addMenu("&Edit")
         tools_menu = menu.addMenu("&Tools")
         help_menu = menu.addMenu("&Help")
 
@@ -77,6 +78,15 @@ class MainWindow(QMainWindow):
         save_as_action.triggered.connect(self._save_project_as)
         file_menu.addAction(save_as_action)
 
+        save_scenario_action = QAction("Save Scenario Copy As...", self)
+        save_scenario_action.setToolTip(
+            "Save a snapshot of the current project to a new file, without "
+            "switching your active project to it - branch off a scenario to "
+            "compare later on the Compare tab, keep editing the original here."
+        )
+        save_scenario_action.triggered.connect(self._save_scenario_copy)
+        file_menu.addAction(save_scenario_action)
+
         file_menu.addSeparator()
 
         import_action = QAction("Import CSV...", self)
@@ -92,6 +102,19 @@ class MainWindow(QMainWindow):
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        self.undo_action = QAction("Undo", self)
+        self.undo_action.setShortcut("Ctrl+Z")
+        self.undo_action.triggered.connect(self._undo)
+        edit_menu.addAction(self.undo_action)
+
+        self.redo_action = QAction("Redo", self)
+        self.redo_action.setShortcut("Ctrl+Y")
+        self.redo_action.triggered.connect(self._redo)
+        edit_menu.addAction(self.redo_action)
+
+        self.project_service.undo_state_changed.connect(self._update_undo_redo_actions)
+        self._update_undo_redo_actions()
 
         rename_action = QAction("Rename Project...", self)
         rename_action.triggered.connect(self._rename_project)
@@ -117,12 +140,12 @@ class MainWindow(QMainWindow):
         # later" - see LazyTabContainer's docstring for why that matters
         # on Windows.
         page_specs = [
-            ("Dashboard", lambda: DashboardPage(self.project_service)),
+            ("Summary", lambda: SummaryPage(self.project_service)),
             ("Servers", lambda: ServersPage(self.project_service)),
             ("Storage", lambda: StoragePage(self.project_service)),
             ("VMs", lambda: VirtualMachinesPage(self.project_service)),
             ("Network", lambda: NetworkPage(self.project_service)),
-            ("Summary", lambda: SummaryPage(self.project_service)),
+            ("Compare", lambda: ComparePage(self.project_service)),
             ("Reports", lambda: ReportsPage(self.project_service)),
             ("Settings", lambda: SettingsPage(self.project_service)),
         ]
@@ -231,6 +254,32 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Save Error", str(exc))
 
+    def _save_scenario_copy(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Scenario Copy As",
+            f"{self.project_service.project.name or 'scenario'}{FILE_EXTENSION}",
+            f"ClusterSizer Project (*{FILE_EXTENSION})",
+        )
+        if not path:
+            return
+
+        if not path.endswith(FILE_EXTENSION):
+            path += FILE_EXTENSION
+
+        try:
+            self.project_service.save_copy_as(path)
+            QMessageBox.information(
+                self, "Scenario Saved",
+                f"Snapshot saved to:\n{path}\n\n"
+                "Your active project is unchanged. On the Compare tab, load this "
+                "file into either Scenario A or B (or use \"Use Current Project\" "
+                "for whichever slot should reflect what you keep editing here) "
+                "to compare it against another scenario.",
+            )
+        except Exception as exc:
+            QMessageBox.critical(self, "Save Error", str(exc))
+
     def _rename_project(self):
         name, ok = QInputDialog.getText(
             self, "Rename Project", "Project name:", text=self.project_service.project.name
@@ -238,6 +287,16 @@ class MainWindow(QMainWindow):
         if ok and name:
             self.project_service.project.name = name
             self.project_service.touch()
+
+    def _undo(self):
+        self.project_service.undo()
+
+    def _redo(self):
+        self.project_service.redo()
+
+    def _update_undo_redo_actions(self):
+        self.undo_action.setEnabled(self.project_service.can_undo)
+        self.redo_action.setEnabled(self.project_service.can_redo)
 
     def _import_csv(self):
         kinds = ["Servers", "Storage", "VMs", "Switches", "Connections"]

@@ -21,27 +21,28 @@ class SummaryWidget(QFrame):
         2048 GB
     """
 
-    def __init__(self, title: str, value: str = "0", parent=None):
+    def __init__(self, title: str, value: str = "0", parent=None, compact: bool = False):
         super().__init__(parent)
 
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setObjectName("SummaryWidget")
 
-        self.setMinimumHeight(110)
+        self.setMinimumHeight(55 if compact else 110)
         self.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
+        margin = 6 if compact else 12
+        layout.setContentsMargins(margin, margin, margin, margin)
 
         self.title_label = QLabel(title)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title_font = QFont()
         title_font.setBold(True)
-        title_font.setPointSize(10)
+        title_font.setPointSize(8 if compact else 10)
 
         self.title_label.setFont(title_font)
 
@@ -50,12 +51,13 @@ class SummaryWidget(QFrame):
 
         value_font = QFont()
         value_font.setBold(True)
-        value_font.setPointSize(20)
+        value_font.setPointSize(11 if compact else 20)
 
         self.value_label.setFont(value_font)
 
         layout.addWidget(self.title_label)
-        layout.addStretch()
+        if not compact:
+            layout.addStretch()
         layout.addWidget(self.value_label)
 
     def set_value(self, value: str | int | float) -> None:
