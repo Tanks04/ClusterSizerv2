@@ -39,12 +39,14 @@ class NetworkPage(QWidget):
         self.connection_model = ConnectionTableModel(
             servers_provider=lambda: self.service.project.servers,
             switches_provider=lambda: self.service.project.switches,
+            storages_provider=lambda: self.service.project.storages,
         )
 
         self._create_ui()
 
         self.service.network_changed.connect(self.refresh)
         self.service.servers_changed.connect(self.refresh)
+        self.service.storages_changed.connect(self.refresh)
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -286,10 +288,16 @@ class NetworkPage(QWidget):
         return [self.connection_model.connection_at(row) for row in self.connection_table.selected_rows()]
 
     def _add_connection(self):
-        if not self.service.project.servers or not self.service.project.switches:
+        project = self.service.project
+        available_kinds = sum([
+            bool(project.servers), bool(project.switches), bool(project.storages),
+        ])
+        if available_kinds < 2:
             QMessageBox.information(
                 self, "Connection",
-                "Add at least one server (Servers tab) and one switch before adding a connection.",
+                "Add at least two of the following before adding a connection: "
+                "a server (Servers tab), a switch (above), or a storage system "
+                "(Storage tab).",
             )
             return
         dialog = ConnectionDialog(self.service.project, parent=self)

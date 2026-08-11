@@ -65,7 +65,13 @@ class ClusterProject:
     # ------------------------------------------------------------------
 
     def physical_cores(self, site: str) -> int:
-        return sum(s.total_cores for s in self.servers_at(site))
+        """CPU capacity used for oversubscription math. This is
+        HT-adjusted PER SERVER: a server with hyperthreading_enabled=True
+        contributes its threads (cores * threads_per_core), one with it
+        disabled contributes just its physical cores - see
+        Server.effective_cores. Not a straight sum of `sockets *
+        cores_per_socket` across all servers."""
+        return sum(s.effective_cores for s in self.servers_at(site))
 
     def physical_threads(self, site: str) -> int:
         return sum(s.total_threads for s in self.servers_at(site))
@@ -121,6 +127,23 @@ class ClusterProject:
     # ------------------------------------------------------------------
     # N+1 check (does the cluster survive losing one host at this site)
     # ------------------------------------------------------------------
+    # Hyperthreading state summary - "all_on" / "all_off" / "mixed" /
+    # "no_servers". Used to show an HT indicator on Summary/Reports/
+    # Compare, since it changes what the HT-adjusted core count means.
+    # ------------------------------------------------------------------
+
+    def hyperthreading_state(self, site: str) -> str:
+        site_servers = self.servers_at(site)
+        if not site_servers:
+            return "no_servers"
+        on_count = sum(1 for s in site_servers if s.hyperthreading_enabled)
+        if on_count == len(site_servers):
+            return "all_on"
+        if on_count == 0:
+            return "all_off"
+        return "mixed"
+
+    # ------------------------------------------------------------------
 
     def n_plus_one_ok(self, site: str) -> bool | None:
         """True if the cluster at this site still has enough RAM and cores
@@ -132,7 +155,7 @@ class ClusterProject:
 
         largest = max(site_servers, key=lambda s: s.ram_gb)
         remaining_ram = self.physical_ram_gb(site) - largest.ram_gb
-        remaining_cores = self.physical_cores(site) - largest.total_cores
+        remaining_cores = self.physical_cores(site) - largest.effective_cores
 
         ram_ok = remaining_ram >= self.vm_ram_demand_gb(site)
         cpu_ok = remaining_cores >= self.vm_vcpu_demand(site)

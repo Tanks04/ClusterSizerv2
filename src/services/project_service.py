@@ -208,6 +208,15 @@ class ProjectService(QObject):
         self._project.servers.extend(servers)
         self._notify(self.servers_changed)
 
+    def set_all_servers_hyperthreading(self, enabled: bool) -> None:
+        """Bulk-sets hyperthreading_enabled on every server at once - one
+        undo snapshot for the whole action, not one per server, so a
+        single Ctrl+Z reverts it all."""
+        self._push_undo_snapshot()
+        for server in self._project.servers:
+            server.hyperthreading_enabled = enabled
+        self._notify(self.servers_changed)
+
     def update_server(self, index: int, server: Server) -> None:
         self._push_undo_snapshot()
         self._project.servers[index] = server
@@ -379,9 +388,9 @@ class ProjectService(QObject):
         self._notify(self.network_changed)
 
     def import_connections_csv(self, path: str | Path) -> tuple[int, int]:
-        """Returns (number imported, number skipped due to unknown server/switch name)."""
+        """Returns (number imported, number skipped due to unknown server/switch/storage name)."""
         new_connections, skipped = csv_io.import_connections(
-            path, self._project.servers, self._project.switches
+            path, self._project.servers, self._project.switches, self._project.storages
         )
         self._push_undo_snapshot()
         self._project.connections.extend(new_connections)
@@ -390,5 +399,6 @@ class ProjectService(QObject):
 
     def export_connections_csv(self, path: str | Path) -> None:
         csv_io.export_connections(
-            path, self._project.connections, self._project.servers, self._project.switches
+            path, self._project.connections, self._project.servers,
+            self._project.switches, self._project.storages,
         )

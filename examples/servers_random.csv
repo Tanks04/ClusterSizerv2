@@ -1,8 +1,8 @@
-name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,threads_per_core,ram_gb,cpu_frequency,warranty_expiry,nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,notes
-esxi-p01,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,1024,2.0,2026-01-01,2,0,2,0,0,0,
-esxi-p02,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,1024,2.0,2028-04-01,2,0,2,0,0,0,
-esxi-p03,Primary,HPE,ProLiant DL380 Gen10+,Intel,Xeon Gold 6330,2,28,2,768,2.0,2027-03-01,2,0,2,0,0,0,
-esxi-p04,Primary,HPE,ProLiant DL380 Gen10+,Intel,Xeon Gold 6330,2,28,2,768,2.0,2026-09-01,2,0,2,0,0,0,
-esxi-p05,Primary,Lenovo,ThinkSystem SR650 V2,AMD,EPYC 7543,2,32,2,1536,2.8,2026-07-01,2,0,2,0,0,0,
-esxi-dr01,DR,Dell,PowerEdge R650,Intel,Xeon Gold 6330,2,28,2,512,2.0,2026-01-01,2,0,2,0,0,0,DR host
-esxi-dr02,DR,HPE,ProLiant DL360 Gen10+,Intel,Xeon Silver 4314,2,16,2,384,2.4,2026-04-01,2,0,2,0,0,0,DR host
+name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,threads_per_core,hyperthreading_enabled,ram_gb,cpu_frequency,warranty_expiry,nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,nic_sas,notes
+esxi-p01,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2026-01-01,2,0,2,0,0,0,0,
+esxi-p02,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2028-04-01,2,0,2,0,0,0,0,
+esxi-p03,Primary,HPE,ProLiant DL380 Gen10+,Intel,Xeon Gold 6330,2,28,2,True,768,2.0,2027-03-01,2,0,2,0,0,0,0,
+esxi-p04,Primary,HPE,ProLiant DL380 Gen10+,Intel,Xeon Gold 6330,2,28,2,True,768,2.0,2026-09-01,2,0,2,0,0,0,0,
+esxi-p05,Primary,Lenovo,ThinkSystem SR650 V2,AMD,EPYC 7543,2,32,2,True,1536,2.8,2026-07-01,2,0,2,0,0,0,0,
+esxi-dr01,DR,Dell,PowerEdge R650,Intel,Xeon Gold 6330,2,28,2,True,512,2.0,2026-01-01,2,0,2,0,0,0,0,DR host
+esxi-dr02,DR,HPE,ProLiant DL360 Gen10+,Intel,Xeon Silver 4314,2,16,2,True,384,2.4,2026-04-01,2,0,2,0,0,0,0,DR host

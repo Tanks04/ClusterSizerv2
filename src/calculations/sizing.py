@@ -31,6 +31,7 @@ class SiteReport:
     storage_status: Status
 
     n_plus_one_ok: bool | None
+    ht_state: str  # "all_on" | "all_off" | "mixed" | "no_servers"
 
 
 @dataclass
@@ -69,6 +70,7 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
         ram_status=thresholds.ram_status(ram_ratio),
         storage_status=thresholds.storage_status(storage_ratio),
         n_plus_one_ok=project.n_plus_one_ok(site),
+        ht_state=project.hyperthreading_state(site),
     )
 
 

@@ -22,6 +22,7 @@ class NetworkSwitch:
     ports_40g: int = 0
     ports_100g: int = 0
     ports_fc: int = 0
+    ports_sas: int = 0
 
     notes: str = ""
 
@@ -29,7 +30,7 @@ class NetworkSwitch:
     def total_ports(self) -> int:
         return (
             self.ports_1g + self.ports_10g + self.ports_25g
-            + self.ports_40g + self.ports_100g + self.ports_fc
+            + self.ports_40g + self.ports_100g + self.ports_fc + self.ports_sas
         )
 
     @staticmethod
@@ -47,4 +48,5 @@ class NetworkSwitch:
             ports_40g=0,
             ports_100g=0,
             ports_fc=0,
+            ports_sas=0,
         )

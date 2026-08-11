@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -125,10 +126,28 @@ class ServerDialog(QDialog):
         self.threads_spin.setValue(2)
 
         self.threads_spin.setToolTip(
-            "2 = Hyper-Threading/SMT enabled, 1 = disabled"
+            "SMT width - 2 for typical x86 Hyper-Threading. Only counted "
+            "toward CPU capacity if 'Hyperthreading Enabled' below is checked."
         )
 
         layout.addRow("Threads / Core", self.threads_spin)
+
+        #
+        # Hyperthreading gate - affects CPU oversubscription math directly:
+        # when off, this server contributes physical cores only, not
+        # threads, regardless of the Threads/Core value above.
+        #
+
+        self.ht_check = QCheckBox("Hyperthreading Enabled")
+        self.ht_check.setChecked(True)
+        self.ht_check.setToolTip(
+            "When checked, this server's effective CPU capacity for "
+            "oversubscription math is cores \u00d7 threads/core. When "
+            "unchecked, it's physical cores only - Threads/Core is ignored "
+            "(but kept, in case you re-enable HT later)."
+        )
+        self.ht_check.toggled.connect(self.threads_spin.setEnabled)
+        layout.addRow("", self.ht_check)
 
         #
         # RAM
@@ -205,6 +224,14 @@ class ServerDialog(QDialog):
         self.nic_fc_spin.setRange(0, 64)
         nic_form.addRow("FC (HBA)", self.nic_fc_spin)
 
+        self.nic_sas_spin = QSpinBox()
+        self.nic_sas_spin.setRange(0, 64)
+        self.nic_sas_spin.setToolTip(
+            "Direct-attach SAS HBA ports - for servers wired straight to "
+            "storage, no switch in between."
+        )
+        nic_form.addRow("SAS (direct-attach)", self.nic_sas_spin)
+
         outer.addWidget(nic_box)
 
         #
@@ -276,6 +303,9 @@ class ServerDialog(QDialog):
 
         self.threads_spin.setValue(server.threads_per_core)
 
+        self.ht_check.setChecked(server.hyperthreading_enabled)
+        self.threads_spin.setEnabled(server.hyperthreading_enabled)
+
         self.ram_spin.setValue(server.ram_gb)
 
         self.freq_spin.setValue(server.cpu_frequency)
@@ -288,6 +318,7 @@ class ServerDialog(QDialog):
         self.nic_40g_spin.setValue(server.nic_40g)
         self.nic_100g_spin.setValue(server.nic_100g)
         self.nic_fc_spin.setValue(server.nic_fc)
+        self.nic_sas_spin.setValue(server.nic_sas)
 
     def _fill_common(self, server: Server) -> None:
         server.site = self.site_combo.currentText()
@@ -298,6 +329,7 @@ class ServerDialog(QDialog):
         server.sockets = self.socket_spin.value()
         server.cores_per_socket = self.core_spin.value()
         server.threads_per_core = self.threads_spin.value()
+        server.hyperthreading_enabled = self.ht_check.isChecked()
         server.ram_gb = self.ram_spin.value()
         server.cpu_frequency = self.freq_spin.value()
         server.warranty_expiry = self.warranty_edit.text()
@@ -307,6 +339,7 @@ class ServerDialog(QDialog):
         server.nic_40g = self.nic_40g_spin.value()
         server.nic_100g = self.nic_100g_spin.value()
         server.nic_fc = self.nic_fc_spin.value()
+        server.nic_sas = self.nic_sas_spin.value()
 
     def get_server(self) -> Server:
         """For Edit mode (one server)."""

@@ -73,11 +73,20 @@ def build_comparison_rows(
     def b(fn):
         return fn(pb, drb, dckb) if project_b is not None else "-"
 
+    def ht_text(report):
+        return {
+            "all_on": "HT ENABLED",
+            "mixed": "HT MIXED",
+            "all_off": "HT off",
+            "no_servers": "-",
+        }.get(report.ht_state, "-")
+
     rows: list[tuple[str, str, str]] = []
 
     rows.append(("--- PRIMARY SITE ---", "", ""))
     rows.append(("Servers", str(pa.server_count), b(lambda p, d, c: str(p.server_count))))
-    rows.append(("Physical cores", str(pa.physical_cores), b(lambda p, d, c: str(p.physical_cores))))
+    rows.append(("Physical cores (HT-adj.)", str(pa.physical_cores), b(lambda p, d, c: str(p.physical_cores))))
+    rows.append(("Hyperthreading", ht_text(pa), b(lambda p, d, c: ht_text(p))))
     rows.append(("Physical RAM (GB)", f"{pa.physical_ram_gb:.0f}", b(lambda p, d, c: f"{p.physical_ram_gb:.0f}")))
     rows.append(("Usable storage (TB)", f"{pa.usable_storage_gb / 1024:.1f}", b(lambda p, d, c: f"{p.usable_storage_gb / 1024:.1f}")))
     rows.append(("VM count", str(pa.vm_count), b(lambda p, d, c: str(p.vm_count))))
@@ -91,7 +100,8 @@ def build_comparison_rows(
 
     rows.append(("--- DR SITE ---", "", ""))
     rows.append(("Servers", str(dra.server_count), b(lambda p, d, c: str(d.server_count))))
-    rows.append(("Physical cores", str(dra.physical_cores), b(lambda p, d, c: str(d.physical_cores))))
+    rows.append(("Physical cores (HT-adj.)", str(dra.physical_cores), b(lambda p, d, c: str(d.physical_cores))))
+    rows.append(("Hyperthreading", ht_text(dra), b(lambda p, d, c: ht_text(d))))
     rows.append(("Physical RAM (GB)", f"{dra.physical_ram_gb:.0f}", b(lambda p, d, c: f"{d.physical_ram_gb:.0f}")))
     rows.append(("Usable storage (TB)", f"{dra.usable_storage_gb / 1024:.1f}", b(lambda p, d, c: f"{d.usable_storage_gb / 1024:.1f}")))
 

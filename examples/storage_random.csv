@@ -1,4 +1,4 @@
-name,site,vendor,model,raw_capacity_tb,usable_capacity_tb,raid_overhead_percent,notes
-san-p01,Primary,Pure Storage,FlashArray//X70,250,200,20,"all-flash, prod"
-san-p02,Primary,NetApp,AFF A400,150,115,23.3,replica target
-san-dr01,DR,Pure Storage,FlashArray//C60,180,144,20,DR array
+name,site,vendor,model,raw_capacity_tb,usable_capacity_tb,raid_overhead_percent,ports_1g,ports_10g,ports_25g,ports_40g,ports_100g,ports_fc,ports_sas,notes
+san-p01,Primary,Pure Storage,FlashArray//X70,250,200,20,0,0,0,0,0,4,0,"all-flash, prod"
+san-p02,Primary,NetApp,AFF A400,150,115,23.3,0,0,0,0,0,4,0,replica target
+san-dr01,DR,Pure Storage,FlashArray//C60,180,144,20,0,0,0,0,0,4,0,DR array

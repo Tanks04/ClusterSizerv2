@@ -2,6 +2,7 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from src.models.storage import Storage
+from src.calculations.networking import storage_port_usage, format_usage, any_over_committed
 
 
 class StorageTableModel(QAbstractTableModel):
@@ -9,6 +10,7 @@ class StorageTableModel(QAbstractTableModel):
     HEADERS = [
         "Name", "Site", "Vendor", "Model",
         "Raw (TB)", "Usable (TB)", "Overhead %",
+        "Ports (declared)", "Used/Free",
     ]
 
     EDITABLE_COLUMNS = {4, 5}  # Raw, Usable
@@ -16,10 +18,12 @@ class StorageTableModel(QAbstractTableModel):
     def __init__(
         self,
         storages: Sequence[Storage] | None = None,
+        connections_provider: Callable[[], list] | None = None,
         on_change: Callable[[], None] | None = None,
     ):
         super().__init__()
         self._storages = list(storages) if storages else []
+        self._connections_provider = connections_provider or (lambda: [])
         self._on_change = on_change
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -65,6 +69,27 @@ class StorageTableModel(QAbstractTableModel):
                 return storage.usable_capacity_tb
             case 6:
                 return round(storage.raid_overhead_percent, 1)
+            case 7:
+                parts = []
+                if storage.ports_1g:
+                    parts.append(f"1G:{storage.ports_1g}")
+                if storage.ports_10g:
+                    parts.append(f"10G:{storage.ports_10g}")
+                if storage.ports_25g:
+                    parts.append(f"25G:{storage.ports_25g}")
+                if storage.ports_40g:
+                    parts.append(f"40G:{storage.ports_40g}")
+                if storage.ports_100g:
+                    parts.append(f"100G:{storage.ports_100g}")
+                if storage.ports_fc:
+                    parts.append(f"FC:{storage.ports_fc}")
+                if storage.ports_sas:
+                    parts.append(f"SAS:{storage.ports_sas}")
+                return " ".join(parts) if parts else "-"
+            case 8:
+                usage = storage_port_usage(storage, self._connections_provider())
+                text = format_usage(usage)
+                return f"\u26a0 {text}" if any_over_committed(usage) else text
 
         return None
 

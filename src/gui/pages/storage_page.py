@@ -23,11 +23,15 @@ class StoragePage(QWidget):
         super().__init__()
 
         self.service = service
-        self.model = StorageTableModel(on_change=self.service.touch_storages)
+        self.model = StorageTableModel(
+            connections_provider=lambda: self.service.project.connections,
+            on_change=self.service.touch_storages,
+        )
 
         self._create_ui()
 
         self.service.storages_changed.connect(self.refresh)
+        self.service.network_changed.connect(self.refresh)
         self.refresh()
 
     def _create_ui(self):

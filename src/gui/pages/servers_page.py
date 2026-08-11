@@ -1,7 +1,9 @@
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QToolBar,
     QVBoxLayout,
@@ -74,6 +76,20 @@ class ServersPage(QWidget):
         clear_action = QAction("🧹 Clear All", self)
         clear_action.triggered.connect(self._clear_all)
         toolbar.addAction(clear_action)
+
+        toolbar.addSeparator()
+
+        self.ht_global_check = QCheckBox("Hyperthreading (all servers)")
+        self.ht_global_check.setToolTip(
+            "Checked when EVERY server currently has HT on. Click to set "
+            "HT on or off for ALL servers at once - one bulk change, "
+            "undoable with Ctrl+Z like any other action."
+        )
+        self.ht_global_check.clicked.connect(self._on_ht_global_clicked)
+        toolbar.addWidget(self.ht_global_check)
+
+        self.ht_status_label = QLabel("")
+        toolbar.addWidget(self.ht_status_label)
 
         main_layout.addWidget(toolbar)
 
@@ -193,6 +209,9 @@ class ServersPage(QWidget):
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_servers()
 
+    def _on_ht_global_clicked(self, checked: bool):
+        self.service.set_all_servers_hyperthreading(checked)
+
     # ------------------------------------------------------------------
     # Refresh
     # ------------------------------------------------------------------
@@ -206,3 +225,31 @@ class ServersPage(QWidget):
         self.card_cores.set_value(project.total_cores)
         self.card_threads.set_value(project.total_threads)
         self.card_ram.set_value(f"{project.total_ram} GB")
+
+        self._refresh_ht_global()
+
+    def _refresh_ht_global(self):
+        servers = self.service.project.servers
+
+        if not servers:
+            self.ht_global_check.setChecked(False)
+            self.ht_global_check.setEnabled(False)
+            self.ht_status_label.setText("")
+            return
+
+        self.ht_global_check.setEnabled(True)
+        on_count = sum(1 for s in servers if s.hyperthreading_enabled)
+
+        if on_count == len(servers):
+            self.ht_global_check.setChecked(True)
+            self.ht_status_label.setText("")
+        elif on_count == 0:
+            self.ht_global_check.setChecked(False)
+            self.ht_status_label.setText("")
+        else:
+            self.ht_global_check.setChecked(False)
+            self.ht_status_label.setText(f"({on_count}/{len(servers)} have HT on - click to normalize)")
+            self.ht_status_label.setStyleSheet("color: #ed6c02; font-weight: bold;")
+            return
+
+        self.ht_status_label.setStyleSheet("")

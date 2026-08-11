@@ -3,8 +3,11 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QGroupBox,
     QLineEdit,
     QDoubleSpinBox,
+    QSpinBox,
+    QVBoxLayout,
 )
 
 from src.models.storage import Storage
@@ -17,9 +20,11 @@ class StorageDialog(QDialog):
 
         self.setWindowTitle("Storage")
 
-        self.resize(420, 340)
+        self.resize(440, 560)
 
-        layout = QFormLayout(self)
+        outer = QVBoxLayout(self)
+        layout = QFormLayout()
+        outer.addLayout(layout)
 
         self.name_edit = QLineEdit()
         layout.addRow("Name", self.name_edit)
@@ -61,13 +66,57 @@ class StorageDialog(QDialog):
         )
         layout.addRow("RAID/EC Overhead", self.overhead_spin)
 
+        #
+        # Connectivity ports - same pattern as Server NICs / Switch ports.
+        # Used on the Network tab for free/used tracking, including
+        # direct-attach links straight to a server (no switch).
+        #
+
+        ports_box = QGroupBox("Connectivity Ports (optional)")
+        ports_form = QFormLayout(ports_box)
+
+        self.ports_1g_spin = QSpinBox()
+        self.ports_1g_spin.setRange(0, 128)
+        ports_form.addRow("1G (RJ45)", self.ports_1g_spin)
+
+        self.ports_10g_spin = QSpinBox()
+        self.ports_10g_spin.setRange(0, 128)
+        ports_form.addRow("10G (SFP+/RJ45, iSCSI/NAS)", self.ports_10g_spin)
+
+        self.ports_25g_spin = QSpinBox()
+        self.ports_25g_spin.setRange(0, 128)
+        ports_form.addRow("25G (SFP28)", self.ports_25g_spin)
+
+        self.ports_40g_spin = QSpinBox()
+        self.ports_40g_spin.setRange(0, 128)
+        ports_form.addRow("40G (QSFP+)", self.ports_40g_spin)
+
+        self.ports_100g_spin = QSpinBox()
+        self.ports_100g_spin.setRange(0, 128)
+        ports_form.addRow("100G (QSFP28)", self.ports_100g_spin)
+
+        self.ports_fc_spin = QSpinBox()
+        self.ports_fc_spin.setRange(0, 128)
+        self.ports_fc_spin.setValue(4)
+        ports_form.addRow("FC", self.ports_fc_spin)
+
+        self.ports_sas_spin = QSpinBox()
+        self.ports_sas_spin.setRange(0, 128)
+        self.ports_sas_spin.setToolTip(
+            "SAS target ports - for direct-attach links straight to a "
+            "server's SAS HBA, no switch in between."
+        )
+        ports_form.addRow("SAS (direct-attach)", self.ports_sas_spin)
+
+        outer.addWidget(ports_box)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
+        outer.addWidget(buttons)
 
         self._uid = None
 
@@ -94,6 +143,14 @@ class StorageDialog(QDialog):
         self.usable_spin.setValue(storage.usable_capacity_tb)
         self._recalc_overhead()
 
+        self.ports_1g_spin.setValue(storage.ports_1g)
+        self.ports_10g_spin.setValue(storage.ports_10g)
+        self.ports_25g_spin.setValue(storage.ports_25g)
+        self.ports_40g_spin.setValue(storage.ports_40g)
+        self.ports_100g_spin.setValue(storage.ports_100g)
+        self.ports_fc_spin.setValue(storage.ports_fc)
+        self.ports_sas_spin.setValue(storage.ports_sas)
+
     def get_storage(self) -> Storage:
         storage = Storage.create_default()
 
@@ -107,5 +164,13 @@ class StorageDialog(QDialog):
         storage.raw_capacity_tb = self.raw_spin.value()
         storage.usable_capacity_tb = self.usable_spin.value()
         storage.raid_overhead_percent = self.overhead_spin.value()
+
+        storage.ports_1g = self.ports_1g_spin.value()
+        storage.ports_10g = self.ports_10g_spin.value()
+        storage.ports_25g = self.ports_25g_spin.value()
+        storage.ports_40g = self.ports_40g_spin.value()
+        storage.ports_100g = self.ports_100g_spin.value()
+        storage.ports_fc = self.ports_fc_spin.value()
+        storage.ports_sas = self.ports_sas_spin.value()
 
         return storage

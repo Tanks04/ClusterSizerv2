@@ -1,4 +1,4 @@
-# ClusterSizer
+# ClusterSizer 2.4.1
 
 **A desktop tool for sysadmins: sizing HW for a cluster, tracking load, and
 DR sizing — without manually adding it all up in Excel for the third time.**

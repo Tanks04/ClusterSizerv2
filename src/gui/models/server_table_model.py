@@ -8,12 +8,13 @@ class ServerTableModel(QAbstractTableModel):
 
     HEADERS = [
         "Name", "Site", "Vendor", "Model", "CPU",
-        "Sockets", "Cores/Socket", "Threads/Core", "Total Cores",
+        "Sockets", "Cores/Socket", "Threads/Core", "HT",
+        "Total Cores", "Effective Cores",
         "RAM (GB)", "GHz", "Warranty",
     ]
 
     # Kolone koje se mogu direktno urediti u tablici (bez otvaranja dijaloga)
-    EDITABLE_COLUMNS = {5, 6, 7, 9, 10}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz
+    EDITABLE_COLUMNS = {5, 6, 7, 11, 12}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz
 
     def __init__(
         self,
@@ -78,12 +79,16 @@ class ServerTableModel(QAbstractTableModel):
             case 7:
                 return server.threads_per_core
             case 8:
-                return server.total_cores
+                return "On" if server.hyperthreading_enabled else "Off"
             case 9:
-                return server.ram_gb
+                return server.total_cores
             case 10:
-                return server.cpu_frequency
+                return server.effective_cores
             case 11:
+                return server.ram_gb
+            case 12:
+                return server.cpu_frequency
+            case 13:
                 return server.warranty_expiry or "-"
 
         return None
@@ -105,9 +110,9 @@ class ServerTableModel(QAbstractTableModel):
                     server.cores_per_socket = max(1, int(value))
                 case 7:
                     server.threads_per_core = max(1, int(value))
-                case 9:
+                case 11:
                     server.ram_gb = max(1, int(value))
-                case 10:
+                case 12:
                     server.cpu_frequency = max(0.1, float(value))
                 case _:
                     return False

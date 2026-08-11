@@ -50,9 +50,12 @@ class SiteCapacityWidget(QFrame):
 
         row = 0
 
-        grid.addWidget(QLabel("Servers / vCPU cores:"), row, 0)
+        grid.addWidget(QLabel("Servers / pCPU cores (HT-adj.):"), row, 0)
         self.servers_label = QLabel("-")
         grid.addWidget(self.servers_label, row, 1)
+        self.ht_tag_label = QLabel("")
+        self.ht_tag_label.setVisible(False)
+        grid.addWidget(self.ht_tag_label, row, 2)
         row += 1
 
         grid.addWidget(QLabel("Physical RAM:"), row, 0)
@@ -101,6 +104,7 @@ class SiteCapacityWidget(QFrame):
             f"{report.server_count} servers / {report.physical_cores} cores "
             f"({report.physical_threads} threads)"
         )
+        self._set_ht_tag(report.ht_state)
         self.ram_label.setText(f"{report.physical_ram_gb:.0f} GB")
         self.storage_label.setText(f"{report.usable_storage_gb / 1024:.1f} TB")
         self.demand_label.setText(
@@ -131,3 +135,22 @@ class SiteCapacityWidget(QFrame):
             self.n1_label.setText("\u2705 Yes")
         else:
             self.n1_label.setText("\u274c No")
+
+    def _set_ht_tag(self, ht_state: str) -> None:
+        """HT ENABLED (red, bold) when every server at this site has
+        Hyperthreading on - loud on purpose, so the HT-adjusted core count
+        above doesn't get mistaken for a plain physical core count. HT
+        MIXED (orange, bold) when servers disagree - a blanket "enabled"
+        tag would be misleading there, since only part of the pool is
+        thread-boosted. Nothing shown when HT is off everywhere, or there
+        are no servers at this site."""
+        if ht_state == "all_on":
+            self.ht_tag_label.setText("HT ENABLED")
+            self.ht_tag_label.setStyleSheet("color: #c62828; font-weight: bold;")
+            self.ht_tag_label.setVisible(True)
+        elif ht_state == "mixed":
+            self.ht_tag_label.setText("HT MIXED")
+            self.ht_tag_label.setStyleSheet("color: #ed6c02; font-weight: bold;")
+            self.ht_tag_label.setVisible(True)
+        else:
+            self.ht_tag_label.setVisible(False)

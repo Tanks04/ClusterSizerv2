@@ -83,7 +83,8 @@ class ReportsPage(QWidget):
         for label, report in (("PRIMARY", primary), ("DR", dr)):
             lines.append(f"[{label}]")
             lines.append(f"  Servers            : {report.server_count}")
-            lines.append(f"  Physical cores      : {report.physical_cores}")
+            ht_tag = {"all_on": " [HT ENABLED]", "mixed": " [HT MIXED]"}.get(report.ht_state, "")
+            lines.append(f"  Physical cores (HT-adj.): {report.physical_cores}{ht_tag}")
             lines.append(f"  Physical threads    : {report.physical_threads}")
             lines.append(f"  Physical RAM        : {report.physical_ram_gb:.0f} GB")
             lines.append(f"  Usable storage      : {report.usable_storage_gb / 1024:.2f} TB")

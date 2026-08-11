@@ -61,6 +61,21 @@ def server_nic_usage(server: Server, connections: list[NetworkConnection]) -> li
     return result
 
 
+def storage_port_usage(storage, connections: list[NetworkConnection]) -> list[PortUsage]:
+    used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
+    for conn in connections:
+        if conn.storage_uid == storage.uid and conn.speed in used_by_speed:
+            used_by_speed[conn.speed] += 1
+
+    result = []
+    for speed in SPEED_OPTIONS:
+        total = getattr(storage, f"ports_{SPEED_ATTR[speed]}")
+        used = used_by_speed[speed]
+        if total > 0 or used > 0:
+            result.append(PortUsage(speed=speed, total=total, used=used))
+    return result
+
+
 def format_usage(usages: list[PortUsage]) -> str:
     if not usages:
         return "-"

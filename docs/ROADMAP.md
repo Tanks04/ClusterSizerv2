@@ -1,5 +1,54 @@
 # ROADMAP
 
+## v2.4.1 (global HT toggle + HT indicators)
+
+- Servers tab toolbar gained a "Hyperthreading (all servers)" checkbox -
+  reflects whether EVERY server currently has HT on, and clicking it
+  bulk-sets HT for all servers in one undoable action (single Ctrl+Z
+  reverts the whole toggle, not one per server). When servers disagree,
+  the checkbox shows unchecked with a "(N/M have HT on - click to
+  normalize)" note instead of guessing.
+- HT ENABLED (red, bold) now shows on the Summary page next to each
+  site's "Servers / pCPU cores (HT-adj.)" line when every server at that
+  site has HT on - deliberately loud, so the HT-adjusted core count
+  doesn't get mistaken for a plain physical core count. Added a second
+  state, HT MIXED (orange, bold), for when servers at a site disagree -
+  a blanket "enabled" tag would be misleading there. Nothing shown when
+  HT is off everywhere. Same HT ENABLED/MIXED tagging added to the
+  Reports text export and a dedicated "Hyperthreading" row on the
+  Compare page (useful there since two scenarios can genuinely differ).
+- ClusterProject.hyperthreading_state(site) and SiteReport.ht_state are
+  the shared source of truth all of the above read from.
+
+## v2.4.0 (Hyperthreading toggle + Storage connectivity)
+
+- Server gets a "Hyperthreading Enabled" checkbox (Servers tab dialog),
+  separate from the Threads/Core value so an unusual SMT width can stay
+  configured even while HT is toggled off. CPU oversubscription math is
+  now genuinely per-server HT-aware: ClusterProject.physical_cores()
+  sums Server.effective_cores (threads if HT on, physical cores if off)
+  instead of a flat core count - affects CPU oversubscription ratio, N+1
+  check, and DR CPU check everywhere they're shown (Summary/VMs/Reports/
+  Compare). Server table gained "HT" and "Effective Cores" columns;
+  "Total Cores" (raw physical) stays unaffected as a separate reference
+  column. Labels that show this HT-adjusted number are marked
+  "(HT-adj.)" so it's clear it isn't a straight core count.
+- Storage connectivity, same pattern as Network switches: Storage gets a
+  port inventory (1G/10G/25G/40G/100G/FC/SAS) and a live "Used/Free"
+  column on the Storage tab. NetworkConnection gained a storage_uid field
+  (backward compatible - old .clsz files with only server_uid/switch_uid
+  load unchanged) supporting THREE link kinds: Server<->Switch (original),
+  Storage<->Switch, and Server<->Storage direct-attach (no switch - the
+  4-port/2-port FC HBA-straight-to-array case). The Connections dialog
+  now has a Connection Type selector that swaps the two entity dropdowns
+  accordingly; the Connections table shows Type + Endpoint A/B instead of
+  fixed Server/Switch columns. Server also gained nic_sas for direct-
+  attach SAS HBAs.
+- CSV formats updated: servers gained hyperthreading_enabled + nic_sas;
+  storage gained the 7 port fields; connections gained a storage_name
+  column (name-based, like server_name/switch_name) - exactly two of the
+  three name columns should be filled per row.
+
 ## v2.3.0 (Dashboard merged into Summary, Compare redesigned)
 
 - Dashboard tab removed - its content (top-line cards) now lives at the
