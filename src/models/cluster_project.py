@@ -146,16 +146,20 @@ class ClusterProject:
     # ------------------------------------------------------------------
 
     def n_plus_one_ok(self, site: str) -> bool | None:
-        """True if the cluster at this site still has enough RAM and cores
-        for all VMs if the single (largest) host went down. None if there
-        are no servers at this site."""
+        """True if the cluster at this site still has enough RAM AND
+        enough cores no matter WHICH single host goes down - RAM headroom
+        is checked against the RAM-largest host, CPU headroom against the
+        cores-largest host, independently (they are not always the same
+        host). None if there are no servers at this site."""
         site_servers = self.servers_at(site)
         if not site_servers:
             return None
 
-        largest = max(site_servers, key=lambda s: s.ram_gb)
-        remaining_ram = self.physical_ram_gb(site) - largest.ram_gb
-        remaining_cores = self.physical_cores(site) - largest.effective_cores
+        largest_ram_host = max(site_servers, key=lambda s: s.ram_gb)
+        largest_core_host = max(site_servers, key=lambda s: s.effective_cores)
+
+        remaining_ram = self.physical_ram_gb(site) - largest_ram_host.ram_gb
+        remaining_cores = self.physical_cores(site) - largest_core_host.effective_cores
 
         ram_ok = remaining_ram >= self.vm_ram_demand_gb(site)
         cpu_ok = remaining_cores >= self.vm_vcpu_demand(site)

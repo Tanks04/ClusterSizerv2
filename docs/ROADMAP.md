@@ -1,5 +1,190 @@
 # ROADMAP
 
+## v2.6.0 (Cluster Preparation redesigned as a Next/Next/Finish wizard)
+
+- Rebuilt the whole dialog as a real QWizard (5 pages: Hypervisor,
+  Workload, Policy, Candidate Host Spec, Result) instead of one long
+  scrollable form - per-decision pages, skip a page and its sensible
+  default applies (N+1 HA, no growth, 20% reserve, VMware if the
+  Hypervisor page is left untouched).
+- New Hypervisor page reuses the SAME vendor presets already on the
+  Settings tab (Thresholds.PRESETS - VMware/Hyper-V/Proxmox/Citrix), so
+  the Result page's "commonly-cited ~4:1 vCPU:pCPU" reference is the
+  exact same number as Settings, not a second independent guess.
+- Workload page no longer asks you to configure 5 utilization
+  percentages as a required step - it reads the Workload Profile already
+  set per VM on the VMs tab and shows the breakdown read-only. Fine-
+  tuning the per-profile defaults is now an explicitly opt-in, unchecked-
+  by-default section ("pick something, tweak later" instead of "you must
+  configure this first").
+- Result page now shows TWO complementary numbers side by side: the
+  workload-weighted host recommendation (drives the actual "buy N hosts"
+  answer) AND a simple raw vCPU:pCPU sanity-check ratio compared against
+  the chosen vendor's typical guidance - both kept, neither replaces the
+  other (a sysadmin-familiar number alongside the more precise one).
+- New Hyperthreading hint on the Result page - ACTUALLY re-runs the
+  sizing calculation with HT flipped and reports the real host-count
+  difference, only shown when there is one (no vague "this workload
+  isn't CPU-heavy" qualitative claims - a computed before/after
+  comparison, or nothing).
+- SizingResult gained `raw_oversubscription_ratio` (src/calculations/
+  cluster_preparation.py) - pure, testable, no Qt dependency, same as
+  the rest of that module.
+
+## v2.5.2 (Cluster Preparation dialog no longer clips on smaller/scaled displays)
+
+- Reported: on 1920x1080 @ 125% Windows scaling, the dialog opened tall
+  and narrow with the bottom (Result section + Add buttons) cut off and
+  unreachable. Cause: a fixed 560x780 size with everything (Policy, Host
+  Spec, 5 workload utilization fields, Result, buttons) stacked in one
+  plain QVBoxLayout - taller than the usable screen height once Windows
+  scaling and taskbar/title bar are accounted for, with nothing to make
+  the overflow reachable. Fixed: the whole content now lives inside a
+  QScrollArea, so it's always fully reachable regardless of screen size
+  or DPI scaling - the window itself opens at a smaller, more reasonable
+  620x700 (down from 560x780) with a 480x400 minimum, and scrolls for
+  the rest instead of relying on fitting everything unscrolled.
+
+## v2.5.1 (Cluster Preparation now also sizes Storage)
+
+- Fixed a real gap: `total_storage_demand_gb` was already being computed
+  but nothing was done with it - the wizard reported the number but
+  never turned it into a recommendation. Now SizingResult includes
+  `recommended_storage_usable_tb`/`recommended_storage_raw_tb` for
+  Primary, and the DR equivalents computed from each VM's OWN DR disk
+  footprint (not primary disk - a VM's DR replica can be smaller). New
+  `storage_overhead_percent` policy field (RAID/EC + headroom, same idea
+  as the Storage tab's own overhead field).
+- "Add Recommended Servers to Project" buttons renamed to "Add
+  Recommended Cluster to Project" (Primary/DR) - now add servers AND a
+  sized storage system together. New `ProjectService.
+  add_servers_and_storages()` does both in ONE undo snapshot, not two,
+  so a single Ctrl+Z removes the whole recommendation.
+- Verified end-to-end: after adding the recommended cluster, the
+  project's own Storage usable capacity is sufficient for the VMs' total
+  disk demand - the wizard's output and the app's own capacity math
+  agree (same consistency property already verified for hosts/N+1 in
+  v2.5.0).
+- Network intentionally NOT sized by the wizard - switch/port count
+  doesn't follow principally from VM count the way CPU/RAM/storage do
+  (it depends on physical topology choices the wizard has no way to
+  know). Left as a manual step on the Network tab; flagged in ROADMAP
+  as a possible v3 addition if a reasonable heuristic emerges.
+
+## v2.5.0 (Cluster Preparation - reverse sizing)
+
+- New "🧮 Cluster Preparation" button on the VMs tab (enabled once there's
+  at least one VM). Answers a genuinely different question than the rest
+  of the app: not "given the servers I HAVE, do these VMs fit" (the
+  existing oversubscription-ratio checks on Summary/VMs/Reports/Compare,
+  unchanged), but "given the VMs I NEED to run, how many hosts should I
+  buy". Two complementary calculations, not one replacing the other -
+  see src/calculations/cluster_preparation.py's module docstring.
+- VirtualMachine gained `workload_profile` (CPU Intensive / Balanced /
+  Memory Intensive / Storage Intensive / Light), each with an assumed
+  average CPU utilization % (src/models/workload_profile.py) - editable
+  per-project in the wizard, since these are sizing ASSUMPTIONS, not
+  measurements. Purely additive: doesn't touch the existing flat
+  vCPU:pCPU oversubscription-ratio math anywhere else in the app.
+- Sizing accounts for: workload-weighted effective vCPU demand, a memory
+  reserve % (hypervisor/mgmt overhead), expected growth %, HA policy
+  (None/Basic/N+1/N+2), and a candidate host spec you're sizing against.
+  Reports which resource (CPU or RAM) was the binding constraint, so
+  "why 4 hosts" has an answer.
+- DR sizing deliberately reuses each VM's EXISTING dr_protected flag +
+  per-VM DR footprint (already on the VMs tab) instead of inventing a
+  parallel "DR tier" concept - one source of truth for "what needs to
+  run on DR", not two that can drift apart.
+- Deliberately excludes CPU vendor/model suggestions (stays at "required
+  cores: 48, recommended: 2x24-core") - per docs/vision.md's explicit
+  scope guard against becoming a hardware shopping tool.
+- "Add Recommended Servers to Project" turns the result directly into
+  real Server rows (via the existing add_servers batch method - one
+  undo step) at Primary and/or DR, pre-filled with the candidate host
+  spec, ready to review/adjust like any other server.
+- Verified end-to-end: a wizard recommendation, applied back to the
+  project as real servers, passes the project's OWN N+1 check and shows
+  OK-status CPU/RAM ratios on the existing oversubscription math - the
+  two calculation directions agree with each other (regression test:
+  test_cluster_preparation.py::test_recommendation_survives_own_n_plus_one_check).
+
+## v2.4.3 (external audit fix pass - 22 of 26 issues)
+
+An external code audit (issues.md, 26 findings from a manual read of all
+46 Python files) turned out to be accurate on every issue independently
+verified - all 4 "blocking" findings reproduced with concrete numbers
+before being fixed. Fixed in this pass:
+
+- **Blocking:** S1 (`_bool()` ignored `default` for blank CSV cells -
+  every VM with an empty `powered_on` column imported as powered off),
+  S2 (N+1 check picked one host by RAM then checked CPU headroom against
+  that same host - a heterogeneous cluster could report N+1-ready while
+  actually failing on CPU), S3 (Settings thresholds were never persisted
+  to `.clsz` - reset to defaults on every reopen; now schema v3, with v2
+  files loading fine via existing schema-drift tolerance), S8 (`int()` on
+  socket/core CSV fields crashed on Excel-round-tripped "2.0" strings).
+- **High:** S4 (QWidget had no background-color, unreadable in OS dark
+  mode - light theme is now explicit, not half-native), S5
+  (`ClusterSizer.spec` didn't exist in this checkout - written fresh,
+  bundling `src/resources/`; `main.py` now resolves resource paths
+  correctly under a frozen PyInstaller build via `_resource_root()`, and
+  logs to stderr instead of failing silently when a resource is
+  missing), S6 (crash log moved to `~/.clustersizer/crash.log`, wrapped
+  in try/except - an unwritable install directory could previously
+  prevent the app from starting at all).
+- **Medium:** S9 (three "cannot be undone" dialogs were false - Clear All
+  is undoable), S10 (Duplicate on Storage/VMs/Switches/Connections now
+  batches into one undo snapshot, not N - new `add_storages`/
+  `add_switches`/`add_connections` service methods), S11 (PDF/text report
+  now stamps the app version - `src/version.py` is the single source,
+  avoiding a main_window<->reports_page circular import), S12 ("Export
+  All CSV" now writes all 5 entity types, not 3), S13
+  (`projects_are_identical` compared `uid`s, which are random per
+  instance - now compares value fields excluding `uid`; `project.name`
+  deliberately doesn't participate), S15 (`ComparePage` had reintroduced
+  persistent `QHeaderView.ResizeToContents`, the exact pattern the
+  v2.0.x-v2.1.1 Windows crash fix removed - now Interactive + a one-shot
+  deferred resize).
+- **Low:** S16 (`save_user_profiles` OSError now caught at the GUI layer
+  - profile save failure warns but doesn't abort the import), S17 (new
+  `report_error()` helper logs full tracebacks to the crash log at all 21
+  sites that used to show only `str(exc)`), S18 (Smart Import wizard
+  preview now converts a 200-row sample per keystroke instead of the
+  whole file - the real import on Accept still processes everything),
+  S19 (all relative `from ..` imports converted to absolute `from src.…`,
+  the majority style - `pyproject.toml`'s `pythonpath` no longer strictly
+  required but kept for convenience), S20 (function-local `copy`/`uuid`
+  imports moved to module level, 5 files), S21 (`switch_port_usage`/
+  `server_nic_usage`/`storage_port_usage` deduplicated into one private
+  `_usage_by_speed()` helper behind three thin typed wrappers), S23
+  (stale "Dashboard" references updated to "Summary" - the two
+  intentional-history mentions in `summary_page.py` left untouched), S25
+  (`.github/workflows/tests.yml` runs pytest on push/PR), S26 (deleted
+  `src/utils/__init__.py` and `src/resources/__init__.py` - dead
+  scaffolding for a directory with no Python code and a data-only
+  directory respectively).
+- **T0:** `pyproject.toml`, `requirements-dev.txt`, `tests/` with
+  regression tests for S1, S2, S3, S8, S13.
+
+**Not fixed - needs a decision, not a mechanical edit (per the audit's
+own "ask first" list):**
+- **S7** — `py2exe.txt` (build/release instructions) is gone from this
+  checkout; unclear whether that was deliberate.
+- **S14** — Storage TB→GB uses binary (×1024) while VM disk figures are
+  plain decimal GB, a ~2.4%/TB headroom overstatement. Standardizing
+  changes sizing output for every existing project - product decision.
+  (The doc-only part of S14 - the README overselling RAID/EC as
+  "calculated automatically" - IS fixed above.)
+- **S22** — `ServersPage._refresh_ht_global` duplicates
+  `ClusterProject.hyperthreading_state`'s classification logic because
+  the model method is per-site and the page needs an all-sites view plus
+  raw counts for its "(3/8 have HT on)" label. Needs a deliberate
+  site-agnostic API addition, not a forced substitution.
+- **S24** — the .gitignore Croatian comment IS fixed above. The
+  README "Thanks" section, as reconstructed for this fix pass, has no
+  Croatian text - the audit's finding may reflect a different local
+  state of that file than what this pass had to work from.
+
 ## v2.4.2 (PDF report export)
 
 - Reports tab gained "📄 Export PDF Report" next to the existing .txt

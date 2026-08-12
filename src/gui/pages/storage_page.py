@@ -1,3 +1,6 @@
+import copy
+import uuid
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -11,10 +14,11 @@ from PySide6.QtWidgets import (
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
 
-from ..dialogs.storage_dialog import StorageDialog
-from ..models.storage_table_model import StorageTableModel
-from ..widgets.summary_widget import SummaryWidget
-from ..widgets.multi_select_table import MultiSelectTableView
+from src.gui.dialogs.storage_dialog import StorageDialog
+from src.gui.models.storage_table_model import StorageTableModel
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.error_handling import report_error
 
 
 class StoragePage(QWidget):
@@ -131,14 +135,14 @@ class StoragePage(QWidget):
             QMessageBox.information(self, "Copy", "Select at least one storage system in the table.")
             return
 
-        import copy
-        import uuid
-
+        copies = []
         for storage in storages:
             new_storage = copy.deepcopy(storage)
             new_storage.uid = str(uuid.uuid4())
             new_storage.name = f"{new_storage.name} (copy)" if new_storage.name else new_storage.name
-            self.service.add_storage(new_storage)
+            copies.append(new_storage)
+
+        self.service.add_storages(copies)
 
     def _import_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import Storage CSV", "", "CSV (*.csv)")
@@ -150,7 +154,7 @@ class StoragePage(QWidget):
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
-            QMessageBox.critical(self, "Import Error", str(exc))
+            report_error(self, "Import Error", exc)
 
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export Storage CSV", "storage.csv", "CSV (*.csv)")
@@ -160,7 +164,7 @@ class StoragePage(QWidget):
             self.service.export_storages_csv(path)
             QMessageBox.information(self, "Export", "Storage exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _clear_all(self):
         if not self.service.project.storages:
@@ -168,7 +172,7 @@ class StoragePage(QWidget):
         confirm = QMessageBox.question(
             self, "Clear All",
             f"Delete ALL {len(self.service.project.storages)} storage system(s)? "
-            "This cannot be undone.",
+            "You can undo with Ctrl+Z.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_storages()

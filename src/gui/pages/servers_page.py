@@ -1,3 +1,6 @@
+import copy
+import uuid
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -13,10 +16,11 @@ from PySide6.QtWidgets import (
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
 
-from ..dialogs.server_dialog import ServerDialog
-from ..models.server_table_model import ServerTableModel
-from ..widgets.summary_widget import SummaryWidget
-from ..widgets.multi_select_table import MultiSelectTableView
+from src.gui.dialogs.server_dialog import ServerDialog
+from src.gui.models.server_table_model import ServerTableModel
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.error_handling import report_error
 
 
 class ServersPage(QWidget):
@@ -165,9 +169,6 @@ class ServersPage(QWidget):
             QMessageBox.information(self, "Copy", "Select at least one server in the table.")
             return
 
-        import copy
-        import uuid
-
         copies = []
         for server in servers:
             new_server = copy.deepcopy(server)
@@ -187,7 +188,7 @@ class ServersPage(QWidget):
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
-            QMessageBox.critical(self, "Import Error", str(exc))
+            report_error(self, "Import Error", exc)
 
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export Servers CSV", "servers.csv", "CSV (*.csv)")
@@ -197,14 +198,14 @@ class ServersPage(QWidget):
             self.service.export_servers_csv(path)
             QMessageBox.information(self, "Export", "Servers exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _clear_all(self):
         if not self.service.project.servers:
             return
         confirm = QMessageBox.question(
             self, "Clear All",
-            f"Delete ALL {len(self.service.project.servers)} server(s)? This cannot be undone.",
+            f"Delete ALL {len(self.service.project.servers)} server(s)? You can undo with Ctrl+Z.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_servers()

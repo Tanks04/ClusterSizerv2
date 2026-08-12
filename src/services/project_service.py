@@ -18,7 +18,7 @@ MAX_UNDO_DEPTH = 50
 class ProjectService(QObject):
     """Central service class for working with the active project.
 
-    `changed` is the general signal (for Dashboard/Summary/Reports/window
+    `changed` is the general signal (for Summary/Reports/window
     title - pages that need to know about ANY change). servers_changed /
     storages_changed / vms_changed / network_changed are narrower signals -
     each CRUD table subscribes to ONLY its own, so it doesn't run
@@ -172,7 +172,7 @@ class ProjectService(QObject):
         if target is None:
             raise ValueError("No path given to save the project to.")
 
-        project_repository.save_project(self._project, target)
+        project_repository.save_project(self._project, target, self._thresholds)
         self._current_path = target
         self._dirty = False
         return target
@@ -183,11 +183,13 @@ class ProjectService(QObject):
         'save as and keep editing here' operation. You keep working on the
         original; load the copy later on the Compare page as Scenario B."""
         target = Path(path)
-        project_repository.save_project(self._project, target)
+        project_repository.save_project(self._project, target, self._thresholds)
         return target
 
     def load_project(self, path: str | Path) -> None:
-        self._project = project_repository.load_project(path)
+        loaded = project_repository.load_project(path)
+        self._project = loaded.project
+        self._thresholds = loaded.thresholds
         self._current_path = Path(path)
         self._dirty = False
         self._clear_undo_history()
@@ -207,6 +209,18 @@ class ProjectService(QObject):
         self._push_undo_snapshot()
         self._project.servers.extend(servers)
         self._notify(self.servers_changed)
+
+    def add_servers_and_storages(self, servers: list[Server], storages: list[Storage]) -> None:
+        """Add both at once as ONE undoable action (one snapshot, not two)
+        - used by Cluster Preparation's "Add Recommended Cluster" buttons,
+        so a single Ctrl+Z removes the whole recommendation, servers and
+        storage together, not just half of it."""
+        self._push_undo_snapshot()
+        self._project.servers.extend(servers)
+        self._project.storages.extend(storages)
+        self.servers_changed.emit()
+        self.storages_changed.emit()
+        self._notify()
 
     def set_all_servers_hyperthreading(self, enabled: bool) -> None:
         """Bulk-sets hyperthreading_enabled on every server at once - one
@@ -253,6 +267,13 @@ class ProjectService(QObject):
     def add_storage(self, storage: Storage) -> None:
         self._push_undo_snapshot()
         self._project.storages.append(storage)
+        self._notify(self.storages_changed)
+
+    def add_storages(self, storages: list[Storage]) -> None:
+        """Batch add - a single undo snapshot and changed signal for the
+        whole group (mirrors add_servers/add_vms)."""
+        self._push_undo_snapshot()
+        self._project.storages.extend(storages)
         self._notify(self.storages_changed)
 
     def update_storage(self, index: int, storage: Storage) -> None:
@@ -332,6 +353,13 @@ class ProjectService(QObject):
         self._project.switches.append(switch)
         self._notify(self.network_changed)
 
+    def add_switches(self, switches: list[NetworkSwitch]) -> None:
+        """Batch add - a single undo snapshot and changed signal for the
+        whole group (mirrors add_servers/add_vms)."""
+        self._push_undo_snapshot()
+        self._project.switches.extend(switches)
+        self._notify(self.network_changed)
+
     def update_switch(self, index: int, switch: NetworkSwitch) -> None:
         self._push_undo_snapshot()
         self._project.switches[index] = switch
@@ -367,6 +395,13 @@ class ProjectService(QObject):
     def add_connection(self, connection: NetworkConnection) -> None:
         self._push_undo_snapshot()
         self._project.connections.append(connection)
+        self._notify(self.network_changed)
+
+    def add_connections(self, connections: list[NetworkConnection]) -> None:
+        """Batch add - a single undo snapshot and changed signal for the
+        whole group (mirrors add_servers/add_vms)."""
+        self._push_undo_snapshot()
+        self._project.connections.extend(connections)
         self._notify(self.network_changed)
 
     def update_connection(self, index: int, connection: NetworkConnection) -> None:

@@ -16,6 +16,7 @@ from pathlib import Path
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
+from src.models.workload_profile import WORKLOAD_PROFILE_NAMES, DEFAULT_WORKLOAD_PROFILE
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 
@@ -42,7 +43,8 @@ STORAGE_FIELDS = [
 
 VM_FIELDS = [
     "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on",
-    "dr_protected", "dr_vcpu", "dr_ram_gb", "dr_disk_gb", "notes",
+    "dr_protected", "dr_vcpu", "dr_ram_gb", "dr_disk_gb",
+    "workload_profile", "notes",
 ]
 
 SWITCH_FIELDS = [
@@ -81,8 +83,12 @@ def _write_rows(path: str | Path, fieldnames: list[str], rows: list[dict]) -> No
 
 
 def _bool(value, default: bool = True) -> bool:
-    text = str(value if value is not None else default).strip().lower()
-    return text not in ("false", "0", "no", "")
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text == "":
+        return default
+    return text not in ("false", "0", "no")
 
 
 # ----------------------------------------------------------------------
@@ -102,9 +108,9 @@ def import_servers(path: str | Path) -> list[Server]:
                 model=row.get("model", ""),
                 cpu_vendor=row.get("cpu_vendor", "Intel"),
                 cpu_model=row.get("cpu_model", ""),
-                sockets=int(row.get("sockets") or 2),
-                cores_per_socket=int(row.get("cores_per_socket") or 16),
-                threads_per_core=int(row.get("threads_per_core") or 2),
+                sockets=int(float(row.get("sockets") or 2)),
+                cores_per_socket=int(float(row.get("cores_per_socket") or 16)),
+                threads_per_core=int(float(row.get("threads_per_core") or 2)),
                 hyperthreading_enabled=_bool(row.get("hyperthreading_enabled"), default=True),
                 ram_gb=int(float(row.get("ram_gb") or 256)),
                 cpu_frequency=float(row.get("cpu_frequency") or 2.5),
@@ -175,6 +181,9 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
         ram_gb = float(row.get("ram_gb") or 8)
         disk_gb = float(row.get("disk_gb") or 100)
         dr_protected = _bool(row.get("dr_protected"), default=False)
+        workload_profile = row.get("workload_profile") or DEFAULT_WORKLOAD_PROFILE
+        if workload_profile not in WORKLOAD_PROFILE_NAMES:
+            workload_profile = DEFAULT_WORKLOAD_PROFILE
         vms.append(
             VirtualMachine(
                 uid=default.uid,
@@ -188,6 +197,7 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
                 dr_vcpu=int(float(row.get("dr_vcpu") or vcpu)),
                 dr_ram_gb=float(row.get("dr_ram_gb") or ram_gb),
                 dr_disk_gb=float(row.get("dr_disk_gb") or disk_gb),
+                workload_profile=workload_profile,
                 notes=row.get("notes", "") or "",
             )
         )

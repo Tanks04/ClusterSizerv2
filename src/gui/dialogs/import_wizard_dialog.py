@@ -23,6 +23,7 @@ from src.models.import_profile import (
 )
 from src.persistence import generic_import, import_presets, import_profile_store
 from src.persistence.import_engine import best_matching_profile, convert_rows
+from src.gui.error_handling import report_error
 
 FIELD_LABELS = {
     "name": "Name *",
@@ -150,7 +151,7 @@ class ImportWizardDialog(QDialog):
             try:
                 sheets = generic_import.sheet_names(self.path)
             except generic_import.UnsupportedFileError as exc:
-                QMessageBox.critical(self, "Import Error", str(exc))
+                report_error(self, "Import Error", exc)
                 self.reject()
                 return
             if len(sheets) > 1:
@@ -289,6 +290,12 @@ class ImportWizardDialog(QDialog):
     # Live result preview + final import
     # ------------------------------------------------------------------
 
+    # Live preview re-converts on every combo box change, so it's capped
+    # to a sample - the real import (on accept) always recomputes over
+    # the full file, independently of this. Only the LIVE COUNT shown
+    # while adjusting mappings is an estimate on large files.
+    _PREVIEW_SAMPLE_SIZE = 200
+
     def _update_result_preview(self):
         profile = self._build_profile_from_ui()
         if not profile.is_complete():
@@ -297,11 +304,23 @@ class ImportWizardDialog(QDialog):
             self.imported_vms = []
             return
 
-        vms, skipped = convert_rows(self._data_rows, profile, site=self.default_site_combo.currentText())
-        self.imported_vms = vms
-        text = f"Ready to import {len(vms)} VM(s)."
-        if skipped:
-            text += f" ({skipped} skipped by name-prefix filter.)"
+        total_rows = len(self._data_rows)
+        sample = self._data_rows[: self._PREVIEW_SAMPLE_SIZE]
+        vms, skipped = convert_rows(sample, profile, site=self.default_site_combo.currentText())
+        self.imported_vms = vms  # overwritten with the full-file result in _on_accept()
+
+        if total_rows > self._PREVIEW_SAMPLE_SIZE:
+            text = (
+                f"Preview (first {self._PREVIEW_SAMPLE_SIZE} of {total_rows} rows): "
+                f"{len(vms)} ready"
+            )
+            if skipped:
+                text += f", {skipped} skipped"
+            text += ". The full file is processed when you click OK."
+        else:
+            text = f"Ready to import {len(vms)} VM(s)."
+            if skipped:
+                text += f" ({skipped} skipped by name-prefix filter.)"
         self.result_label.setText(text)
 
     def _on_accept(self):
@@ -322,7 +341,15 @@ class ImportWizardDialog(QDialog):
             if not name:
                 QMessageBox.warning(self, "Import", "Enter a name for the profile, or uncheck 'Save this mapping'.")
                 return
-            import_profile_store.add_or_replace_profile(self._build_profile_from_ui(name=name))
+            try:
+                import_profile_store.add_or_replace_profile(self._build_profile_from_ui(name=name))
+            except OSError as exc:
+                QMessageBox.warning(
+                    self, "Profile Not Saved",
+                    f"The mapping profile could not be saved ({exc}), but the "
+                    "import will continue - you'll just need to map this "
+                    "format again next time.",
+                )
 
         self.accept()
 

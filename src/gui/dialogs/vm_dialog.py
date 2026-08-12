@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
+    QLabel,
     QLineEdit,
     QSpinBox,
     QDoubleSpinBox,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.virtual_machine import VirtualMachine
+from src.models.workload_profile import WORKLOAD_PROFILE_NAMES, WORKLOAD_PROFILES, DEFAULT_WORKLOAD_PROFILE
 
 
 class VMDialog(QDialog):
@@ -56,6 +58,24 @@ class VMDialog(QDialog):
         self.disk_spin.setValue(100.0)
         self.disk_spin.valueChanged.connect(self._sync_dr_defaults)
         layout.addRow("Disk", self.disk_spin)
+
+        #
+        # Workload profile - feeds Cluster Preparation sizing (see the
+        # VirtualMachine docstring). Purely informational/unused by the
+        # existing oversubscription-ratio math elsewhere in the app.
+        #
+
+        self.workload_combo = QComboBox()
+        self.workload_combo.addItems(WORKLOAD_PROFILE_NAMES)
+        self.workload_combo.setCurrentText(DEFAULT_WORKLOAD_PROFILE)
+        self.workload_combo.currentTextChanged.connect(self._update_workload_description)
+        layout.addRow("Workload Profile", self.workload_combo)
+
+        self.workload_description_label = QLabel("")
+        self.workload_description_label.setWordWrap(True)
+        self.workload_description_label.setStyleSheet("color: #757575; font-style: italic;")
+        layout.addRow("", self.workload_description_label)
+        self._update_workload_description()
 
         self.powered_check = QCheckBox("Powered on")
         self.powered_check.setChecked(True)
@@ -114,6 +134,14 @@ class VMDialog(QDialog):
     def _mark_dr_manual(self) -> None:
         self._dr_manually_edited = True
 
+    def _update_workload_description(self) -> None:
+        profile = WORKLOAD_PROFILES.get(self.workload_combo.currentText())
+        if profile:
+            self.workload_description_label.setText(
+                f"{profile.description} (assumed {profile.default_cpu_utilization * 100:.0f}% "
+                "avg CPU utilization for sizing - adjustable in Cluster Preparation)."
+            )
+
     def _sync_dr_defaults(self) -> None:
         """Until the user manually touches the DR fields, keep them synced
         with the Primary values - most VMs are replicated 1:1 anyway, this
@@ -142,6 +170,9 @@ class VMDialog(QDialog):
         self.disk_spin.setValue(vm.disk_gb)
         self.powered_check.setChecked(vm.powered_on)
 
+        self.workload_combo.setCurrentText(vm.workload_profile)
+        self._update_workload_description()
+
         self.dr_check.setChecked(vm.dr_protected)
         self.dr_box.setEnabled(vm.dr_protected)
 
@@ -162,6 +193,7 @@ class VMDialog(QDialog):
         vm.ram_gb = self.ram_spin.value()
         vm.disk_gb = self.disk_spin.value()
         vm.powered_on = self.powered_check.isChecked()
+        vm.workload_profile = self.workload_combo.currentText()
 
         vm.dr_protected = self.dr_check.isChecked()
         vm.dr_vcpu = self.dr_vcpu_spin.value()

@@ -11,24 +11,26 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
-from ..services.project_service import ProjectService
-from ..persistence.project_repository import FILE_EXTENSION
-from ..persistence.csv_io import CsvSchemaError
+from src.services.project_service import ProjectService
+from src.persistence.project_repository import FILE_EXTENSION
+from src.version import VERSION as APP_VERSION
+from src.persistence.csv_io import CsvSchemaError
 
-from .pages.servers_page import ServersPage
-from .pages.storage_page import StoragePage
-from .pages.virtual_machines_page import VirtualMachinesPage
-from .pages.network_page import NetworkPage
-from .pages.summary_page import SummaryPage
-from .pages.compare_page import ComparePage
-from .pages.reports_page import ReportsPage
-from .pages.settings_page import SettingsPage
-from .widgets.lazy_tab_container import LazyTabContainer
+from src.gui.pages.servers_page import ServersPage
+from src.gui.pages.storage_page import StoragePage
+from src.gui.pages.virtual_machines_page import VirtualMachinesPage
+from src.gui.pages.network_page import NetworkPage
+from src.gui.pages.summary_page import SummaryPage
+from src.gui.pages.compare_page import ComparePage
+from src.gui.pages.reports_page import ReportsPage
+from src.gui.pages.settings_page import SettingsPage
+from src.gui.widgets.lazy_tab_container import LazyTabContainer
+from src.gui.error_handling import report_error
 
 
 class MainWindow(QMainWindow):
 
-    VERSION = "2.4.2"
+    VERSION = APP_VERSION
 
     def __init__(self, project_service: ProjectService):
         super().__init__()
@@ -161,7 +163,7 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(tabs)
 
-        # Build whichever tab is visible right away (index 0, Dashboard) -
+        # Build whichever tab is visible right away (index 0, Summary) -
         # that one genuinely is being shown immediately, so it's not part
         # of the hidden-then-shown pattern this is working around.
         self._on_tab_changed(tabs.currentIndex())
@@ -222,7 +224,7 @@ class MainWindow(QMainWindow):
         try:
             self.project_service.load_project(path)
         except Exception as exc:
-            QMessageBox.critical(self, "Open Error", str(exc))
+            report_error(self, "Open Error", exc)
 
     def _save_project(self):
         if self.project_service.current_path is None:
@@ -233,7 +235,7 @@ class MainWindow(QMainWindow):
             self.project_service.save_project()
             self._update_title()
         except Exception as exc:
-            QMessageBox.critical(self, "Save Error", str(exc))
+            report_error(self, "Save Error", exc)
 
     def _save_project_as(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -252,7 +254,7 @@ class MainWindow(QMainWindow):
             self.project_service.save_project(path)
             self._update_title()
         except Exception as exc:
-            QMessageBox.critical(self, "Save Error", str(exc))
+            report_error(self, "Save Error", exc)
 
     def _save_scenario_copy(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -278,7 +280,7 @@ class MainWindow(QMainWindow):
                 "to compare it against another scenario.",
             )
         except Exception as exc:
-            QMessageBox.critical(self, "Save Error", str(exc))
+            report_error(self, "Save Error", exc)
 
     def _rename_project(self):
         name, ok = QInputDialog.getText(
@@ -323,7 +325,7 @@ class MainWindow(QMainWindow):
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
-            QMessageBox.critical(self, "Import Error", str(exc))
+            report_error(self, "Import Error", exc)
 
     def _export_csv(self):
         kinds = ["Servers", "Storage", "VMs", "Switches", "Connections"]
@@ -352,7 +354,7 @@ class MainWindow(QMainWindow):
                 self.project_service.export_connections_csv(path)
             QMessageBox.information(self, "Export", f"{kind} exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _show_about(self):
         QMessageBox.information(

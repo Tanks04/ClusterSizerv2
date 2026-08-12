@@ -6,9 +6,9 @@ from src.models.virtual_machine import VirtualMachine
 
 class VMTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "vCPU", "RAM (GB)", "Disk (GB)", "Power", "DR Protected"]
+    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Protected"]
 
-    EDITABLE_COLUMNS = {2, 3, 4}  # vCPU, RAM, Disk
+    EDITABLE_COLUMNS = {2, 4, 5}  # vCPU, RAM, Disk
 
     def __init__(
         self,
@@ -55,12 +55,14 @@ class VMTableModel(QAbstractTableModel):
             case 2:
                 return vm.vcpu
             case 3:
-                return vm.ram_gb
+                return vm.workload_profile
             case 4:
-                return vm.disk_gb
+                return vm.ram_gb
             case 5:
-                return "On" if vm.powered_on else "Off"
+                return vm.disk_gb
             case 6:
+                return "On" if vm.powered_on else "Off"
+            case 7:
                 if vm.dr_protected:
                     return f"✓ {vm.dr_vcpu}vCPU/{vm.dr_ram_gb:.0f}GB/{vm.dr_disk_gb:.0f}GB"
                 return "-"
@@ -79,9 +81,9 @@ class VMTableModel(QAbstractTableModel):
             match index.column():
                 case 2:
                     vm.vcpu = max(1, int(value))
-                case 3:
-                    vm.ram_gb = max(0.1, float(value))
                 case 4:
+                    vm.ram_gb = max(0.1, float(value))
+                case 5:
                     vm.disk_gb = max(0.1, float(value))
                 case _:
                     return False

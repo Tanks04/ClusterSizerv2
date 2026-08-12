@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from src.models.network_connection import SPEED_OPTIONS, SPEED_ATTR
 from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
+from src.models.storage import Storage
 from src.models.network_connection import NetworkConnection
 
 
@@ -31,49 +32,40 @@ class PortUsage:
         return self.used > self.total
 
 
-def switch_port_usage(switch: NetworkSwitch, connections: list[NetworkConnection]) -> list[PortUsage]:
+def _usage_by_speed(
+    device, uid_attr: str, port_prefix: str, connections: list[NetworkConnection]
+) -> list[PortUsage]:
+    """Shared implementation behind switch_port_usage/server_nic_usage/
+    storage_port_usage - they differ only in which Connection uid field
+    they match (`switch_uid`/`server_uid`/`storage_uid`) and which
+    attribute prefix holds the declared port counts (`ports_`/`nic_`).
+    Kept as public thin wrappers below (not collapsed into one function
+    with a "kind" parameter) so callers keep type-specific signatures."""
+    device_uid = device.uid
     used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
     for conn in connections:
-        if conn.switch_uid == switch.uid and conn.speed in used_by_speed:
+        if getattr(conn, uid_attr) == device_uid and conn.speed in used_by_speed:
             used_by_speed[conn.speed] += 1
 
     result = []
     for speed in SPEED_OPTIONS:
-        total = getattr(switch, f"ports_{SPEED_ATTR[speed]}")
+        total = getattr(device, f"{port_prefix}{SPEED_ATTR[speed]}")
         used = used_by_speed[speed]
         if total > 0 or used > 0:
             result.append(PortUsage(speed=speed, total=total, used=used))
     return result
+
+
+def switch_port_usage(switch: NetworkSwitch, connections: list[NetworkConnection]) -> list[PortUsage]:
+    return _usage_by_speed(switch, "switch_uid", "ports_", connections)
 
 
 def server_nic_usage(server: Server, connections: list[NetworkConnection]) -> list[PortUsage]:
-    used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
-    for conn in connections:
-        if conn.server_uid == server.uid and conn.speed in used_by_speed:
-            used_by_speed[conn.speed] += 1
-
-    result = []
-    for speed in SPEED_OPTIONS:
-        total = getattr(server, f"nic_{SPEED_ATTR[speed]}")
-        used = used_by_speed[speed]
-        if total > 0 or used > 0:
-            result.append(PortUsage(speed=speed, total=total, used=used))
-    return result
+    return _usage_by_speed(server, "server_uid", "nic_", connections)
 
 
-def storage_port_usage(storage, connections: list[NetworkConnection]) -> list[PortUsage]:
-    used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
-    for conn in connections:
-        if conn.storage_uid == storage.uid and conn.speed in used_by_speed:
-            used_by_speed[conn.speed] += 1
-
-    result = []
-    for speed in SPEED_OPTIONS:
-        total = getattr(storage, f"ports_{SPEED_ATTR[speed]}")
-        used = used_by_speed[speed]
-        if total > 0 or used > 0:
-            result.append(PortUsage(speed=speed, total=total, used=used))
-    return result
+def storage_port_usage(storage: Storage, connections: list[NetworkConnection]) -> list[PortUsage]:
+    return _usage_by_speed(storage, "storage_uid", "ports_", connections)
 
 
 def format_usage(usages: list[PortUsage]) -> str:

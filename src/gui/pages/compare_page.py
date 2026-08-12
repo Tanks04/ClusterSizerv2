@@ -1,6 +1,7 @@
+import copy
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -23,7 +24,8 @@ from src.persistence import project_repository
 from src.persistence.project_repository import FILE_EXTENSION
 from src.services.project_service import ProjectService
 
-from ..widgets.summary_widget import SummaryWidget
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.error_handling import report_error
 
 SECTION_BG = QColor("#eceff1")
 DIFF_BG = QColor("#fff8e1")
@@ -92,7 +94,7 @@ class ComparePage(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table, stretch=1)
@@ -152,13 +154,11 @@ class ComparePage(QWidget):
         self._load_into("B")
 
     def _use_current_a(self):
-        import copy
         self.scenario_a = copy.deepcopy(self.service.project)
         self.scenario_a_label = f"{self.service.project.name} (current, snapshot)"
         self._refresh()
 
     def _use_current_b(self):
-        import copy
         self.scenario_b = copy.deepcopy(self.service.project)
         self.scenario_b_label = f"{self.service.project.name} (current, snapshot)"
         self._refresh()
@@ -170,9 +170,9 @@ class ComparePage(QWidget):
         if not path:
             return
         try:
-            project = project_repository.load_project(path)
+            project = project_repository.load_project(path).project
         except Exception as exc:
-            QMessageBox.critical(self, "Load Error", str(exc))
+            report_error(self, "Load Error", exc)
             return
 
         if slot_name == "A":
@@ -249,3 +249,10 @@ class ComparePage(QWidget):
             self.table.setItem(row_index, 0, item_label)
             self.table.setItem(row_index, 1, item_a)
             self.table.setItem(row_index, 2, item_b)
+
+        # One-shot column-0 width computation, deferred to the next event
+        # loop tick - NOT a persistent ResizeToContents mode. See
+        # MultiSelectTableView's docstring for why persistent
+        # ResizeToContents is avoided everywhere else in this app (the
+        # Windows access-violation crash hunt, v2.0.x-v2.1.1).
+        QTimer.singleShot(0, lambda: self.table.resizeColumnToContents(0))

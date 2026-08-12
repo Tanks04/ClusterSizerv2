@@ -34,6 +34,10 @@ def load_user_profiles() -> list[ImportProfile]:
 
 
 def save_user_profiles(profiles: list[ImportProfile]) -> None:
+    """Raises OSError on a read-only/unwritable config dir - deliberately
+    not swallowed here, so the GUI caller can decide how to degrade (show
+    a non-fatal warning and continue) rather than this Qt-free module
+    guessing at UI behaviour."""
     PROFILES_PATH.parent.mkdir(parents=True, exist_ok=True)
     data = [asdict(p) for p in profiles if not p.built_in]
     PROFILES_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

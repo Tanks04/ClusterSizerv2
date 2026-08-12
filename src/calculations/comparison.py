@@ -2,22 +2,41 @@
 metrics table for two ClusterProjects under the same Thresholds. No Qt
 dependency, so it's testable on its own."""
 
+from dataclasses import asdict
+
 from src.calculations.sizing import build_reports
 from src.calculations.thresholds import Thresholds
 from src.models.cluster_project import ClusterProject
 
 
+def _without_uid(entity) -> dict:
+    data = asdict(entity)
+    data.pop("uid", None)
+    return data
+
+
 def projects_are_identical(a: ClusterProject, b: ClusterProject) -> bool:
-    """True if every entity list matches exactly - the situation you get
-    right after 'Save Scenario Copy As' if you haven't changed anything
-    since. Used by the Compare page to explain a same-looking comparison
-    instead of leaving it looking like a bug."""
+    """True if every entity list matches on VALUE fields (everything
+    except `uid`, which is a random per-instance identifier and would
+    make two independently-built-but-equivalent projects compare as
+    different otherwise). This is the situation you get right after
+    'Save Scenario Copy As' if you haven't changed anything since. Used
+    by the Compare page to explain a same-looking comparison instead of
+    leaving it looking like a bug.
+
+    `project.name` deliberately does NOT participate - two scenarios that
+    differ only by name still have identical contents, which is the
+    thing this function is answering. Comparison is order-sensitive
+    (list position matters, matching dataclass list equality) - this is
+    fine for the "did I just re-save the same data" case this exists
+    for, but two projects with the same rows in a different order will
+    compare as different."""
     return (
-        a.servers == b.servers
-        and a.storages == b.storages
-        and a.vms == b.vms
-        and a.switches == b.switches
-        and a.connections == b.connections
+        [_without_uid(x) for x in a.servers] == [_without_uid(x) for x in b.servers]
+        and [_without_uid(x) for x in a.storages] == [_without_uid(x) for x in b.storages]
+        and [_without_uid(x) for x in a.vms] == [_without_uid(x) for x in b.vms]
+        and [_without_uid(x) for x in a.switches] == [_without_uid(x) for x in b.switches]
+        and [_without_uid(x) for x in a.connections] == [_without_uid(x) for x in b.connections]
     )
 
 

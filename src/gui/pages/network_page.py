@@ -1,3 +1,6 @@
+import copy
+import uuid
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -16,12 +19,13 @@ from src.persistence.csv_io import CsvSchemaError
 from src.calculations.networking import site_port_usage, format_usage, any_over_committed
 from src.models.cluster_project import PRIMARY, DR
 
-from ..dialogs.switch_dialog import SwitchDialog
-from ..dialogs.connection_dialog import ConnectionDialog
-from ..models.switch_table_model import SwitchTableModel
-from ..models.connection_table_model import ConnectionTableModel
-from ..widgets.summary_widget import SummaryWidget
-from ..widgets.multi_select_table import MultiSelectTableView
+from src.gui.dialogs.switch_dialog import SwitchDialog
+from src.gui.dialogs.connection_dialog import ConnectionDialog
+from src.gui.models.switch_table_model import SwitchTableModel
+from src.gui.models.connection_table_model import ConnectionTableModel
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.error_handling import report_error
 
 
 class NetworkPage(QWidget):
@@ -242,12 +246,13 @@ class NetworkPage(QWidget):
         if not switches:
             QMessageBox.information(self, "Copy", "Select at least one switch in the table.")
             return
-        import copy, uuid
+        copies = []
         for switch in switches:
             new_switch = copy.deepcopy(switch)
             new_switch.uid = str(uuid.uuid4())
             new_switch.name = f"{new_switch.name} (copy)" if new_switch.name else new_switch.name
-            self.service.add_switch(new_switch)
+            copies.append(new_switch)
+        self.service.add_switches(copies)
 
     def _import_switches_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import Switches CSV", "", "CSV (*.csv)")
@@ -259,7 +264,7 @@ class NetworkPage(QWidget):
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
-            QMessageBox.critical(self, "Import Error", str(exc))
+            report_error(self, "Import Error", exc)
 
     def _export_switches_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export Switches CSV", "switches.csv", "CSV (*.csv)")
@@ -269,7 +274,7 @@ class NetworkPage(QWidget):
             self.service.export_switches_csv(path)
             QMessageBox.information(self, "Export", "Switches exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _clear_switches(self):
         if not self.service.project.switches:
@@ -331,11 +336,12 @@ class NetworkPage(QWidget):
         if not connections:
             QMessageBox.information(self, "Copy", "Select at least one connection in the table.")
             return
-        import copy, uuid
+        copies = []
         for connection in connections:
             new_conn = copy.deepcopy(connection)
             new_conn.uid = str(uuid.uuid4())
-            self.service.add_connection(new_conn)
+            copies.append(new_conn)
+        self.service.add_connections(copies)
 
     def _import_connections_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import Connections CSV", "", "CSV (*.csv)")
@@ -350,7 +356,7 @@ class NetworkPage(QWidget):
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
-            QMessageBox.critical(self, "Import Error", str(exc))
+            report_error(self, "Import Error", exc)
 
     def _export_connections_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export Connections CSV", "connections.csv", "CSV (*.csv)")
@@ -360,7 +366,7 @@ class NetworkPage(QWidget):
             self.service.export_connections_csv(path)
             QMessageBox.information(self, "Export", "Connections exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _clear_connections(self):
         if not self.service.project.connections:

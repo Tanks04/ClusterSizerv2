@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import uuid
 
+from src.models.workload_profile import DEFAULT_WORKLOAD_PROFILE
+
 
 @dataclass
 class VirtualMachine:
@@ -10,6 +12,16 @@ class VirtualMachine:
     1:1 to DR (e.g. replicated with fewer resources, or not replicated at
     all). When dr_protected=False, the VM is not counted in DR failover
     demand - it only consumes resources at its home (site) location.
+
+    workload_profile feeds the Cluster Preparation sizing wizard (see
+    src/calculations/cluster_preparation.py) - it does NOT affect the
+    existing oversubscription ratio math on Summary/VMs/Reports, which
+    stays a flat vCPU:pCPU ratio. These are two different, complementary
+    calculations: the existing ratio answers "given the servers I HAVE,
+    is this safe", while Cluster Preparation answers "given the VMs I
+    NEED to run, how many servers should I buy" - and uses a
+    workload-weighted effective-utilization model for that, since a
+    single flat ratio is too blunt when sizing new hardware from scratch.
     """
 
     uid: str
@@ -26,6 +38,8 @@ class VirtualMachine:
     dr_vcpu: int = 0            # DR footprint - can be smaller than vcpu
     dr_ram_gb: float = 0.0
     dr_disk_gb: float = 0.0
+
+    workload_profile: str = DEFAULT_WORKLOAD_PROFILE
 
     notes: str = ""
 
@@ -54,4 +68,5 @@ class VirtualMachine:
             dr_vcpu=2,
             dr_ram_gb=8.0,
             dr_disk_gb=100.0,
+            workload_profile=DEFAULT_WORKLOAD_PROFILE,
         )

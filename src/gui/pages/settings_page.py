@@ -26,7 +26,7 @@ def _ratio_spin(value: float, suffix: str = "") -> QDoubleSpinBox:
 
 class SettingsPage(QWidget):
     """Warning thresholds for oversubscription calculations. Applied
-    immediately on the Summary/Dashboard/VMs pages after clicking 'Apply'."""
+    immediately on the Summary/VMs pages after clicking 'Apply'."""
 
     def __init__(self, service: ProjectService):
         super().__init__()

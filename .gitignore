@@ -5,9 +5,8 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-dist/
 
-# ClusterSizer runtime artefakti - ne pripadaju u repo
+# ClusterSizer runtime artifacts - don't belong in the repo
 crash.log
 *.clsz
 

@@ -1,3 +1,5 @@
+import copy
+import uuid
 from pathlib import Path
 
 from PySide6.QtGui import QAction
@@ -13,11 +15,13 @@ from PySide6.QtWidgets import (
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
 
-from ..dialogs.vm_dialog import VMDialog
-from ..dialogs.import_wizard_dialog import ImportWizardDialog
-from ..models.vm_table_model import VMTableModel
-from ..widgets.summary_widget import SummaryWidget
-from ..widgets.multi_select_table import MultiSelectTableView
+from src.gui.dialogs.vm_dialog import VMDialog
+from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
+from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
+from src.gui.models.vm_table_model import VMTableModel
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.error_handling import report_error
 
 
 class VirtualMachinesPage(QWidget):
@@ -76,6 +80,17 @@ class VirtualMachinesPage(QWidget):
         export_action = QAction("📤 Export CSV", self)
         export_action.triggered.connect(self._export_csv)
         toolbar.addAction(export_action)
+
+        toolbar.addSeparator()
+
+        self.cluster_prep_action = QAction("🧮 Cluster Preparation", self)
+        self.cluster_prep_action.setToolTip(
+            "Estimate how many hosts to buy, based on these VMs. Disabled "
+            "until there's at least one VM to size against."
+        )
+        self.cluster_prep_action.triggered.connect(self._open_cluster_preparation)
+        self.cluster_prep_action.setEnabled(False)
+        toolbar.addAction(self.cluster_prep_action)
 
         toolbar.addSeparator()
 
@@ -146,14 +161,14 @@ class VirtualMachinesPage(QWidget):
             QMessageBox.information(self, "Copy", "Select at least one VM in the table.")
             return
 
-        import copy
-        import uuid
-
+        copies = []
         for vm in vms:
             new_vm = copy.deepcopy(vm)
             new_vm.uid = str(uuid.uuid4())
             new_vm.name = f"{new_vm.name} (copy)" if new_vm.name else new_vm.name
-            self.service.add_vm(new_vm)
+            copies.append(new_vm)
+
+        self.service.add_vms(copies)
 
     def _import_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import VMs CSV", "", "CSV (*.csv)")
@@ -165,7 +180,7 @@ class VirtualMachinesPage(QWidget):
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
         except Exception as exc:
-            QMessageBox.critical(self, "Import Error", str(exc))
+            report_error(self, "Import Error", exc)
 
     def _smart_import(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -186,6 +201,20 @@ class VirtualMachinesPage(QWidget):
                     msg += f" ({skipped} skipped by the profile's name filter.)"
                 QMessageBox.information(self, "Smart Import", msg)
 
+    def _open_cluster_preparation(self):
+        dialog = ClusterPreparationWizard(self.service.project, parent=self)
+        dialog.exec()
+        new_servers = dialog.get_new_servers()
+        new_storages = dialog.get_new_storages()
+        if new_servers or new_storages:
+            self.service.add_servers_and_storages(new_servers, new_storages)
+            QMessageBox.information(
+                self, "Cluster Preparation",
+                f"{len(new_servers)} server(s) added to the Servers tab and "
+                f"{len(new_storages)} storage system(s) added to the Storage tab "
+                "- review and adjust the specs there.",
+            )
+
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export VMs CSV", "vms.csv", "CSV (*.csv)")
         if not path:
@@ -194,14 +223,14 @@ class VirtualMachinesPage(QWidget):
             self.service.export_vms_csv(path)
             QMessageBox.information(self, "Export", "VMs exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _clear_all(self):
         if not self.service.project.vms:
             return
         confirm = QMessageBox.question(
             self, "Clear All",
-            f"Delete ALL {len(self.service.project.vms)} VM(s)? This cannot be undone.",
+            f"Delete ALL {len(self.service.project.vms)} VM(s)? You can undo with Ctrl+Z.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_vms()
@@ -230,3 +259,5 @@ class VirtualMachinesPage(QWidget):
             f"{ram_ratio * 100:.0f} %" if ram_ratio is not None else "-"
         )
         self.card_dr_protected.set_value(project.dr_protected_vm_count())
+
+        self.cluster_prep_action.setEnabled(len(project.vms) > 0)

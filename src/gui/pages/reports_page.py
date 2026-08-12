@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 from src.calculations.sizing import build_reports
 from src.calculations.html_report import build_html_report
 from src.services.project_service import ProjectService
+from src.version import VERSION
+from src.gui.error_handling import report_error
 
 
 def _fmt_ratio(ratio: float | None, as_percent: bool = False) -> str:
@@ -85,7 +87,7 @@ class ReportsPage(QWidget):
         primary, dr, dr_check = build_reports(project, thresholds)
 
         lines = []
-        lines.append(f"ClusterSizer Report - {project.name}")
+        lines.append(f"ClusterSizer {VERSION} Report - {project.name}")
         lines.append("=" * 60)
         lines.append("")
 
@@ -130,7 +132,7 @@ class ReportsPage(QWidget):
             Path(path).write_text(self._build_report_text(), encoding="utf-8")
             QMessageBox.information(self, "Export", "Report exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _export_pdf(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export PDF Report", "report.pdf", "PDF (*.pdf)")
@@ -153,7 +155,7 @@ class ReportsPage(QWidget):
 
         try:
             html = build_html_report(
-                self.service.project, self.service.thresholds,
+                self.service.project, self.service.thresholds, app_version=VERSION,
             )
 
             document = QTextDocument()
@@ -166,7 +168,7 @@ class ReportsPage(QWidget):
 
             QMessageBox.information(self, "Export", "PDF report exported.")
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)
 
     def _export_all_csv(self):
         folder = QFileDialog.getExistingDirectory(self, "Choose export folder")
@@ -176,8 +178,12 @@ class ReportsPage(QWidget):
             self.service.export_servers_csv(Path(folder) / "servers.csv")
             self.service.export_storages_csv(Path(folder) / "storage.csv")
             self.service.export_vms_csv(Path(folder) / "vms.csv")
+            self.service.export_switches_csv(Path(folder) / "switches.csv")
+            self.service.export_connections_csv(Path(folder) / "connections.csv")
             QMessageBox.information(
-                self, "Export", "servers.csv, storage.csv, and vms.csv have been saved."
+                self, "Export",
+                "servers.csv, storage.csv, vms.csv, switches.csv, and "
+                "connections.csv have been saved.",
             )
         except Exception as exc:
-            QMessageBox.critical(self, "Export Error", str(exc))
+            report_error(self, "Export Error", exc)

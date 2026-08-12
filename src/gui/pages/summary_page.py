@@ -4,9 +4,9 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWi
 from src.calculations.sizing import build_reports
 from src.services.project_service import ProjectService
 
-from ..widgets.site_capacity_widget import SiteCapacityWidget
-from ..widgets.status_badge import StatusBadge
-from ..widgets.summary_widget import SummaryWidget
+from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
+from src.gui.widgets.status_badge import StatusBadge
+from src.gui.widgets.summary_widget import SummaryWidget
 
 
 class SummaryPage(QWidget):

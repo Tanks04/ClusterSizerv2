@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 from src.gui.main_window import MainWindow
 from src.services.project_service import ProjectService
 
-CRASH_LOG_PATH = Path(__file__).parent / "crash.log"
+CRASH_LOG_PATH = Path.home() / ".clustersizer" / "crash.log"
 
 # The open file handle MUST stay alive for the whole app lifetime
 # (faulthandler writes to it directly at the OS level when a segfault
@@ -28,15 +28,28 @@ def _enable_crash_diagnostics() -> None:
        model's data()/setData() method that Qt calls from C++) -
        sys.excepthook catches that too and writes to the same log, in
        case the console isn't visible (e.g. launched without a terminal).
+
+    Lives under the user's home directory (same as import profiles), NOT
+    next to the executable - a frozen Windows install under
+    'C:\\Program Files\\...' is not user-writable, and the diagnostic
+    facility must never be the reason the app fails to start. If even
+    that directory can't be created/opened, diagnostics degrade to
+    stderr-only instead of crashing startup.
     """
     global _crash_log_file
-    _crash_log_file = open(CRASH_LOG_PATH, "a", encoding="utf-8", buffering=1)
-    faulthandler.enable(file=_crash_log_file, all_threads=True)
+
+    try:
+        CRASH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _crash_log_file = open(CRASH_LOG_PATH, "a", encoding="utf-8", buffering=1)
+        faulthandler.enable(file=_crash_log_file, all_threads=True)
+    except OSError:
+        _crash_log_file = None  # degrade to stderr-only below, never fail startup
 
     def _excepthook(exc_type, exc_value, exc_tb):
-        _crash_log_file.write("\n--- Unhandled Python exception ---\n")
-        traceback.print_exception(exc_type, exc_value, exc_tb, file=_crash_log_file)
-        _crash_log_file.flush()
+        if _crash_log_file is not None:
+            _crash_log_file.write("\n--- Unhandled Python exception ---\n")
+            traceback.print_exception(exc_type, exc_value, exc_tb, file=_crash_log_file)
+            _crash_log_file.flush()
         # Still print to stderr too, in case the console is visible
         traceback.print_exception(exc_type, exc_value, exc_tb)
 
@@ -44,24 +57,42 @@ def _enable_crash_diagnostics() -> None:
 
 
 
+def _resource_root() -> Path:
+    """Where src/resources/ actually lives at runtime. Path(__file__).parent
+    is wrong when frozen by PyInstaller - a frozen build unpacks data files
+    (see ClusterSizer.spec's datas=[...]) under sys._MEIPASS instead."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
+    return Path(__file__).parent
+
+
 def _load_application_font(app: QApplication) -> None:
     """Load bundled Noto Sans so the UI does not depend on OS fonts."""
-    fonts_dir = Path(__file__).parent / "src" / "resources" / "fonts"
-    regular = QFontDatabase.addApplicationFont(
-        str(fonts_dir / "NotoSans-Regular.ttf")
-    )
-    QFontDatabase.addApplicationFont(
-        str(fonts_dir / "NotoSans-Bold.ttf")
-    )
+    fonts_dir = _resource_root() / "src" / "resources" / "fonts"
+    regular_path = fonts_dir / "NotoSans-Regular.ttf"
+    bold_path = fonts_dir / "NotoSans-Bold.ttf"
+
+    if not regular_path.exists() or not bold_path.exists():
+        print(f"[ClusterSizer] Font files not found under {fonts_dir} - "
+              "falling back to a bare family name (frozen build missing data files?).",
+              file=sys.stderr)
+
+    regular = QFontDatabase.addApplicationFont(str(regular_path))
+    QFontDatabase.addApplicationFont(str(bold_path))
 
     families = QFontDatabase.applicationFontFamilies(regular) if regular >= 0 else []
     family = families[0] if families else "Noto Sans"
     app.setFont(QFont(family, 10))
 
+
 def _load_stylesheet(app: QApplication) -> None:
-    qss_path = Path(__file__).parent / "src" / "resources" / "styles" / "main.qss"
+    qss_path = _resource_root() / "src" / "resources" / "styles" / "main.qss"
     if qss_path.exists():
         app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
+    else:
+        print(f"[ClusterSizer] Stylesheet not found at {qss_path} - "
+              "launching unstyled (frozen build missing data files?).",
+              file=sys.stderr)
 
 
 def main() -> None:

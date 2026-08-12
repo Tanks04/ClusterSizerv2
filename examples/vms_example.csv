@@ -1,5 +1,5 @@
-name,site,vcpu,ram_gb,disk_gb,powered_on,dr_protected,dr_vcpu,dr_ram_gb,dr_disk_gb,notes
-app-web-01,Primary,4,16,200,True,True,2,8,200,"replicates, smaller DR footprint"
-app-web-02,Primary,4,16,200,True,False,0,0,0,not replicated (test/dev)
-db-prod-01,Primary,8,64,1000,True,True,8,64,1000,"1:1 replica, critical database"
-file-srv-01,Primary,2,8,2000,True,False,0,0,0,
+name,site,vcpu,ram_gb,disk_gb,powered_on,dr_protected,dr_vcpu,dr_ram_gb,dr_disk_gb,workload_profile,notes
+app-web-01,Primary,4,16,200,True,True,2,8,200,Balanced,"replicates, smaller DR footprint"
+app-web-02,Primary,4,16,200,True,False,0,0,0,Balanced,not replicated (test/dev)
+db-prod-01,Primary,8,64,1000,True,True,8,64,1000,Balanced,"1:1 replica, critical database"
+file-srv-01,Primary,2,8,2000,True,False,0,0,0,Balanced,
