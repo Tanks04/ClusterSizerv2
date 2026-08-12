@@ -64,12 +64,12 @@ PRESETS: list[ThresholdPreset] = [
         key="vmware",
         label="VMware (ESXi / vSphere)",
         description=(
-            "Commonly-cited vCPU:pCPU starting point for VMware ESXi - "
-            "around 4:1 for general-purpose workloads. Push higher for "
-            "light/idle VMs, lower for CPU-intensive ones."
+            "Conservative baseline commonly cited for VMware ESXi: 1.5:1 to "
+            "3:1 for healthy headroom. Keep CPU Ready time under 5% per VM; "
+            "avoid over-allocating vCPUs to small VMs (scheduling overhead)."
         ),
         thresholds=Thresholds(
-            cpu_warning_ratio=4.0, cpu_critical_ratio=6.0,
+            cpu_warning_ratio=3.0, cpu_critical_ratio=5.0,
             ram_warning_ratio=0.80, ram_critical_ratio=1.00,
             storage_warning_ratio=0.80, storage_critical_ratio=0.95,
         ),
@@ -78,8 +78,10 @@ PRESETS: list[ThresholdPreset] = [
         key="hyperv",
         label="Microsoft Hyper-V",
         description=(
-            "Commonly-cited vCPU:pCPU starting point for Hyper-V - around "
-            "3:1, somewhat more conservative than the VMware rule of thumb."
+            "Same conservative baseline as VMware (3:1 warning) - no "
+            "Hyper-V-specific ratio found yet (wishlist: find one). Watch CPU "
+            "Contention Time per Dispatch / jitter counters on modern Windows "
+            "Server releases; MinRoot and CPU groups can isolate priority workloads."
         ),
         thresholds=Thresholds(
             cpu_warning_ratio=3.0, cpu_critical_ratio=5.0,
@@ -91,8 +93,23 @@ PRESETS: list[ThresholdPreset] = [
         key="proxmox",
         label="Proxmox VE / KVM",
         description=(
-            "Commonly-cited vCPU:pCPU starting point for Proxmox VE / plain "
-            "KVM - around 4:1, similar to the VMware rule of thumb."
+            "Standard Linux cgroups scheduling generally handles up to 4:1 "
+            "without issue, provided overall host physical CPU utilization "
+            "stays below 70-80% at peak."
+        ),
+        thresholds=Thresholds(
+            cpu_warning_ratio=4.0, cpu_critical_ratio=6.0,
+            ram_warning_ratio=0.80, ram_critical_ratio=1.00,
+            storage_warning_ratio=0.80, storage_critical_ratio=0.95,
+        ),
+    ),
+    ThresholdPreset(
+        key="nutanix",
+        label="Nutanix AHV",
+        description=(
+            "Also KVM-based, standard cgroups scheduling - same guidance as "
+            "Proxmox/KVM: generally problem-free up to 4:1 provided overall "
+            "host physical CPU utilization stays below 70-80% at peak."
         ),
         thresholds=Thresholds(
             cpu_warning_ratio=4.0, cpu_critical_ratio=6.0,
@@ -104,11 +121,11 @@ PRESETS: list[ThresholdPreset] = [
         key="citrix",
         label="Citrix Hypervisor (XenServer)",
         description=(
-            "Commonly-cited vCPU:pCPU starting point for Citrix Hypervisor - "
-            "around 3:1, in the same range as the Hyper-V rule of thumb."
+            "3.5:1 - between the VMware/Hyper-V conservative baseline and "
+            "the Proxmox/KVM ceiling."
         ),
         thresholds=Thresholds(
-            cpu_warning_ratio=3.0, cpu_critical_ratio=5.0,
+            cpu_warning_ratio=3.5, cpu_critical_ratio=5.5,
             ram_warning_ratio=0.80, ram_critical_ratio=1.00,
             storage_warning_ratio=0.80, storage_critical_ratio=0.95,
         ),

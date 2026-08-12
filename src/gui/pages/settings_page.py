@@ -71,6 +71,10 @@ class SettingsPage(QWidget):
         self.preset_description_label.setStyleSheet("color: #757575; font-style: italic;")
         preset_layout.addWidget(self.preset_description_label)
 
+        self.preset_status_label = QLabel("")
+        self.preset_status_label.setStyleSheet("color: #2e7d32; font-weight: bold;")
+        preset_layout.addWidget(self.preset_status_label)
+
         note = QLabel(
             "These are commonly-cited starting points, not official vendor "
             "guarantees - actual safe ratios always depend on your workload "
@@ -124,6 +128,7 @@ class SettingsPage(QWidget):
 
     def _update_preset_description(self):
         self.preset_description_label.setText(self._selected_preset().description)
+        self.preset_status_label.setText("")
 
     def _use_preset(self):
         t = self._selected_preset().thresholds
@@ -133,6 +138,9 @@ class SettingsPage(QWidget):
         self.ram_critical_spin.setValue(t.ram_critical_ratio * 100)
         self.storage_warning_spin.setValue(t.storage_warning_ratio * 100)
         self.storage_critical_spin.setValue(t.storage_critical_ratio * 100)
+        self.preset_status_label.setText(
+            f"\u2713 {self._selected_preset().label} values loaded below - click Apply to save."
+        )
 
     def _load_from_service(self):
         t = self.service.thresholds
@@ -153,3 +161,4 @@ class SettingsPage(QWidget):
         t.storage_critical_ratio = self.storage_critical_spin.value() / 100
 
         self.service.touch()
+        self.preset_status_label.setText("\u2713 Applied - thresholds saved.")

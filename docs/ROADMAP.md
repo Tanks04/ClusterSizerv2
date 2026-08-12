@@ -1,5 +1,166 @@
 # ROADMAP
 
+## v2.8.2 (HA semantics corrected - Basic HA and None share host count, N+1 is the real reservation)
+
+The v2.8.0 fix went too far: it made "Basic HA" behave exactly like
+"N+1" (reserve one extra host). The actual distinction, per further
+clarification: "None" and "Basic HA" size for the SAME fewest-hosts
+count - the difference is whether the HA feature is configured at all,
+not host count. "None" means no automatic VM restart on a host failure
+(that host's VMs stay down). "Basic HA" means restart IS automatic
+(vSphere HA / Failover Clustering with no admission control), but no
+capacity is pre-reserved - survivors take the full load in a heavy
+overload until capacity is added back. Only "N+1"/"N+2" explicitly
+reserve host-level capacity so a failure causes NO shortfall at all -
+survivors stay within the target oversubscription ratio instead of
+overloading. `_HA_EXTRA_HOSTS` reverted to `{"None": 0, "Basic HA": 0,
+"N+1": 1, "N+2": 2}`; the Policy page's live explanation text and the
+regression test both rewritten to match.
+
+## v2.8.1 (VM Storage card, Settings preset feedback)
+
+- VMs tab: "RAM Oversub." card replaced with "VM Storage" (total disk_gb
+  across all VMs, Primary+DR, including powered-off ones since disk
+  persists regardless of power state) - RAM oversubscription info is
+  still available on the Summary tab, this card duplicated it without
+  adding anything new.
+- Settings preset buttons ("Use This Preset", "Apply") now show a
+  visible confirmation after each click. Root cause of the reported
+  "only works once, then Use This Preset and Apply seem to disappear":
+  they never disappeared or stopped working - verified the underlying
+  logic re-applies correctly on every click, in sequence, across all 5
+  presets. What actually happened: several presets now share IDENTICAL
+  CPU ratios after the v2.7.x research-driven updates (VMware/Hyper-V
+  both 3:1/5:1) - switching between two presets with the same numbers
+  produced no visible spinbox change, which looked exactly like a dead
+  button. The buttons now say so explicitly instead of changing values
+  silently.
+
+## v2.8.0 (Cluster Preparation: real optimizer, not a form; plus a batch of fixes from field testing)
+
+Major rework driven by testing against a real 45-VM example file - the
+wizard was recommending 6 hosts (2x16-core) for only 176 vCPU of demand,
+landing at 0.5:1 utilization when the target was ~2.25:1. Root cause:
+the Host Spec page pre-filled a guess BEFORE Growth/HA/Reserve were
+known, so the guessed RAM/host was too small once those were applied,
+forcing far more hosts than necessary.
+
+- **Host Spec removed as a separate input page.** It's now an OUTPUT,
+  computed on the Result page by `_optimize_host_spec()` (src/
+  calculations/cluster_preparation.py): a grid search over common
+  core-count (8-64/socket) and RAM (64GB-2TB) combinations, picking the
+  one needing the FEWEST hosts, and among ties, the one landing closest
+  to a target CPU oversubscription ratio (derived from the chosen
+  hypervisor - roughly 3/4 of its warning threshold, e.g. 2.25:1 for a
+  3:1 VMware warning). The Result page still shows the spec fields, but
+  editable and pre-filled with the OPTIMIZED answer - "Reset to
+  Optimized Suggestion" button discards manual edits and recomputes.
+  `SizingPolicy.host_spec` is now optional (None = auto-optimize).
+- **Minimum 2-host floor** - a single host is never a "cluster" (no
+  maintenance windows, no resilience), so compute_sizing() never
+  recommends fewer than 2 regardless of HA setting. This, combined with
+  the optimizer fix above, is what turned the "6 hosts, 2x16-core,
+  1536GB RAM, 0.5:1 ratio" degenerate result into a realistic "2-3
+  hosts, right-sized cores/RAM, ratio near target".
+- **"Basic HA" now reserves failover capacity (same math as N+1)** -
+  real vSphere HA / Hyper-V Failover Clustering admission control
+  reserves capacity for a host failure by default once turned on; the
+  earlier "Basic HA = 0 extra hosts" modeled a feature flag, not what
+  HA actually does. The Policy page now shows a live explanation of what
+  each HA level means as you select it.
+- **Expected Growth defaults to 30%** (was 0%).
+- **VDI tier default lowered from 18:1 to 12:1** (was the range
+  midpoint; the jump from Development/Test's 8:1 felt too large).
+- **Explicit Back button layout** on the wizard - some Qt wizard
+  styles/platforms were reportedly hiding it; the button layout is now
+  spelled out explicitly (Back/Stretch/Cancel/Next/Finish) rather than
+  relying on a platform default.
+- **Workload/Result pages now state the Primary vs already-on-DR VM
+  split explicitly** ("39 Primary VMs... 6 more VMs already tagged
+  site=DR, excluded") - fixes the "I loaded 45, it shows 39, is that a
+  bug?" confusion (it wasn't a bug - 6 VMs in the example file are
+  genuinely tagged site=DR).
+- **New bulk-edit row on the VMs tab**: "Set Workload Tier" and "DR
+  Protected: Apply to All", each one undo step for every VM at once
+  (`ProjectService.set_all_vms_workload_tier`/`set_all_vms_dr_protected`)
+  - mirrors the existing per-server Hyperthreading bulk toggle.
+- **Add vs Replace choice** when applying a Cluster Preparation
+  recommendation to a site that already has servers/storage - new
+  `ProjectService.replace_servers_and_storages_at_site()` (one atomic
+  undo step) alongside the existing additive
+  `add_servers_and_storages()`.
+- **Fixed a real bug**: the Servers tab's "Total Threads" card ignored
+  each server's own Hyperthreading toggle - a server with HT explicitly
+  disabled still contributed its full SMT width to the card. Renamed to
+  "Effective Cores (HT)" and now uses the same HT-aware calculation used
+  everywhere else in the app (new `ClusterProject.total_effective_cores`
+  property).
+- Investigated the reported "DR Protected summary doesn't update after
+  unprotecting VMs" - could not reproduce; the signal chain
+  (`update_vm()`/`set_all_vms_dr_protected()` -> `vms_changed` +
+  `changed` -> `SummaryPage.refresh()`) and the underlying
+  `dr_protected_vm_count()`/`dr_ready()` calculations are both stateless
+  and recompute fresh on every call, verified directly. Added a manual
+  "Reset to Optimized Suggestion" / recompute path on the Result page
+  regardless, as a safety net.
+- Regression tests rewritten for the new optimizer-based API
+  (tests/test_cluster_preparation.py) - `suggest_host_spec()` removed
+  (superseded by the optimizer), 11 tests covering the HA/floor fixes,
+  DR-site exclusion, and the optimizer's override/auto-pick behavior.
+
+## v2.7.1 (preset refinements: Nutanix split out, Citrix given a real number)
+
+- Nutanix AHV is now its own preset (was grouped into the Proxmox/KVM
+  label) - same 4:1/6:1 guidance (also KVM-based, same cgroups
+  scheduling reasoning), just its own dropdown entry for clarity. 5
+  presets total now.
+- Citrix Hypervisor moved off the "same as VMware, no real data"
+  placeholder to an explicit 3.5:1/5.5:1.
+- Hyper-V stays at 3:1/5:1 (no vendor-specific ratio found) - flagged in
+  both the ROADMAP and the preset's own description as a wishlist item
+  if a real number ever turns up.
+
+## v2.7.0 (Workload Tier replaces Workload Profile; Settings presets updated from research)
+
+- **Settings hypervisor presets updated** with vendor-specific research
+  (r/sysadmin, Microsoft Tech Community, oversubscription guides):
+  VMware moves from 4:1/6:1 to a more conservative **3:1/5:1**
+  ("commonly-cited conservative baseline: 1.5:1 to 3:1 for healthy
+  headroom, watch CPU Ready time under 5%"). Hyper-V stays at 3:1/5:1
+  (same conservative baseline, per explicit direction - no vendor-
+  specific ratio was found for Hyper-V itself). Proxmox VE / KVM /
+  Nutanix AHV stays at 4:1/6:1 ("cgroups scheduling generally
+  problem-free up to 4:1 provided host utilization stays under 70-80%
+  at peak" - label updated to explicitly include Nutanix AHV, grouped
+  under this preset per the research rather than a dedicated entry).
+  Citrix Hypervisor stays at 3:1/5:1 but is now explicitly labeled as a
+  placeholder with no vendor-specific research behind it.
+- **Workload Tier replaces Workload Profile** - a full swap, not an
+  addition. The earlier "CPU Intensive / Balanced / Memory Intensive /
+  Storage Intensive / Light" categories with an assumed CPU utilization
+  % each are gone. In their place: "Tier-0 / Mission-Critical" (1:1),
+  "Standard Production" (3:1-5:1, default 4:1), "Development / Test"
+  (6:1-10:1, default 8:1), "High-Density VDI" (12:1-24:1, default 18:1)
+  - a more standard, industry-recognized SLA-tolerance framing
+  (src/models/workload_tier.py). Cluster Preparation's effective-vCPU
+  formula changed from `vcpu * utilization%` to `vcpu / tier_ratio` -
+  mathematically the same DIRECTION of effect (not every allocated vCPU
+  needs a full physical core), just parameterized the way sysadmins
+  actually discuss oversubscription. VirtualMachine.workload_profile
+  renamed to workload_tier throughout (model, VM dialog, VM table
+  column, CSV schema - old workload_profile CSV column is no longer
+  recognized, falls back to the Standard Production default via the
+  same schema-drift tolerance every other field already has).
+  Regression tests in tests/test_cluster_preparation.py updated to use
+  real tier names instead of the retired profile names.
+- Host Spec page (v2.6.0) is now pre-filled by `suggest_host_spec()`
+  (src/calculations/cluster_preparation.py) instead of generic hardcoded
+  defaults - a real proposal computed from the VMs' actual demand
+  (core-count tier by total effective vCPU, RAM/host rounded to a common
+  DIMM-friendly step, never below the single largest VM's RAM), not a
+  blank form. Expected Growth's tooltip and label now explicitly state
+  it applies equally to vCPU, RAM, AND storage demand together.
+
 ## v2.6.0 (Cluster Preparation redesigned as a Next/Next/Finish wizard)
 
 - Rebuilt the whole dialog as a real QWizard (5 pages: Hypervisor,

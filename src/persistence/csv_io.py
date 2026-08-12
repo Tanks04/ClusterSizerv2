@@ -16,7 +16,7 @@ from pathlib import Path
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
-from src.models.workload_profile import WORKLOAD_PROFILE_NAMES, DEFAULT_WORKLOAD_PROFILE
+from src.models.workload_tier import WORKLOAD_TIER_NAMES, DEFAULT_WORKLOAD_TIER
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 
@@ -44,7 +44,7 @@ STORAGE_FIELDS = [
 VM_FIELDS = [
     "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on",
     "dr_protected", "dr_vcpu", "dr_ram_gb", "dr_disk_gb",
-    "workload_profile", "notes",
+    "workload_tier", "notes",
 ]
 
 SWITCH_FIELDS = [
@@ -181,9 +181,9 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
         ram_gb = float(row.get("ram_gb") or 8)
         disk_gb = float(row.get("disk_gb") or 100)
         dr_protected = _bool(row.get("dr_protected"), default=False)
-        workload_profile = row.get("workload_profile") or DEFAULT_WORKLOAD_PROFILE
-        if workload_profile not in WORKLOAD_PROFILE_NAMES:
-            workload_profile = DEFAULT_WORKLOAD_PROFILE
+        workload_tier = row.get("workload_tier") or DEFAULT_WORKLOAD_TIER
+        if workload_tier not in WORKLOAD_TIER_NAMES:
+            workload_tier = DEFAULT_WORKLOAD_TIER
         vms.append(
             VirtualMachine(
                 uid=default.uid,
@@ -197,7 +197,7 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
                 dr_vcpu=int(float(row.get("dr_vcpu") or vcpu)),
                 dr_ram_gb=float(row.get("dr_ram_gb") or ram_gb),
                 dr_disk_gb=float(row.get("dr_disk_gb") or disk_gb),
-                workload_profile=workload_profile,
+                workload_tier=workload_tier,
                 notes=row.get("notes", "") or "",
             )
         )

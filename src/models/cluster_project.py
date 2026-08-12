@@ -60,6 +60,16 @@ class ClusterProject:
     def total_threads(self) -> int:
         return sum(server.total_threads for server in self.servers)
 
+    @property
+    def total_effective_cores(self) -> int:
+        """HT-aware, unlike total_threads - respects each server's OWN
+        hyperthreading_enabled toggle (total_threads counts full SMT
+        width for every server regardless of whether HT is actually on
+        for it). This is what's actually available for CPU capacity
+        planning - same effective_cores logic physical_cores(site) uses,
+        just summed across both sites for the dashboard card."""
+        return sum(server.effective_cores for server in self.servers)
+
     # ------------------------------------------------------------------
     # Physical capacity by site
     # ------------------------------------------------------------------

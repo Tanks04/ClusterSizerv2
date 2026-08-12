@@ -117,7 +117,7 @@ class ServersPage(QWidget):
 
         self.card_servers = SummaryWidget("Servers", "0")
         self.card_cores = SummaryWidget("Total Cores", "0")
-        self.card_threads = SummaryWidget("Total Threads", "0")
+        self.card_threads = SummaryWidget("Effective Cores (HT)", "0")
         self.card_ram = SummaryWidget("Total RAM", "0 GB")
 
         for card in (self.card_servers, self.card_cores, self.card_threads, self.card_ram):
@@ -224,7 +224,7 @@ class ServersPage(QWidget):
         project = self.service.project
         self.card_servers.set_value(project.server_count)
         self.card_cores.set_value(project.total_cores)
-        self.card_threads.set_value(project.total_threads)
+        self.card_threads.set_value(project.total_effective_cores)
         self.card_ram.set_value(f"{project.total_ram} GB")
 
         self._refresh_ht_global()

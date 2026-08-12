@@ -20,7 +20,14 @@ from src.calculations.thresholds import PRESETS
 from src.models.cluster_project import ClusterProject
 from src.models.server import Server
 from src.models.storage import Storage
-from src.models.workload_profile import WORKLOAD_PROFILE_NAMES, WORKLOAD_PROFILES
+from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
+
+_HA_EXPLANATIONS = {
+    "None": "Fewest hosts possible for today's demand, no reserved headroom. HA is not configured at all - a host failure means its VMs stay down until manually recovered.",
+    "Basic HA": "Same host count as None (still the fewest possible) - but HA IS enabled, so VMs restart automatically elsewhere on a host failure. No capacity is reserved for that though, so survivors take the full load in a heavy overload until you add capacity back.",
+    "N+1": "One extra host reserved on top of what your VMs need - losing any single host leaves NO capacity shortfall, survivors stay within your target oversubscription ratio instead of overloading.",
+    "N+2": "Two extra hosts reserved - survive losing two hosts at once (e.g. one down for maintenance, one fails unexpectedly) with no capacity shortfall.",
+}
 
 
 # ----------------------------------------------------------------------
@@ -36,7 +43,7 @@ class HypervisorPage(QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle("Hypervisor")
-        self.setSubTitle("Which platform are you sizing for? Used as a sanity-check reference, not a hard rule.")
+        self.setSubTitle("Which platform are you sizing for? Used to derive a sensible target oversubscription ratio.")
 
         layout = QFormLayout(self)
 
@@ -55,9 +62,11 @@ class HypervisorPage(QWizardPage):
 
     def _update_info(self):
         preset = PRESETS[self.vendor_combo.currentIndex()]
+        target = preset.thresholds.cpu_warning_ratio * 0.75
         self.info_label.setText(
-            f"{preset.description} This ratio is shown on the Result page next "
-            "to the actual recommendation - not used to override it."
+            f"{preset.description} The Result page will optimize toward roughly "
+            f"{target:.2f}:1 vCPU:pCPU (about 3/4 of the {preset.thresholds.cpu_warning_ratio:.0f}:1 "
+            "warning threshold, comfortably below it)."
         )
 
     def selected_preset(self):
@@ -70,16 +79,18 @@ class HypervisorPage(QWizardPage):
 
 class WorkloadPage(QWizardPage):
     """Shows the workload mix already set per-VM on the VMs tab - you
-    don't configure utilization percentages here, they come from each
-    VM's Workload Profile. The catalog defaults (src/models/
-    workload_profile.py) are used as-is unless you explicitly opt into
+    don't configure oversubscription ratios here, they come from each
+    VM's Workload Tier (set on the VMs tab, including the "Bulk edit"
+    row there for setting it on every VM at once). The catalog defaults
+    (src/models/workload_tier.py - commonly-cited safe vCPU:pCPU ranges
+    per SLA tier) are used as-is unless you explicitly opt into
     fine-tuning them below."""
 
     def __init__(self, project: ClusterProject, parent=None):
         super().__init__(parent)
         self.project = project
         self.setTitle("Workload")
-        self.setSubTitle("Based on the Workload Profile already set per VM on the VMs tab.")
+        self.setSubTitle("Based on the Workload Tier already set per VM on the VMs tab.")
 
         layout = QVBoxLayout(self)
 
@@ -87,54 +98,66 @@ class WorkloadPage(QWizardPage):
         self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
 
-        self.utilization_spins: dict[str, QDoubleSpinBox] = {}
+        self.ratio_spins: dict[str, QDoubleSpinBox] = {}
 
-        self.util_box = QGroupBox("Fine-tune utilization assumptions (optional)")
-        self.util_box.setCheckable(True)
-        self.util_box.setChecked(False)
-        self.util_box.setToolTip(
-            "Off by default - the per-profile defaults below are used as-is. "
-            "Check this only if you have real utilization data and want to override them."
+        self.ratio_box = QGroupBox("Fine-tune oversubscription ratios (optional)")
+        self.ratio_box.setCheckable(True)
+        self.ratio_box.setChecked(False)
+        self.ratio_box.setToolTip(
+            "Off by default - the per-tier defaults below are used as-is. "
+            "Check this only if you have your own guidance and want to override them."
         )
-        util_form = QFormLayout(self.util_box)
+        ratio_form = QFormLayout(self.ratio_box)
 
-        for name in WORKLOAD_PROFILE_NAMES:
+        for name in WORKLOAD_TIER_NAMES:
             spin = QDoubleSpinBox()
-            spin.setRange(1.0, 100.0)
-            spin.setSuffix(" %")
-            spin.setValue(WORKLOAD_PROFILES[name].default_cpu_utilization * 100)
-            util_form.addRow(name, spin)
-            self.utilization_spins[name] = spin
+            spin.setRange(1.0, 50.0)
+            spin.setSuffix(" : 1")
+            spin.setValue(WORKLOAD_TIERS[name].default_ratio)
+            ratio_form.addRow(name, spin)
+            self.ratio_spins[name] = spin
 
-        layout.addWidget(self.util_box)
+        layout.addWidget(self.ratio_box)
         layout.addStretch()
 
     def initializePage(self):
         primary_vms = self.project.vms_at("Primary")
+        dr_site_count = len(self.project.vms_at("DR"))
+
         if not primary_vms:
-            self.summary_label.setText(
-                "No VMs on the VMs tab yet - add some there first, with a "
-                "Workload Profile set on each."
-            )
+            msg = "No VMs on the VMs tab yet - add some there first, with a Workload Tier set on each."
+            if dr_site_count:
+                msg += f" ({dr_site_count} VM(s) are tagged site=DR and would be excluded from this sizing anyway.)"
+            self.summary_label.setText(msg)
             return
 
         breakdown: dict[str, int] = {}
         for vm in primary_vms:
-            breakdown[vm.workload_profile] = breakdown.get(vm.workload_profile, 0) + 1
+            breakdown[vm.workload_tier] = breakdown.get(vm.workload_tier, 0) + 1
         breakdown_text = ", ".join(f"{count} {name}" for name, count in sorted(breakdown.items()))
+
+        dr_note = ""
+        if dr_site_count:
+            dr_note = (
+                f"\n\n({dr_site_count} more VM(s) are already tagged site=DR and are "
+                "NOT included in this count - they already live on DR, not Primary.)"
+            )
+
         self.summary_label.setText(
-            f"{len(primary_vms)} VMs: {breakdown_text}.\n\n"
-            "Each profile's default utilization assumption:\n" +
+            f"{len(primary_vms)} Primary VMs: {breakdown_text}.{dr_note}\n\n"
+            "Each tier's default oversubscription ratio:\n" +
             "\n".join(
-                f"  \u2022 {name}: {WORKLOAD_PROFILES[name].default_cpu_utilization * 100:.0f}%"
-                for name in WORKLOAD_PROFILE_NAMES
+                f"  \u2022 {name}: {WORKLOAD_TIERS[name].default_ratio:.0f}:1 "
+                f"(commonly cited: {WORKLOAD_TIERS[name].ratio_min:.0f}:1-"
+                f"{WORKLOAD_TIERS[name].ratio_max:.0f}:1)"
+                for name in WORKLOAD_TIER_NAMES
             )
         )
 
-    def utilization_overrides(self) -> dict[str, float]:
-        if not self.util_box.isChecked():
+    def ratio_overrides(self) -> dict[str, float]:
+        if not self.ratio_box.isChecked():
             return {}
-        return {name: spin.value() / 100 for name, spin in self.utilization_spins.items()}
+        return {name: spin.value() for name, spin in self.ratio_spins.items()}
 
 
 # ----------------------------------------------------------------------
@@ -145,21 +168,34 @@ class PolicyPage(QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle("Policy")
-        self.setSubTitle("If you skip these, sensible defaults are used - N+1, no growth, 20% reserve.")
+        self.setSubTitle("If you skip these, sensible defaults are used - N+1, 30% growth, 20% reserve.")
 
         layout = QFormLayout(self)
 
         self.ha_combo = QComboBox()
         self.ha_combo.addItems(HA_LEVELS)
         self.ha_combo.setCurrentText("N+1")
+        self.ha_combo.currentTextChanged.connect(self._update_ha_explanation)
         layout.addRow("High Availability", self.ha_combo)
+
+        self.ha_explanation_label = QLabel("")
+        self.ha_explanation_label.setWordWrap(True)
+        self.ha_explanation_label.setStyleSheet("color: #757575; font-style: italic;")
+        layout.addRow("", self.ha_explanation_label)
+        self._update_ha_explanation()
 
         self.growth_spin = QDoubleSpinBox()
         self.growth_spin.setRange(0.0, 500.0)
         self.growth_spin.setSuffix(" %")
-        self.growth_spin.setValue(0.0)
-        self.growth_spin.setToolTip("Expected growth in demand over your planning period.")
-        layout.addRow("Expected Growth", self.growth_spin)
+        self.growth_spin.setValue(30.0)
+        self.growth_spin.setToolTip(
+            "Applied EQUALLY to vCPU, RAM, and storage demand (not to the vendor "
+            "ratio or host count directly). E.g. 30% means the wizard sizes for "
+            "30% more of everything than today's VMs actually need - a simple "
+            "margin for adding more VMs later, not a prediction of exactly what "
+            "will grow."
+        )
+        layout.addRow("Expected Growth\n(vCPU + RAM + Storage)", self.growth_spin)
 
         self.reserve_spin = QDoubleSpinBox()
         self.reserve_spin.setRange(0.0, 90.0)
@@ -180,70 +216,67 @@ class PolicyPage(QWizardPage):
         )
         layout.addRow("Storage Overhead", self.storage_overhead_spin)
 
-
-# ----------------------------------------------------------------------
-# Page 4 - Candidate host spec
-# ----------------------------------------------------------------------
-
-class HostSpecPage(QWizardPage):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setTitle("Candidate Host Spec")
-        self.setSubTitle("What you're sizing against - the Result page tells you how many of these you need.")
-
-        layout = QFormLayout(self)
-
-        self.sockets_spin = QSpinBox()
-        self.sockets_spin.setRange(1, 8)
-        self.sockets_spin.setValue(2)
-        layout.addRow("Sockets", self.sockets_spin)
-
-        self.cores_spin = QSpinBox()
-        self.cores_spin.setRange(1, 256)
-        self.cores_spin.setValue(24)
-        layout.addRow("Cores / Socket", self.cores_spin)
-
-        self.threads_spin = QSpinBox()
-        self.threads_spin.setRange(1, 4)
-        self.threads_spin.setValue(2)
-        layout.addRow("Threads / Core", self.threads_spin)
-
-        self.ht_check = QCheckBox("Hyperthreading Enabled")
-        self.ht_check.setChecked(True)
-        layout.addRow("", self.ht_check)
-
-        self.ram_spin = QSpinBox()
-        self.ram_spin.setRange(16, 32768)
-        self.ram_spin.setSuffix(" GB")
-        self.ram_spin.setValue(512)
-        layout.addRow("RAM / Host", self.ram_spin)
-
-    def host_spec(self) -> HostSpec:
-        return HostSpec(
-            sockets=self.sockets_spin.value(),
-            cores_per_socket=self.cores_spin.value(),
-            threads_per_core=self.threads_spin.value(),
-            hyperthreading_enabled=self.ht_check.isChecked(),
-            ram_gb=float(self.ram_spin.value()),
-        )
+    def _update_ha_explanation(self):
+        self.ha_explanation_label.setText(_HA_EXPLANATIONS.get(self.ha_combo.currentText(), ""))
 
 
 # ----------------------------------------------------------------------
-# Page 5 - Result
+# Page 4 - Result (includes the optimized, editable host spec)
 # ----------------------------------------------------------------------
 
-class SummaryPage(QWizardPage):
+class ResultPage(QWizardPage):
     def __init__(self, wizard: "ClusterPreparationWizard", parent=None):
         super().__init__(parent)
         self._wizard_ref = wizard
         self.setTitle("Result")
-        self.setSubTitle("Every number below is an assumption-driven estimate, not a guarantee.")
+        self.setSubTitle(
+            "The host spec below is OPTIMIZED for you - fewest hosts, landing close to "
+            "the target ratio. Adjust it and the numbers recalculate live."
+        )
 
         layout = QVBoxLayout(self)
 
         self.result_label = QLabel("")
         self.result_label.setWordWrap(True)
         layout.addWidget(self.result_label)
+
+        # --- Editable, optimized host spec ---
+        spec_box = QGroupBox("Recommended Host Spec (editable)")
+        spec_form = QFormLayout(spec_box)
+
+        self._updating_spec_fields = False  # guards against feedback loops while pre-filling
+
+        self.sockets_spin = QSpinBox()
+        self.sockets_spin.setRange(1, 8)
+        self.sockets_spin.valueChanged.connect(self._on_spec_edited)
+        spec_form.addRow("Sockets", self.sockets_spin)
+
+        self.cores_spin = QSpinBox()
+        self.cores_spin.setRange(1, 256)
+        self.cores_spin.valueChanged.connect(self._on_spec_edited)
+        spec_form.addRow("Cores / Socket", self.cores_spin)
+
+        self.threads_spin = QSpinBox()
+        self.threads_spin.setRange(1, 4)
+        self.threads_spin.valueChanged.connect(self._on_spec_edited)
+        spec_form.addRow("Threads / Core", self.threads_spin)
+
+        self.ht_check = QCheckBox("Hyperthreading Enabled")
+        self.ht_check.toggled.connect(self._on_spec_edited)
+        spec_form.addRow("", self.ht_check)
+
+        self.ram_spin = QSpinBox()
+        self.ram_spin.setRange(16, 32768)
+        self.ram_spin.setSuffix(" GB")
+        self.ram_spin.valueChanged.connect(self._on_spec_edited)
+        spec_form.addRow("RAM / Host", self.ram_spin)
+
+        layout.addWidget(spec_box)
+
+        refresh_button = QPushButton("\U0001f504 Reset to Optimized Suggestion")
+        refresh_button.setToolTip("Discards your edits above and recomputes the optimized recommendation from scratch.")
+        refresh_button.clicked.connect(self._reset_to_optimized)
+        layout.addWidget(refresh_button)
 
         button_row = QHBoxLayout()
         self.add_primary_button = QPushButton("Add Recommended Cluster to Project (Primary)")
@@ -260,6 +293,35 @@ class SummaryPage(QWizardPage):
         layout.addStretch()
 
     def initializePage(self):
+        self._wizard_ref.host_spec_override = None  # start fresh each time this page is entered
+        self._wizard_ref.recompute()
+
+    def fill_spec_fields(self, spec: HostSpec):
+        self._updating_spec_fields = True
+        self.sockets_spin.setValue(spec.sockets)
+        self.cores_spin.setValue(spec.cores_per_socket)
+        self.threads_spin.setValue(spec.threads_per_core)
+        self.ht_check.setChecked(spec.hyperthreading_enabled)
+        self.ram_spin.setValue(int(spec.ram_gb))
+        self._updating_spec_fields = False
+
+    def current_spec_fields(self) -> HostSpec:
+        return HostSpec(
+            sockets=self.sockets_spin.value(),
+            cores_per_socket=self.cores_spin.value(),
+            threads_per_core=self.threads_spin.value(),
+            hyperthreading_enabled=self.ht_check.isChecked(),
+            ram_gb=float(self.ram_spin.value()),
+        )
+
+    def _on_spec_edited(self):
+        if self._updating_spec_fields:
+            return  # programmatic fill_spec_fields() call, not a real user edit
+        self._wizard_ref.host_spec_override = self.current_spec_fields()
+        self._wizard_ref.recompute(refill_spec_fields=False)
+
+    def _reset_to_optimized(self):
+        self._wizard_ref.host_spec_override = None
         self._wizard_ref.recompute()
 
 
@@ -273,26 +335,40 @@ class ClusterPreparationWizard(QWizard):
     calculation from the app's existing oversubscription-ratio checks -
     see src/calculations/cluster_preparation.py's module docstring.
     Next/Next/Finish, not a single crowded form - each page covers one
-    decision, and skipping a page just means its sensible default is used."""
+    decision, and skipping a page just means its sensible default is used.
+    The host spec is something WE propose at the end (optimized from your
+    actual demand), not something you have to guess up front - see the
+    Result page."""
 
     def __init__(self, project: ClusterProject, parent=None):
         super().__init__(parent)
         self.project = project
 
         self.setWindowTitle("Cluster Preparation")
-        self.resize(640, 560)
+        self.resize(640, 620)
+
+        # Explicit button layout: some Qt wizard styles/platforms have
+        # been reported to hide the Back button by default - spelling
+        # this out guarantees it's always present.
+        self.setButtonLayout([
+            QWizard.WizardButton.BackButton,
+            QWizard.WizardButton.Stretch,
+            QWizard.WizardButton.CancelButton,
+            QWizard.WizardButton.NextButton,
+            QWizard.WizardButton.FinishButton,
+        ])
 
         self.hypervisor_page = HypervisorPage()
         self.workload_page = WorkloadPage(project)
         self.policy_page = PolicyPage()
-        self.host_page = HostSpecPage()
-        self.summary_page = SummaryPage(self)
+        self.result_page = ResultPage(self)
 
         self.addPage(self.hypervisor_page)
         self.addPage(self.workload_page)
         self.addPage(self.policy_page)
-        self.addPage(self.host_page)
-        self.addPage(self.summary_page)
+        self.addPage(self.result_page)
+
+        self.host_spec_override: HostSpec | None = None
 
         self.recommended_primary_hosts = 0
         self.recommended_dr_hosts = 0
@@ -306,26 +382,19 @@ class ClusterPreparationWizard(QWizard):
     # Sizing
     # ------------------------------------------------------------------
 
-    def build_policy(self, ht_override: bool | None = None) -> SizingPolicy:
-        host_spec = self.host_page.host_spec()
-        if ht_override is not None:
-            host_spec = HostSpec(
-                sockets=host_spec.sockets,
-                cores_per_socket=host_spec.cores_per_socket,
-                threads_per_core=host_spec.threads_per_core,
-                hyperthreading_enabled=ht_override,
-                ram_gb=host_spec.ram_gb,
-            )
+    def build_policy(self) -> SizingPolicy:
+        vendor_preset = self.hypervisor_page.selected_preset()
         return SizingPolicy(
             ha_level=self.policy_page.ha_combo.currentText(),
             growth_percent=self.policy_page.growth_spin.value(),
             memory_reserve_percent=self.policy_page.reserve_spin.value(),
             storage_overhead_percent=self.policy_page.storage_overhead_spin.value(),
-            host_spec=host_spec,
-            utilization_overrides=self.workload_page.utilization_overrides(),
+            host_spec=self.host_spec_override,  # None -> compute_sizing auto-optimizes
+            target_cpu_ratio=vendor_preset.thresholds.cpu_warning_ratio * 0.75,
+            ratio_overrides=self.workload_page.ratio_overrides(),
         )
 
-    def recompute(self):
+    def recompute(self, refill_spec_fields: bool = True):
         policy = self.build_policy()
         result = compute_sizing(self.project, policy)
 
@@ -336,19 +405,26 @@ class ClusterPreparationWizard(QWizard):
         self.recommended_dr_storage_usable_tb = result.dr_recommended_storage_usable_tb
         self.recommended_dr_storage_raw_tb = result.dr_recommended_storage_raw_tb
 
+        if refill_spec_fields:
+            self.result_page.fill_spec_fields(result.host_spec)
+
         vendor_preset = self.hypervisor_page.selected_preset()
+
+        dr_site_note = ""
+        if result.dr_site_vm_count:
+            dr_site_note = (
+                f" ({result.dr_site_vm_count} more VM(s) already tagged site=DR are "
+                "excluded from this count - see the Workload page.)"
+            )
+
         ratio_line = ""
         if result.raw_oversubscription_ratio is not None:
             ratio_line = (
-                f"<br>Sanity check: {result.total_vcpu_raw} raw vCPU across "
+                f"<br>Resulting ratio: {result.total_vcpu_raw} raw vCPU across "
                 f"{result.required_hosts} host(s) = {result.raw_oversubscription_ratio:.2f}:1 "
-                f"vCPU:pCPU - {vendor_preset.label} guidance is a starting point around "
-                f"{vendor_preset.thresholds.cpu_warning_ratio:.0f}:1, so this "
-                f"{'is comfortably under' if result.raw_oversubscription_ratio <= vendor_preset.thresholds.cpu_warning_ratio else 'is ABOVE'} "
-                "that reference."
+                f"vCPU:pCPU (target was {policy.target_cpu_ratio:.2f}:1 for {vendor_preset.label}, "
+                f"warning threshold is {vendor_preset.thresholds.cpu_warning_ratio:.0f}:1)."
             )
-
-        ht_hint = self._hyperthreading_hint(policy, result)
 
         limiting = f"{result.binding_constraint} is the primary sizing constraint."
         dr_limiting = (
@@ -356,15 +432,15 @@ class ClusterPreparationWizard(QWizard):
             if result.dr_vm_count else "No DR-protected VMs - nothing to size for DR."
         )
 
-        self.summary_page.result_label.setText(
+        self.result_page.result_label.setText(
+            f"<b>{result.vm_count} Primary VMs.</b>{dr_site_note}<br><br>"
             f"<b>Primary: {result.required_hosts} host(s)</b> "
             f"({result.hosts_for_cpu} for CPU, {result.hosts_for_ram} for RAM, "
             f"+{result.ha_extra_hosts} for {policy.ha_level}). {limiting}"
             f"{ratio_line}<br>"
             f"Storage: {result.recommended_storage_usable_tb:.1f} TB usable "
             f"({result.recommended_storage_raw_tb:.1f} TB raw with "
-            f"{policy.storage_overhead_percent:.0f}% overhead).<br>"
-            f"{ht_hint}<br><br>"
+            f"{policy.storage_overhead_percent:.0f}% overhead).<br><br>"
             f"<b>DR: {result.dr_required_hosts} host(s)</b> "
             f"({result.dr_vm_count} DR-protected VMs, "
             f"{result.dr_hosts_for_cpu} for CPU, {result.dr_hosts_for_ram} for RAM). "
@@ -373,54 +449,28 @@ class ClusterPreparationWizard(QWizard):
             f"({result.dr_recommended_storage_raw_tb:.1f} TB raw).<br><br>"
             f"<i>Assumptions: {vendor_preset.label}, {policy.ha_level} HA, "
             f"{policy.growth_percent:.0f}% growth, {policy.memory_reserve_percent:.0f}% "
-            f"memory reserve, {policy.storage_overhead_percent:.0f}% storage overhead, host = "
-            f"{policy.host_spec.sockets}x{policy.host_spec.cores_per_socket}-core "
-            f"({policy.host_spec.effective_cores} effective cores), "
-            f"{policy.host_spec.ram_gb:.0f} GB RAM/host.</i>"
+            f"memory reserve, {policy.storage_overhead_percent:.0f}% storage overhead.</i>"
         )
 
-        self.summary_page.add_primary_button.setEnabled(self.recommended_primary_hosts > 0)
-        self.summary_page.add_dr_button.setEnabled(self.recommended_dr_hosts > 0)
-
-    def _hyperthreading_hint(self, policy: SizingPolicy, result) -> str:
-        """Computed, not guessed: actually re-runs sizing with HT flipped
-        and reports the real difference - only shown when it would
-        actually change the host count."""
-        current_ht = policy.host_spec.hyperthreading_enabled
-        alt_policy = self.build_policy(ht_override=not current_ht)
-        alt_result = compute_sizing(self.project, alt_policy)
-
-        if alt_result.required_hosts == result.required_hosts:
-            return ""
-
-        if current_ht:
-            return (
-                f"\U0001f4a1 Disabling Hyperthreading would raise Primary from "
-                f"{result.required_hosts} to {alt_result.required_hosts} host(s) - "
-                "keeping it on is saving you capacity here."
-            )
-        return (
-            f"\U0001f4a1 Enabling Hyperthreading would lower Primary from "
-            f"{result.required_hosts} to {alt_result.required_hosts} host(s) - "
-            "worth it unless this workload is latency-sensitive."
-        )
+        self.result_page.add_primary_button.setEnabled(self.recommended_primary_hosts > 0)
+        self.result_page.add_dr_button.setEnabled(self.recommended_dr_hosts > 0)
 
     # ------------------------------------------------------------------
     # Turning the recommendation into real Server/Storage rows
     # ------------------------------------------------------------------
 
     def _make_servers(self, count: int, site: str, name_prefix: str) -> list[Server]:
-        policy = self.build_policy()
+        spec = self.result_page.current_spec_fields()
         servers = []
         for i in range(count):
             server = Server.create_default()
             server.name = f"{name_prefix}-{i + 1:02d}"
             server.site = site
-            server.sockets = policy.host_spec.sockets
-            server.cores_per_socket = policy.host_spec.cores_per_socket
-            server.threads_per_core = policy.host_spec.threads_per_core
-            server.hyperthreading_enabled = policy.host_spec.hyperthreading_enabled
-            server.ram_gb = int(policy.host_spec.ram_gb)
+            server.sockets = spec.sockets
+            server.cores_per_socket = spec.cores_per_socket
+            server.threads_per_core = spec.threads_per_core
+            server.hyperthreading_enabled = spec.hyperthreading_enabled
+            server.ram_gb = int(spec.ram_gb)
             server.notes = "Added by Cluster Preparation - recommended spec, review before ordering."
             servers.append(server)
         return servers
@@ -428,13 +478,12 @@ class ClusterPreparationWizard(QWizard):
     def _make_storage(self, usable_tb: float, raw_tb: float, site: str, name: str) -> list[Storage]:
         if usable_tb <= 0:
             return []
-        policy = self.build_policy()
         storage = Storage.create_default()
         storage.name = name
         storage.site = site
         storage.raw_capacity_tb = round(raw_tb, 2)
         storage.usable_capacity_tb = round(usable_tb, 2)
-        storage.raid_overhead_percent = policy.storage_overhead_percent
+        storage.raid_overhead_percent = self.policy_page.storage_overhead_spin.value()
         storage.notes = "Added by Cluster Preparation - recommended capacity, review before ordering."
         return [storage]
 
@@ -461,18 +510,8 @@ class ClusterPreparationWizard(QWizard):
         self._confirm_added("DR", len(self.new_dr_servers), len(self.new_dr_storage))
 
     def _confirm_added(self, site: str, server_count: int, storage_count: int):
-        self.summary_page.result_label.setText(
-            self.summary_page.result_label.text() +
+        self.result_page.result_label.setText(
+            self.result_page.result_label.text() +
             f"<br><br><b>{server_count} {site} server(s) and {storage_count} storage "
-            "system(s) queued - click Finish, they'll be added to your project as one action.</b>"
+            "system(s) queued - click Finish, they'll be added to your project.</b>"
         )
-
-    def get_new_servers(self) -> list[Server]:
-        """Called by the VMs page after the wizard closes - returns
-        whatever server rows were queued via the Add buttons (empty if
-        the user never clicked either)."""
-        return self.new_primary_servers + self.new_dr_servers
-
-    def get_new_storages(self) -> list[Storage]:
-        """Same as get_new_servers(), for the storage rows queued alongside."""
-        return self.new_primary_storage + self.new_dr_storage

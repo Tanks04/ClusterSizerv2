@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.virtual_machine import VirtualMachine
-from src.models.workload_profile import WORKLOAD_PROFILE_NAMES, WORKLOAD_PROFILES, DEFAULT_WORKLOAD_PROFILE
+from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
 
 
 class VMDialog(QDialog):
@@ -66,10 +66,10 @@ class VMDialog(QDialog):
         #
 
         self.workload_combo = QComboBox()
-        self.workload_combo.addItems(WORKLOAD_PROFILE_NAMES)
-        self.workload_combo.setCurrentText(DEFAULT_WORKLOAD_PROFILE)
+        self.workload_combo.addItems(WORKLOAD_TIER_NAMES)
+        self.workload_combo.setCurrentText(DEFAULT_WORKLOAD_TIER)
         self.workload_combo.currentTextChanged.connect(self._update_workload_description)
-        layout.addRow("Workload Profile", self.workload_combo)
+        layout.addRow("Workload Tier", self.workload_combo)
 
         self.workload_description_label = QLabel("")
         self.workload_description_label.setWordWrap(True)
@@ -135,11 +135,12 @@ class VMDialog(QDialog):
         self._dr_manually_edited = True
 
     def _update_workload_description(self) -> None:
-        profile = WORKLOAD_PROFILES.get(self.workload_combo.currentText())
-        if profile:
+        tier = WORKLOAD_TIERS.get(self.workload_combo.currentText())
+        if tier:
             self.workload_description_label.setText(
-                f"{profile.description} (assumed {profile.default_cpu_utilization * 100:.0f}% "
-                "avg CPU utilization for sizing - adjustable in Cluster Preparation)."
+                f"{tier.description} (commonly-cited safe oversubscription: "
+                f"{tier.ratio_min:.0f}:1 to {tier.ratio_max:.0f}:1, used as "
+                f"{tier.default_ratio:.0f}:1 for sizing - adjustable in Cluster Preparation)."
             )
 
     def _sync_dr_defaults(self) -> None:
@@ -170,7 +171,7 @@ class VMDialog(QDialog):
         self.disk_spin.setValue(vm.disk_gb)
         self.powered_check.setChecked(vm.powered_on)
 
-        self.workload_combo.setCurrentText(vm.workload_profile)
+        self.workload_combo.setCurrentText(vm.workload_tier)
         self._update_workload_description()
 
         self.dr_check.setChecked(vm.dr_protected)
@@ -193,7 +194,7 @@ class VMDialog(QDialog):
         vm.ram_gb = self.ram_spin.value()
         vm.disk_gb = self.disk_spin.value()
         vm.powered_on = self.powered_check.isChecked()
-        vm.workload_profile = self.workload_combo.currentText()
+        vm.workload_tier = self.workload_combo.currentText()
 
         vm.dr_protected = self.dr_check.isChecked()
         vm.dr_vcpu = self.dr_vcpu_spin.value()

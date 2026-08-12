@@ -1,4 +1,4 @@
-# ClusterSizer 2.4.2
+# ClusterSizer v2.8.1
 
 **A desktop tool for sysadmins: sizing HW for a cluster, tracking load, and
 DR sizing — without manually adding it all up in Excel for the third time.**
@@ -28,6 +28,7 @@ or the tender is written**.
 
 ## Features
 
+
 - **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, NIC
   inventory (incl. direct-attach SAS), and a Hyperthreading toggle that
   actually affects CPU oversubscription math (HT-adjusted per server, not
@@ -40,15 +41,21 @@ or the tender is written**.
 - **VMs** — every VM can be flagged as *DR Protected* with its own DR
   footprint (vcpu/ram/disk) — since DR replicas are often not a 1:1 match
   with production, and the DR calculation respects that. Each VM also
-  gets a Workload Profile (CPU Intensive/Balanced/Memory Intensive/
-  Storage Intensive/Light) for the **Cluster Preparation** wizard — the
-  reverse question from the rest of the app: not "do these VMs fit the
-  servers I have" but "how many servers should I buy for these VMs".
-  Accounts for growth, HA (N+1/N+2), memory reserve, and reuses each
-  VM's DR protection for a separate DR host AND storage estimate. Turns
-  straight
-  into real Server AND Storage rows via one button, sized for the same
-  demand (with a RAID/EC overhead assumption you can adjust).
+  gets a Workload Tier (Tier-0/Mission-Critical, Standard Production,
+  Development/Test, High-Density VDI — each with a commonly-cited safe
+  oversubscription ratio, e.g. Tier-0 at 1:1 up to VDI at 12-24:1) for
+  the **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
+  (Hypervisor → Workload → Policy → Result), the reverse
+  question from the rest of the app: not "do these VMs fit the servers I
+  have" but "how many servers should I buy for these VMs". Reuses the
+  same hypervisor presets as Settings for a sanity-check ratio, accounts
+  for growth (applied equally to vCPU/RAM/storage), HA (N+1/N+2), memory
+  reserve, and reuses each VM's DR protection for a separate DR host AND
+  storage estimate. The host spec is OPTIMIZED for you at the end (fewest
+  hosts, landing near the target ratio for your hypervisor) - editable
+  afterward, "Reset to Optimized Suggestion" if you want it back. Turns
+  straight into real Server AND Storage rows via one button, sized for
+  the same demand (with a RAID/EC overhead assumption you can adjust).
 - **Network** — switches (port inventory by speed: 1G/10G/25G/40G/100G/
   FC/SAS) and connections between any two of {Server, Switch, Storage} -
   including direct-attach storage links with no switch in between (e.g.
@@ -76,7 +83,7 @@ or the tender is written**.
 - Multi-select everywhere (Ctrl/Shift-click, Delete, right-click → Edit/
   Copy/Delete), strictly-typed CSV import (each tab only accepts its own
   format), a "Clear All" button per tab, project save/load (`.clsz`, JSON).
-
+  
 ## Running it
 
 ```bash

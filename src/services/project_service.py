@@ -222,6 +222,23 @@ class ProjectService(QObject):
         self.storages_changed.emit()
         self._notify()
 
+    def replace_servers_and_storages_at_site(
+        self, site: str, servers: list[Server], storages: list[Storage]
+    ) -> None:
+        """Same as add_servers_and_storages, but first removes any
+        EXISTING servers/storages at `site` - one undo step for the
+        whole swap. Used when applying a Cluster Preparation
+        recommendation on top of a site that already has servers/storage
+        from before, and the user chose "Replace" over "Add"."""
+        self._push_undo_snapshot()
+        self._project.servers = [s for s in self._project.servers if s.site != site]
+        self._project.storages = [s for s in self._project.storages if s.site != site]
+        self._project.servers.extend(servers)
+        self._project.storages.extend(storages)
+        self.servers_changed.emit()
+        self.storages_changed.emit()
+        self._notify()
+
     def set_all_servers_hyperthreading(self, enabled: bool) -> None:
         """Bulk-sets hyperthreading_enabled on every server at once - one
         undo snapshot for the whole action, not one per server, so a
@@ -332,6 +349,31 @@ class ProjectService(QObject):
     def clear_vms(self) -> None:
         self._push_undo_snapshot()
         self._project.vms = []
+        self._notify(self.vms_changed)
+
+    def set_all_vms_workload_tier(self, tier: str) -> None:
+        """Bulk-sets workload_tier on every VM at once - one undo snapshot
+        for the whole action, not one per VM, so a single Ctrl+Z reverts
+        it all. A quick way to size a whole cluster without editing VMs
+        one by one first."""
+        self._push_undo_snapshot()
+        for vm in self._project.vms:
+            vm.workload_tier = tier
+        self._notify(self.vms_changed)
+
+    def set_all_vms_dr_protected(self, protected: bool) -> None:
+        """Bulk-sets dr_protected on every VM at once - one undo snapshot
+        for the whole action. Turning it ON also defaults each VM's DR
+        footprint to match its primary footprint (vcpu/ram/disk) unless
+        it already had DR values set; turning it OFF just clears the flag,
+        leaving the footprint numbers in place in case it's turned back on."""
+        self._push_undo_snapshot()
+        for vm in self._project.vms:
+            vm.dr_protected = protected
+            if protected and vm.dr_vcpu == 0 and vm.dr_ram_gb == 0 and vm.dr_disk_gb == 0:
+                vm.dr_vcpu = vm.vcpu
+                vm.dr_ram_gb = vm.ram_gb
+                vm.dr_disk_gb = vm.disk_gb
         self._notify(self.vms_changed)
 
     def import_vms_csv(self, path: str | Path) -> int:

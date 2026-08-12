@@ -4,9 +4,13 @@ from pathlib import Path
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
+    QPushButton,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -14,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
+from src.models.workload_tier import WORKLOAD_TIER_NAMES
 
 from src.gui.dialogs.vm_dialog import VMDialog
 from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
@@ -100,6 +105,31 @@ class VirtualMachinesPage(QWidget):
 
         main_layout.addWidget(toolbar)
 
+        bulk_row = QHBoxLayout()
+        bulk_row.addWidget(QLabel("Bulk edit (all VMs):"))
+
+        self.bulk_tier_combo = QComboBox()
+        self.bulk_tier_combo.addItems(WORKLOAD_TIER_NAMES)
+        bulk_row.addWidget(self.bulk_tier_combo)
+
+        bulk_tier_button = QPushButton("Set Workload Tier")
+        bulk_tier_button.setToolTip("Sets the Workload Tier on every VM at once - one undo step, adjust individually afterward if needed.")
+        bulk_tier_button.clicked.connect(self._set_all_workload_tier)
+        bulk_row.addWidget(bulk_tier_button)
+
+        bulk_row.addSpacing(16)
+
+        self.bulk_dr_check = QCheckBox("DR Protected")
+        bulk_row.addWidget(self.bulk_dr_check)
+
+        bulk_dr_button = QPushButton("Apply to All")
+        bulk_dr_button.setToolTip("Sets DR Protected on every VM at once - one undo step.")
+        bulk_dr_button.clicked.connect(self._set_all_dr_protected)
+        bulk_row.addWidget(bulk_dr_button)
+
+        bulk_row.addStretch()
+        main_layout.addLayout(bulk_row)
+
         self.table = MultiSelectTableView()
         self.table.set_source_model(self.model)
         self.table.edit_requested.connect(self._edit_vm)
@@ -114,12 +144,12 @@ class VirtualMachinesPage(QWidget):
         self.card_vcpu = SummaryWidget("vCPU Demand (Powered On)", "0")
         self.card_ram = SummaryWidget("RAM Demand (Powered On)", "0 GB")
         self.card_cpu_ratio = SummaryWidget("CPU Oversub.", "-")
-        self.card_ram_ratio = SummaryWidget("RAM Oversub.", "-")
+        self.card_vm_storage = SummaryWidget("VM Storage", "0 GB")
         self.card_dr_protected = SummaryWidget("DR Protected", "0")
 
         for card in (
             self.card_vms, self.card_vcpu, self.card_ram,
-            self.card_cpu_ratio, self.card_ram_ratio, self.card_dr_protected,
+            self.card_cpu_ratio, self.card_vm_storage, self.card_dr_protected,
         ):
             summary_layout.addWidget(card)
 
@@ -204,16 +234,62 @@ class VirtualMachinesPage(QWidget):
     def _open_cluster_preparation(self):
         dialog = ClusterPreparationWizard(self.service.project, parent=self)
         dialog.exec()
-        new_servers = dialog.get_new_servers()
-        new_storages = dialog.get_new_storages()
-        if new_servers or new_storages:
-            self.service.add_servers_and_storages(new_servers, new_storages)
-            QMessageBox.information(
+
+        self._apply_cluster_prep_site(
+            "Primary", dialog.new_primary_servers, dialog.new_primary_storage,
+        )
+        self._apply_cluster_prep_site(
+            "DR", dialog.new_dr_servers, dialog.new_dr_storage,
+        )
+
+    def _apply_cluster_prep_site(self, site: str, servers: list, storages: list) -> None:
+        if not servers and not storages:
+            return
+
+        existing = [s for s in self.service.project.servers if s.site == site] + \
+                   [s for s in self.service.project.storages if s.site == site]
+
+        if existing:
+            reply = QMessageBox.question(
                 self, "Cluster Preparation",
-                f"{len(new_servers)} server(s) added to the Servers tab and "
-                f"{len(new_storages)} storage system(s) added to the Storage tab "
-                "- review and adjust the specs there.",
+                f"{site} already has {len(existing)} server/storage entrie(s). "
+                f"Add the {len(servers)} recommended server(s) and "
+                f"{len(storages)} storage system(s) to the existing ones, or "
+                "replace them?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                | QMessageBox.StandardButton.Cancel,
             )
+            # Yes = Add, No = Replace, Cancel = do nothing - QMessageBox.question
+            # doesn't support custom button labels here without more setup, so
+            # the choice is spelled out in the question text above.
+            if reply == QMessageBox.StandardButton.Cancel:
+                return
+            if reply == QMessageBox.StandardButton.No:
+                self.service.replace_servers_and_storages_at_site(site, servers, storages)
+                QMessageBox.information(
+                    self, "Cluster Preparation",
+                    f"Replaced {site} servers/storage with {len(servers)} server(s) "
+                    f"and {len(storages)} storage system(s).",
+                )
+                return
+
+        self.service.add_servers_and_storages(servers, storages)
+        QMessageBox.information(
+            self, "Cluster Preparation",
+            f"{len(servers)} {site} server(s) and {len(storages)} storage "
+            "system(s) added - review and adjust the specs there.",
+        )
+
+    def _set_all_workload_tier(self):
+        if not self.service.project.vms:
+            return
+        tier = self.bulk_tier_combo.currentText()
+        self.service.set_all_vms_workload_tier(tier)
+
+    def _set_all_dr_protected(self):
+        if not self.service.project.vms:
+            return
+        self.service.set_all_vms_dr_protected(self.bulk_dr_check.isChecked())
 
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export VMs CSV", "vms.csv", "CSV (*.csv)")
@@ -250,14 +326,15 @@ class VirtualMachinesPage(QWidget):
         )
 
         cpu_ratio = project.cpu_oversubscription_ratio("Primary")
-        ram_ratio = project.ram_oversubscription_ratio("Primary")
 
         self.card_cpu_ratio.set_value(
             f"{cpu_ratio:.1f} : 1" if cpu_ratio is not None else "-"
         )
-        self.card_ram_ratio.set_value(
-            f"{ram_ratio * 100:.0f} %" if ram_ratio is not None else "-"
-        )
+        total_vm_storage_gb = project.vm_disk_demand_gb("Primary") + project.vm_disk_demand_gb("DR")
+        if total_vm_storage_gb >= 1024:
+            self.card_vm_storage.set_value(f"{total_vm_storage_gb / 1024:.1f} TB")
+        else:
+            self.card_vm_storage.set_value(f"{total_vm_storage_gb:.0f} GB")
         self.card_dr_protected.set_value(project.dr_protected_vm_count())
 
         self.cluster_prep_action.setEnabled(len(project.vms) > 0)

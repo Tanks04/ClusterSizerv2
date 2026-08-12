@@ -1,16 +1,17 @@
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.models.virtual_machine import VirtualMachine
+from src.models.server import Server
 from src.calculations.cluster_preparation import compute_sizing, SizingPolicy, HostSpec
 
 
-def _vm(name, vcpu, ram, disk, profile, dr=False):
+def _vm(name, vcpu, ram, disk, tier, dr=False, site=PRIMARY):
     vm = VirtualMachine.create_default()
     vm.name = name
-    vm.site = PRIMARY
+    vm.site = site
     vm.vcpu = vcpu
     vm.ram_gb = ram
     vm.disk_gb = disk
-    vm.workload_profile = profile
+    vm.workload_tier = tier
     vm.dr_protected = dr
     if dr:
         vm.dr_vcpu = vcpu
@@ -27,41 +28,68 @@ def test_empty_project_needs_zero_hosts():
 
 
 def test_ha_level_adds_expected_extra_hosts():
+    """None and Basic HA both size for the fewest hosts (no reserved
+    headroom) - the difference between them is whether the HA feature is
+    configured at all, not host count. Only N+1/N+2 reserve extra hosts."""
     project = ClusterProject()
     for i in range(10):
-        project.vms.append(_vm(f"vm{i}", 4, 8, 50, "Balanced"))
+        project.vms.append(_vm(f"vm{i}", 4, 8, 50, "Standard Production"))
 
     host_spec = HostSpec(sockets=1, cores_per_socket=8, threads_per_core=1,
                           hyperthreading_enabled=False, ram_gb=1000)
 
     none_result = compute_sizing(project, SizingPolicy(ha_level="None", host_spec=host_spec))
+    basic_result = compute_sizing(project, SizingPolicy(ha_level="Basic HA", host_spec=host_spec))
     n1_result = compute_sizing(project, SizingPolicy(ha_level="N+1", host_spec=host_spec))
     n2_result = compute_sizing(project, SizingPolicy(ha_level="N+2", host_spec=host_spec))
 
+    assert basic_result.required_hosts == none_result.required_hosts
     assert n1_result.required_hosts == none_result.required_hosts + 1
     assert n2_result.required_hosts == none_result.required_hosts + 2
 
 
+def test_minimum_two_host_floor():
+    """A single VM should still recommend at least 2 hosts - a single host
+    is never a "cluster", regardless of how little capacity is needed."""
+    project = ClusterProject()
+    project.vms.append(_vm("tiny", 1, 1, 10, "Standard Production"))
+
+    result = compute_sizing(project, SizingPolicy(ha_level="None"))
+    assert result.required_hosts >= 2
+
+
 def test_dr_sizing_only_counts_dr_protected_vms():
     project = ClusterProject()
-    project.vms.append(_vm("protected", 8, 32, 200, "CPU Intensive", dr=True))
-    project.vms.append(_vm("unprotected", 8, 32, 200, "CPU Intensive", dr=False))
+    project.vms.append(_vm("protected", 8, 32, 200, "Tier-0 / Mission-Critical", dr=True))
+    project.vms.append(_vm("unprotected", 8, 32, 200, "Tier-0 / Mission-Critical", dr=False))
 
     result = compute_sizing(project, SizingPolicy())
     assert result.dr_vm_count == 1
+
+
+def test_dr_site_vms_excluded_from_primary_count():
+    """VMs already tagged site=DR are not part of Primary sizing - and the
+    excluded count is reported so "why fewer VMs than I loaded" has an answer."""
+    project = ClusterProject()
+    for i in range(5):
+        project.vms.append(_vm(f"primary{i}", 4, 8, 50, "Standard Production", site=PRIMARY))
+    for i in range(2):
+        project.vms.append(_vm(f"dr{i}", 4, 8, 50, "Standard Production", site=DR))
+
+    result = compute_sizing(project, SizingPolicy())
+    assert result.vm_count == 5
+    assert result.dr_site_vm_count == 2
 
 
 def test_recommendation_survives_own_n_plus_one_check():
     """The wizard's own recommendation, applied back to the project as real
     servers, should pass the existing N+1 check - the two calculation
     directions must agree with each other."""
-    from src.models.server import Server
-
     project = ClusterProject(name="Consistency check")
     for i in range(15):
-        project.vms.append(_vm(f"db{i}", 8, 32, 200, "CPU Intensive"))
+        project.vms.append(_vm(f"db{i}", 8, 32, 200, "Tier-0 / Mission-Critical"))
     for i in range(25):
-        project.vms.append(_vm(f"web{i}", 2, 8, 80, "Light"))
+        project.vms.append(_vm(f"web{i}", 2, 8, 80, "Development / Test"))
 
     policy = SizingPolicy(ha_level="N+1", growth_percent=20,
                            host_spec=HostSpec(sockets=2, cores_per_socket=20, ram_gb=384))
@@ -84,9 +112,9 @@ def test_recommendation_survives_own_n_plus_one_check():
 def test_storage_sizing_matches_demand_with_overhead():
     project = ClusterProject()
     for i in range(5):
-        project.vms.append(_vm(f"vm{i}", 2, 8, 500, "Balanced"))
+        project.vms.append(_vm(f"vm{i}", 2, 8, 500, "Standard Production"))
 
-    policy = SizingPolicy(storage_overhead_percent=20.0)
+    policy = SizingPolicy(growth_percent=0.0, storage_overhead_percent=20.0)
     result = compute_sizing(project, policy)
 
     expected_usable_tb = (5 * 500) / 1024
@@ -96,9 +124,33 @@ def test_storage_sizing_matches_demand_with_overhead():
 
 def test_dr_storage_uses_dr_footprint_not_primary_disk():
     project = ClusterProject()
-    project.vms.append(_vm("db1", 4, 16, 1000, "CPU Intensive", dr=True))
+    project.vms.append(_vm("db1", 4, 16, 1000, "Tier-0 / Mission-Critical", dr=True))
     project.vms[0].dr_disk_gb = 250  # DR replica with a much smaller disk footprint
 
-    result = compute_sizing(project, SizingPolicy())
+    result = compute_sizing(project, SizingPolicy(growth_percent=0.0))
 
     assert abs(result.dr_recommended_storage_usable_tb - 250 / 1024) < 0.01
+
+
+def test_optimizer_picks_fewer_hosts_over_more_when_ratio_ties_allow():
+    """The auto-optimizer (host_spec=None) should never need MORE hosts
+    than a reasonable manually-specified spec would for the same demand."""
+    project = ClusterProject()
+    for i in range(20):
+        project.vms.append(_vm(f"vm{i}", 4, 16, 100, "Standard Production"))
+
+    auto_result = compute_sizing(project, SizingPolicy())  # host_spec=None -> optimized
+    assert auto_result.required_hosts >= 2  # floor applies
+    assert auto_result.host_spec.ram_gb > 0
+    assert auto_result.host_spec.cores_per_socket > 0
+
+
+def test_optimizer_respects_explicit_override():
+    project = ClusterProject()
+    for i in range(10):
+        project.vms.append(_vm(f"vm{i}", 4, 16, 100, "Standard Production"))
+
+    override = HostSpec(sockets=2, cores_per_socket=64, threads_per_core=2,
+                         hyperthreading_enabled=True, ram_gb=2048)
+    result = compute_sizing(project, SizingPolicy(host_spec=override))
+    assert result.host_spec == override

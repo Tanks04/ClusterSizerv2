@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import uuid
 
-from src.models.workload_profile import DEFAULT_WORKLOAD_PROFILE
+from src.models.workload_tier import DEFAULT_WORKLOAD_TIER
 
 
 @dataclass
@@ -13,15 +13,16 @@ class VirtualMachine:
     all). When dr_protected=False, the VM is not counted in DR failover
     demand - it only consumes resources at its home (site) location.
 
-    workload_profile feeds the Cluster Preparation sizing wizard (see
+    workload_tier feeds the Cluster Preparation sizing wizard (see
     src/calculations/cluster_preparation.py) - it does NOT affect the
     existing oversubscription ratio math on Summary/VMs/Reports, which
-    stays a flat vCPU:pCPU ratio. These are two different, complementary
-    calculations: the existing ratio answers "given the servers I HAVE,
-    is this safe", while Cluster Preparation answers "given the VMs I
-    NEED to run, how many servers should I buy" - and uses a
-    workload-weighted effective-utilization model for that, since a
-    single flat ratio is too blunt when sizing new hardware from scratch.
+    stays a flat, project-wide vCPU:pCPU ratio. These are two different,
+    complementary calculations: the existing ratio answers "given the
+    servers I HAVE, is this safe", while Cluster Preparation answers
+    "given the VMs I NEED to run, how many servers should I buy" - using
+    a PER-VM oversubscription-ratio tier (src/models/workload_tier.py),
+    since a single project-wide ratio is too blunt when sizing new
+    hardware for a mixed workload from scratch.
     """
 
     uid: str
@@ -39,7 +40,7 @@ class VirtualMachine:
     dr_ram_gb: float = 0.0
     dr_disk_gb: float = 0.0
 
-    workload_profile: str = DEFAULT_WORKLOAD_PROFILE
+    workload_tier: str = DEFAULT_WORKLOAD_TIER
 
     notes: str = ""
 
@@ -68,5 +69,5 @@ class VirtualMachine:
             dr_vcpu=2,
             dr_ram_gb=8.0,
             dr_disk_gb=100.0,
-            workload_profile=DEFAULT_WORKLOAD_PROFILE,
+            workload_tier=DEFAULT_WORKLOAD_TIER,
         )

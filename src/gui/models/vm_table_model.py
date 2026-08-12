@@ -55,7 +55,7 @@ class VMTableModel(QAbstractTableModel):
             case 2:
                 return vm.vcpu
             case 3:
-                return vm.workload_profile
+                return vm.workload_tier
             case 4:
                 return vm.ram_gb
             case 5:
