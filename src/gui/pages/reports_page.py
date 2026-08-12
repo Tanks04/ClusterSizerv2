@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QTextDocument
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.sizing import build_reports
+from src.calculations.html_report import build_html_report
 from src.services.project_service import ProjectService
 
 
@@ -53,6 +54,14 @@ class ReportsPage(QWidget):
         export_txt_button = QPushButton("📤 Export Report (.txt)")
         export_txt_button.clicked.connect(self._export_txt)
         buttons.addWidget(export_txt_button)
+
+        export_pdf_button = QPushButton("📄 Export PDF Report")
+        export_pdf_button.setToolTip(
+            "A nicer-looking, color-coded PDF version of this report - "
+            "built with Qt's own printing support, no extra libraries needed."
+        )
+        export_pdf_button.clicked.connect(self._export_pdf)
+        buttons.addWidget(export_pdf_button)
 
         export_all_button = QPushButton("📤 Export All Data (CSV bundle)")
         export_all_button.clicked.connect(self._export_all_csv)
@@ -120,6 +129,42 @@ class ReportsPage(QWidget):
         try:
             Path(path).write_text(self._build_report_text(), encoding="utf-8")
             QMessageBox.information(self, "Export", "Report exported.")
+        except Exception as exc:
+            QMessageBox.critical(self, "Export Error", str(exc))
+
+    def _export_pdf(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Export PDF Report", "report.pdf", "PDF (*.pdf)")
+        if not path:
+            return
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+
+        try:
+            from PySide6.QtPrintSupport import QPrinter
+        except ImportError as exc:
+            QMessageBox.critical(
+                self, "Export Error",
+                "PDF export needs Qt's QtPrintSupport module, which should ship "
+                "with PySide6 / PySide6-Essentials. If this keeps happening, try:\n"
+                "pip install PySide6-Addons\n\n"
+                f"Underlying error: {exc}",
+            )
+            return
+
+        try:
+            html = build_html_report(
+                self.service.project, self.service.thresholds,
+            )
+
+            document = QTextDocument()
+            document.setHtml(html)
+
+            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+            printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+            printer.setOutputFileName(path)
+            document.print_(printer)
+
+            QMessageBox.information(self, "Export", "PDF report exported.")
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 

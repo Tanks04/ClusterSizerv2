@@ -1,5 +1,22 @@
 # ROADMAP
 
+## v2.4.2 (PDF report export)
+
+- Reports tab gained "📄 Export PDF Report" next to the existing .txt
+  export - a color-coded, nicely laid-out PDF (site tables, status
+  badges matching the app's OK/Warning/Critical palette, HT ENABLED/
+  MIXED tags) suitable for handing to a client or attaching to a ticket.
+  Deliberately built with Qt's OWN printing support (QTextDocument +
+  QPrinter, both already part of PySide6/PySide6-Essentials) instead of
+  adding reportlab or a similar PDF library as a new dependency - the
+  report is generated as HTML (src/calculations/html_report.py, no Qt
+  dependency, kept deliberately old-school table-based markup since
+  QTextDocument's HTML renderer only supports a fairly basic CSS subset)
+  and Qt itself prints that to PDF. No new pip packages required.
+- If QtPrintSupport isn't available for some reason, the button fails
+  with a clear message instead of a crash (pip install PySide6-Addons
+  as a fallback suggestion).
+
 ## v2.4.1 (global HT toggle + HT indicators)
 
 - Servers tab toolbar gained a "Hyperthreading (all servers)" checkbox -
