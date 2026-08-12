@@ -3,6 +3,7 @@ import sys
 import traceback
 from pathlib import Path
 
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from src.gui.main_window import MainWindow
@@ -42,6 +43,21 @@ def _enable_crash_diagnostics() -> None:
     sys.excepthook = _excepthook
 
 
+
+def _load_application_font(app: QApplication) -> None:
+    """Load bundled Noto Sans so the UI does not depend on OS fonts."""
+    fonts_dir = Path(__file__).parent / "src" / "resources" / "fonts"
+    regular = QFontDatabase.addApplicationFont(
+        str(fonts_dir / "NotoSans-Regular.ttf")
+    )
+    QFontDatabase.addApplicationFont(
+        str(fonts_dir / "NotoSans-Bold.ttf")
+    )
+
+    families = QFontDatabase.applicationFontFamilies(regular) if regular >= 0 else []
+    family = families[0] if families else "Noto Sans"
+    app.setFont(QFont(family, 10))
+
 def _load_stylesheet(app: QApplication) -> None:
     qss_path = Path(__file__).parent / "src" / "resources" / "styles" / "main.qss"
     if qss_path.exists():
@@ -55,6 +71,7 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("ClusterSizer")
 
+    _load_application_font(app)
     _load_stylesheet(app)
 
     project_service = ProjectService()
