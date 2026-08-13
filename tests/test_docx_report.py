@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("docx")
+
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.models.server import Server
 from src.models.storage import Storage

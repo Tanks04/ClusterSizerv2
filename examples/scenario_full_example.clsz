@@ -24,6 +24,7 @@
       "nic_100g": 0,
       "nic_fc": 0,
       "nic_sas": 0,
+      "enabled": true,
       "notes": ""
     },
     {
@@ -48,7 +49,8 @@
       "nic_100g": 0,
       "nic_fc": 0,
       "nic_sas": 0,
-      "notes": ""
+      "enabled": false,
+      "notes": "Disabled to demonstrate the Disable-a-server feature - simulate a host being down without deleting its config."
     },
     {
       "uid": "35c25f45-6c97-4a20-b0b5-c90f7f56a698",
@@ -72,6 +74,7 @@
       "nic_100g": 0,
       "nic_fc": 0,
       "nic_sas": 0,
+      "enabled": true,
       "notes": ""
     }
   ],

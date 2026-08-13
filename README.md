@@ -32,9 +32,10 @@ or the tender is written**.
   actually affects CPU oversubscription math (HT-adjusted per server, not
   a flat multiplier). Batch-add N identical servers at once. Inline
   editing directly in the table.
-- **Storage** — Primary/DR, you enter both raw and usable capacity and
-  the RAID/EC overhead percentage is shown for information (not derived
-  automatically), plus a connectivity port inventory
+- **Storage** — Primary/DR, you enter both raw and usable capacity; the
+  RAID/EC overhead percentage is derived from those two and shown
+  read-only - it's informational only and doesn't feed the sizing
+  calculations - plus a connectivity port inventory
   (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column.
 - **VMs** — every VM can be flagged as *DR Protected* with its own DR
   footprint (vcpu/ram/disk) — since DR replicas are often not a 1:1 match
@@ -42,8 +43,7 @@ or the tender is written**.
   gets a Workload Tier (Tier-0/Mission-Critical, Standard Production,
   Development/Test, High-Density VDI — each with a commonly-cited safe
   oversubscription ratio, e.g. Tier-0 at 1:1 up to VDI at 12-24:1) for
-  the 
-  **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
+  the **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
   (Hypervisor → Workload → Policy → Result), the reverse
   question from the rest of the app: not "do these VMs fit the servers I
   have" but "how many servers should I buy for these VMs". Reuses the
@@ -122,17 +122,14 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Thanks
 
-Iako su i kod i app, pa i ideja ponuđeni besplatno, ako smatrate da 
-Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
-za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
-provesti u djelo još koju ideju ,)
-Revolut: revolut.me/@ivan50ba6
-
-Although the code, app, and idea are offered for free, if you think you 
-like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
-to the author of the program <3 who will be more willing to put 
-new ideas into practice ,)
-Revolut: revolut.me/@ivan50ba6
+This tool was built in collaboration with Claude (Anthropic) — from the
+first idea to the last bugfix. What would have taken me weeks to put
+together in my spare time came together here in a handful of sessions:
+I'd describe the problem the way a sysadmin sees it, and the code,
+architecture, and fixes mostly came from the other side — with plenty of
+my own testing, pushback, and "that's not right, try again." Including
+hunting down one particularly nasty Windows crash that didn't want to be
+found.
 
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).

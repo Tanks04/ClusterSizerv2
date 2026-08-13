@@ -12,29 +12,62 @@ full per-device listing below it - the aggregate answers "how much do I
 have", the listing answers "what exactly is it".
 """
 
+import sys
 from datetime import datetime
 
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt, RGBColor
+try:
+    from docx import Document
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Pt, RGBColor
+    _docx_import_error = None
+except Exception as _exc:  # noqa: BLE001 - deliberately broad, see message below
+    Document = None
+    WD_ALIGN_PARAGRAPH = None
+    Pt = None
+    RGBColor = None
+    _docx_import_error = _exc
 
 from src.calculations.sizing import build_reports
 from src.calculations.thresholds import Status, Thresholds
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
 
+
+def _docx_missing_message() -> str:
+    detail = f" (underlying error: {_docx_import_error})" if _docx_import_error else ""
+    return (
+        "Generating a Word report requires python-docx, and it could not be imported"
+        f"{detail}.\n\n"
+        f"This app is running from:\n{sys.executable}\n\n"
+        "If you already ran 'pip install python-docx', make sure you installed "
+        "it into THIS interpreter specifically - e.g. run:\n"
+        f'"{sys.executable}" -m pip install python-docx\n'
+        "A different install elsewhere (system Python, another venv, VS Code's "
+        "default interpreter, etc.) won't be seen by this app if it's not the "
+        "same environment.\n\n"
+        "Also double-check you installed 'python-docx', not the unrelated, "
+        "abandoned PyPI package literally named 'docx' - both import as 'docx' "
+        "at runtime, but only python-docx provides Document."
+    )
+
 # Mirrors src/gui/widgets/status_badge.py's palette - kept as its own
 # copy so this module stays Qt-free (same approach html_report.py used).
-_STATUS_COLORS = {
-    Status.OK: RGBColor(0x2E, 0x7D, 0x32),
-    Status.WARNING: RGBColor(0xED, 0x6C, 0x02),
-    Status.CRITICAL: RGBColor(0xC6, 0x28, 0x28),
-    Status.UNKNOWN: RGBColor(0x75, 0x75, 0x75),
-}
-
-_GRAY = RGBColor(0x75, 0x75, 0x75)
-_ORANGE = RGBColor(0xED, 0x6C, 0x02)
-_RED = RGBColor(0xC6, 0x28, 0x28)
-_GREEN = RGBColor(0x2E, 0x7D, 0x32)
+# Guarded like the imports above - RGBColor(...) would itself raise at
+# module-import time if docx failed to import, defeating the point of a
+# soft-fail guard.
+if RGBColor is not None:
+    _STATUS_COLORS = {
+        Status.OK: RGBColor(0x2E, 0x7D, 0x32),
+        Status.WARNING: RGBColor(0xED, 0x6C, 0x02),
+        Status.CRITICAL: RGBColor(0xC6, 0x28, 0x28),
+        Status.UNKNOWN: RGBColor(0x75, 0x75, 0x75),
+    }
+    _GRAY = RGBColor(0x75, 0x75, 0x75)
+    _ORANGE = RGBColor(0xED, 0x6C, 0x02)
+    _RED = RGBColor(0xC6, 0x28, 0x28)
+    _GREEN = RGBColor(0x2E, 0x7D, 0x32)
+else:
+    _STATUS_COLORS = {}
+    _GRAY = _ORANGE = _RED = _GREEN = None
 
 
 def _add_table(document: Document, headers: list[str], rows: list[list[str]]) -> None:
@@ -253,7 +286,10 @@ def _vms_section(document: Document, project: ClusterProject) -> None:
     _add_table(document, ["Name", "Site", "vCPU", "RAM", "Disk", "Workload Tier", "DR Protected", "Power"], rows)
 
 
-def build_docx_report(project: ClusterProject, thresholds: Thresholds, app_version: str = "") -> Document:
+def build_docx_report(project: ClusterProject, thresholds: Thresholds, app_version: str = "") -> "Document":
+    if Document is None:
+        raise ImportError(_docx_missing_message())
+
     document = Document()
 
     title = document.add_heading(project.name or "Untitled Project", level=0)

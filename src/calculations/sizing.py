@@ -4,7 +4,7 @@ so it can be tested and reused from Reports/CLI if ever needed."""
 from dataclasses import dataclass
 
 from src.models.cluster_project import ClusterProject, NPlusOneCheck, PRIMARY, DR
-from .thresholds import Thresholds, Status
+from src.calculations.thresholds import Thresholds, Status
 
 
 @dataclass

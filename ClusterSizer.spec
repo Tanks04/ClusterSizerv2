@@ -7,10 +7,12 @@
 # both from source and from a frozen bundle).
 #
 # Build with:
-#   pyinstaller ClusterSizer.spec
-#
-# See docs/BUILD.md for the full build/release procedure (venv setup,
-# PySide6-Essentials swap, plugin pruning, packaging).
+#   python -m venv build-venv && build-venv\Scripts\activate
+#   pip install -r requirements.txt && pip uninstall PySide6 PySide6-Addons -y
+#   pip install PySide6-Essentials pyinstaller
+#   pyinstaller --name ClusterSizer --onedir --windowed --noconfirm --clean ClusterSizer.spec
+# (No separate build doc - the user decided this isn't needed; keeping
+# the commands here instead of a dangling reference to one.)
 
 a = Analysis(
     ['main.py'],

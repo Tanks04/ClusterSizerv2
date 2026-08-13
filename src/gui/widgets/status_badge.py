@@ -10,6 +10,12 @@ _COLORS = {
     Status.UNKNOWN: "#757575",   # gray
 }
 
+# Public alias for callers that need this specific color but aren't
+# keyed by Status (e.g. the Servers tab's mixed-Hyperthreading label,
+# which is a genuine warning but not one of the four Status values) -
+# a single source instead of the hex literal getting copy-pasted.
+WARNING_COLOR = _COLORS[Status.WARNING]
+
 
 class StatusBadge(QLabel):
     """Small colored status badge (OK / Warning / Critical / Unknown)."""

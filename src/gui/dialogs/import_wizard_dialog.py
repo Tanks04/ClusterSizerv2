@@ -163,8 +163,12 @@ class ImportWizardDialog(QDialog):
 
         try:
             self._raw_rows = generic_import.load_raw_rows(self.path, sheet=sheet)
-        except (generic_import.UnsupportedFileError, Exception) as exc:
+        except generic_import.UnsupportedFileError as exc:
             QMessageBox.critical(self, "Import Error", f"Couldn't read the file:\n{exc}")
+            self.reject()
+            return
+        except Exception as exc:
+            report_error(self, "Import Error", exc)
             self.reject()
             return
 

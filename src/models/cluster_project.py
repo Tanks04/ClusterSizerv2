@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 
-from .server import Server
-from .storage import Storage
-from .virtual_machine import VirtualMachine
-from .network_switch import NetworkSwitch
-from .network_connection import NetworkConnection
+from src.models.server import Server
+from src.models.storage import Storage
+from src.models.virtual_machine import VirtualMachine
+from src.models.network_switch import NetworkSwitch
+from src.models.network_connection import NetworkConnection
 
 PRIMARY = "Primary"
 DR = "DR"
@@ -23,6 +23,16 @@ class NPlusOneCheck:
     @property
     def ok(self) -> bool:
         return self.ram_ok and self.cpu_ok
+
+
+@dataclass
+class HyperthreadingSummary:
+    """Detail behind hyperthreading_state() - the classification plus the
+    counts behind it, so a caller like ServersPage's global HT toggle can
+    show "(3/8 have HT on)" without recomputing the same thing inline."""
+    state: str  # "all_on" | "all_off" | "mixed" | "no_servers"
+    on_count: int
+    total_count: int
 
 
 @dataclass
@@ -162,16 +172,30 @@ class ClusterProject:
     # Compare, since it changes what the HT-adjusted core count means.
     # ------------------------------------------------------------------
 
+    def hyperthreading_summary(self, site: str | None = None) -> "HyperthreadingSummary":
+        """Same classification as hyperthreading_state(), but also
+        exposes the counts behind it (on_count/total_count) - what
+        ServersPage's global HT toggle needs for its "(3/8 have HT on)"
+        label, which a bare state string can't carry. site=None means
+        ALL servers project-wide (what the Servers tab's toolbar toggle
+        applies to); pass a specific site for the per-site Summary/
+        Reports/Compare display."""
+        servers = self.servers if site is None else self.servers_at(site)
+        if not servers:
+            return HyperthreadingSummary(state="no_servers", on_count=0, total_count=0)
+
+        on_count = sum(1 for s in servers if s.hyperthreading_enabled)
+        total_count = len(servers)
+        if on_count == total_count:
+            state = "all_on"
+        elif on_count == 0:
+            state = "all_off"
+        else:
+            state = "mixed"
+        return HyperthreadingSummary(state=state, on_count=on_count, total_count=total_count)
+
     def hyperthreading_state(self, site: str) -> str:
-        site_servers = self.servers_at(site)
-        if not site_servers:
-            return "no_servers"
-        on_count = sum(1 for s in site_servers if s.hyperthreading_enabled)
-        if on_count == len(site_servers):
-            return "all_on"
-        if on_count == 0:
-            return "all_off"
-        return "mixed"
+        return self.hyperthreading_summary(site).state
 
     # ------------------------------------------------------------------
 

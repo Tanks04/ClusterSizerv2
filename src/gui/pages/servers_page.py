@@ -19,6 +19,7 @@ from src.persistence.csv_io import CsvSchemaError
 from src.gui.dialogs.server_dialog import ServerDialog
 from src.gui.models.server_table_model import ServerTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.widgets.status_badge import WARNING_COLOR
 from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
 
@@ -240,27 +241,28 @@ class ServersPage(QWidget):
         self._refresh_ht_global()
 
     def _refresh_ht_global(self):
-        servers = self.service.project.servers
+        summary = self.service.project.hyperthreading_summary()
 
-        if not servers:
+        if summary.state == "no_servers":
             self.ht_global_check.setChecked(False)
             self.ht_global_check.setEnabled(False)
             self.ht_status_label.setText("")
             return
 
         self.ht_global_check.setEnabled(True)
-        on_count = sum(1 for s in servers if s.hyperthreading_enabled)
 
-        if on_count == len(servers):
+        if summary.state == "all_on":
             self.ht_global_check.setChecked(True)
             self.ht_status_label.setText("")
-        elif on_count == 0:
+        elif summary.state == "all_off":
             self.ht_global_check.setChecked(False)
             self.ht_status_label.setText("")
-        else:
+        else:  # mixed
             self.ht_global_check.setChecked(False)
-            self.ht_status_label.setText(f"({on_count}/{len(servers)} have HT on - click to normalize)")
-            self.ht_status_label.setStyleSheet("color: #ed6c02; font-weight: bold;")
+            self.ht_status_label.setText(
+                f"({summary.on_count}/{summary.total_count} have HT on - click to normalize)"
+            )
+            self.ht_status_label.setStyleSheet(f"color: {WARNING_COLOR}; font-weight: bold;")
             return
 
         self.ht_status_label.setStyleSheet("")

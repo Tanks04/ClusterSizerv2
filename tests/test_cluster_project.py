@@ -140,3 +140,41 @@ def test_n_plus_one_check_matches_n_plus_one_ok():
 def test_n_plus_one_check_none_for_empty_site():
     project = ClusterProject()
     assert project.n_plus_one_check(PRIMARY) is None
+
+
+def test_hyperthreading_summary_all_sites_vs_per_site():
+    """S22: hyperthreading_summary(site=None) covers all sites (what
+    ServersPage's global toggle needs), a specific site matches the
+    existing hyperthreading_state() behavior."""
+    from src.models.cluster_project import DR
+
+    project = ClusterProject()
+    a = _server("A", ram_gb=512, sockets=2, cores_per_socket=16)
+    a.hyperthreading_enabled = True
+    b = _server("B", ram_gb=512, sockets=2, cores_per_socket=16)
+    b.hyperthreading_enabled = False
+    c = _server("C", ram_gb=512, sockets=2, cores_per_socket=16)
+    c.site = DR
+    c.hyperthreading_enabled = True
+    project.servers += [a, b, c]
+
+    assert project.hyperthreading_state(PRIMARY) == "mixed"
+    assert project.hyperthreading_state(DR) == "all_on"
+
+    all_sites = project.hyperthreading_summary()
+    assert all_sites.state == "mixed"
+    assert all_sites.on_count == 2
+    assert all_sites.total_count == 3
+
+    dr_only = project.hyperthreading_summary(DR)
+    assert dr_only.state == "all_on"
+    assert dr_only.on_count == 1
+    assert dr_only.total_count == 1
+
+
+def test_hyperthreading_summary_empty_project():
+    project = ClusterProject()
+    summary = project.hyperthreading_summary()
+    assert summary.state == "no_servers"
+    assert summary.on_count == 0
+    assert summary.total_count == 0

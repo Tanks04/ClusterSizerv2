@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.sizing import SiteReport
-from .status_badge import StatusBadge
+from src.gui.widgets.status_badge import StatusBadge
 
 
 def _bar(ratio: float | None, max_percent: int = 200) -> QProgressBar:

@@ -1,5 +1,105 @@
 # ROADMAP
 
+## v2.11.3 (the four deferred decisions, resolved)
+
+- **S25 (CI)** — recommended keeping it: zero cost, already caught one
+  real bug (the stale `enabled` column test). It was never deleted from
+  this local copy - `.github/workflows/tests.yml` is intact and will be
+  included in the next delivery. The user should confirm with the
+  collaborator who removed it from GitHub so it doesn't happen again.
+- **S7 (build doc)** — decided: not needed. [A7] fixed as a result -
+  `ClusterSizer.spec`'s dangling `docs/BUILD.md` reference replaced with
+  the actual build commands inline (venv setup, PySide6-Essentials swap,
+  pyinstaller invocation) instead of a pointer to a file that will never
+  exist.
+- **S14 (units)** — decided: leave as-is. No change.
+- **S22 (HT classification duplication)** — resolved by adding the
+  site-agnostic API the gap actually called for, rather than leaving it
+  duplicated with a justifying comment. New `ClusterProject.
+  hyperthreading_summary(site=None)` returns state AND on_count/
+  total_count together (`HyperthreadingSummary`, same pattern as
+  `NPlusOneCheck`) - `site=None` covers all servers project-wide (what
+  `ServersPage`'s global HT toggle needs for its "(3/8 have HT on)"
+  label), a specific site matches the existing per-site behavior.
+  `hyperthreading_state(site)` is now a one-line wrapper around it, so
+  every existing caller (`sizing.py`) is unaffected.
+  `ServersPage._refresh_ht_global()` now calls the model instead of
+  recomputing the same classification inline - the duplication is gone,
+  not just commented. 2 new regression tests.
+
+## v2.11.2 (second external audit fix pass - 9 actionable items, local repo)
+
+A second audit (audit.md) compared issues.md against a LATER commit than
+what this local copy was built from - it found the GitHub repo (managed
+directly by a collaborator, "Tanks04") had DIVERGED from what was last
+delivered here: `.github/workflows/tests.yml` was deleted on GitHub 2m51s
+after being fixed, and several files this copy already had deleted
+(html_report.py, workload_profile.py, the two empty __init__.py files)
+still existed there. Those discrepancies are GitHub-repo-only and can't
+be fixed from here - see below. Everything else the audit found WAS
+present in this local copy and is fixed now:
+
+- **A1** — `tests/test_docx_report.py` now starts with
+  `pytest.importorskip("docx")`, so a missing optional python-docx
+  degrades to one skipped test instead of aborting the entire suite
+  (exit 2, 0 tests run). Verified both ways: uninstalled python-docx
+  locally -> 30 passed, 1 skipped, exit 0; reinstalled -> 35 passed.
+  Also gave `docx_report.py` the same guarded-import treatment
+  `generic_import.py` already has for openpyxl - `build_docx_report()`
+  now raises a clear diagnostic (interpreter path, exact pip command,
+  and an explicit callout of the docx-vs-python-docx PyPI trap) instead
+  of a bare ImportError reaching the Reports tab.
+- **A3** — README's Storage bullet no longer contradicts itself
+  ("shown for information" + "not derived automatically" in the same
+  sentence) - now states plainly that the RAID/EC % is derived from
+  raw/usable, shown read-only, and doesn't feed sizing math.
+- **A4** — `import_wizard_dialog.py`'s
+  `except (UnsupportedFileError, Exception)` (the tuple made the first
+  member redundant, and bypassed report_error entirely) split into two
+  handlers - the specific message stays for UnsupportedFileError, the
+  general case now logs a traceback via report_error().
+- **S17** — `report_error()` now shows `str(exc)` only for the app's own
+  message-carrying exception types (`CsvSchemaError`,
+  `UnsupportedFileError`) - anything else shows "Something went wrong.
+  Details were saved to: ~/.clustersizer/crash.log" instead of a raw
+  `KeyError: 'name'`-style repr. The traceback still always gets logged.
+- **A6** — Cluster Preparation wizard had zero `try`/`except` across 523
+  lines. The optimizer call (`recompute()`) and the write-back
+  (`add_primary_cluster()`/`add_dr_cluster()`) are now the two guarded
+  failure points - both route through `report_error()`; a failure in
+  either leaves nothing queued rather than a half-applied result.
+- **A8** — Network tab's Clear All (Switches, Connections) now say "You
+  can undo with Ctrl+Z.", matching Servers/Storage/VMs - both already
+  pushed an undo snapshot, only the wording was stale from before S9.
+- **A13** — the mixed-Hyperthreading label's hardcoded `#ed6c02` replaced
+  with `status_badge.WARNING_COLOR`, a new public alias for callers that
+  need the warning color but aren't keyed by `Status`.
+- **S19** — the 7 remaining single-dot `from .` imports (cluster_project.py
+  x5, sizing.py, site_capacity_widget.py - the last one added by code
+  written after the original S19 pass, reintroducing exactly the mixed-
+  style pattern that pass was meant to eliminate) converted to absolute
+  `from src.…`. Verified every resulting import resolves to a real file.
+- **A9** — new `tests/test_networking.py` (11 tests) pins the S21 refactor:
+  each of the three port-usage wrappers tested with and without
+  connections, across 2+ speeds, plus site aggregation and
+  over-committed detection. Deliberately mutated one wrapper's
+  `uid_attr` (matching the audit's own acceptance test) and confirmed 3
+  tests fail - then reverted.
+- **A10** (partial - only what's local) — `examples/scenario_full_example.clsz`
+  re-saved through the app's own writer with one server (esxi-p02) now
+  `enabled=False`, so the Disable-a-server feature has a demonstration
+  in the shipped example. `scenario.clsz`/`scenario2.clsz`/the
+  duplicate `scenario_prim-dr(ht)_strg_net.clsz` the audit found only
+  exist in the GitHub repo, not here - can't fix files this copy never
+  had; flagged for the user to delete or re-save directly.
+
+**Not touched - needs a decision (per the audit's own instruction):**
+S25 (was the `.github/workflows` deletion on GitHub intentional?), S7
+(no build doc), S14 units (binary vs decimal GB - changes sizing output
+for every existing project), S22 (HT classification duplication -
+`ServersPage._refresh_ht_global` vs `ClusterProject.
+hyperthreading_state`). A7 falls out of S7.
+
 ## v2.11.1 (CI actually run for real - caught a genuinely stale test)
 
 - GitHub Actions correctly ran `.github/workflows/tests.yml` on the first

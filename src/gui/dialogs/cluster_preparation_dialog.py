@@ -21,6 +21,7 @@ from src.models.cluster_project import ClusterProject
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
+from src.gui.error_handling import report_error
 
 _HA_EXPLANATIONS = {
     "None": "Fewest hosts possible for today's demand, no reserved headroom. HA is not configured at all - a host failure means its VMs stay down until manually recovered.",
@@ -396,7 +397,16 @@ class ClusterPreparationWizard(QWizard):
 
     def recompute(self, refill_spec_fields: bool = True):
         policy = self.build_policy()
-        result = compute_sizing(self.project, policy)
+        try:
+            result = compute_sizing(self.project, policy)
+        except Exception as exc:
+            report_error(self, "Cluster Preparation", exc)
+            self.result_page.result_label.setText(
+                "\u26a0 Could not compute a recommendation - see the error dialog for details."
+            )
+            self.result_page.add_primary_button.setEnabled(False)
+            self.result_page.add_dr_button.setEnabled(False)
+            return
 
         self.recommended_primary_hosts = result.required_hosts
         self.recommended_primary_storage_usable_tb = result.recommended_storage_usable_tb
@@ -494,25 +504,37 @@ class ClusterPreparationWizard(QWizard):
         return [storage]
 
     def add_primary_cluster(self):
-        self.new_primary_servers = self._make_servers(
-            self.recommended_primary_hosts, "Primary", "recommended-p"
-        )
-        self.new_primary_storage = self._make_storage(
-            self.recommended_primary_storage_usable_tb,
-            self.recommended_primary_storage_raw_tb,
-            "Primary", "recommended-storage-p",
-        )
+        try:
+            self.new_primary_servers = self._make_servers(
+                self.recommended_primary_hosts, "Primary", "recommended-p"
+            )
+            self.new_primary_storage = self._make_storage(
+                self.recommended_primary_storage_usable_tb,
+                self.recommended_primary_storage_raw_tb,
+                "Primary", "recommended-storage-p",
+            )
+        except Exception as exc:
+            self.new_primary_servers = []
+            self.new_primary_storage = []
+            report_error(self, "Cluster Preparation", exc)
+            return
         self._confirm_added("Primary", len(self.new_primary_servers), len(self.new_primary_storage))
 
     def add_dr_cluster(self):
-        self.new_dr_servers = self._make_servers(
-            self.recommended_dr_hosts, "DR", "recommended-dr"
-        )
-        self.new_dr_storage = self._make_storage(
-            self.recommended_dr_storage_usable_tb,
-            self.recommended_dr_storage_raw_tb,
-            "DR", "recommended-storage-dr",
-        )
+        try:
+            self.new_dr_servers = self._make_servers(
+                self.recommended_dr_hosts, "DR", "recommended-dr"
+            )
+            self.new_dr_storage = self._make_storage(
+                self.recommended_dr_storage_usable_tb,
+                self.recommended_dr_storage_raw_tb,
+                "DR", "recommended-storage-dr",
+            )
+        except Exception as exc:
+            self.new_dr_servers = []
+            self.new_dr_storage = []
+            report_error(self, "Cluster Preparation", exc)
+            return
         self._confirm_added("DR", len(self.new_dr_servers), len(self.new_dr_storage))
 
     def _confirm_added(self, site: str, server_count: int, storage_count: int):

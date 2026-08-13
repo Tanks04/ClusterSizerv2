@@ -280,7 +280,8 @@ class NetworkPage(QWidget):
         if not self.service.project.switches:
             return
         confirm = QMessageBox.question(
-            self, "Clear All", f"Delete ALL {len(self.service.project.switches)} switch(es)?"
+            self, "Clear All",
+            f"Delete ALL {len(self.service.project.switches)} switch(es)? You can undo with Ctrl+Z.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_switches()
@@ -372,7 +373,8 @@ class NetworkPage(QWidget):
         if not self.service.project.connections:
             return
         confirm = QMessageBox.question(
-            self, "Clear All", f"Delete ALL {len(self.service.project.connections)} connection(s)?"
+            self, "Clear All",
+            f"Delete ALL {len(self.service.project.connections)} connection(s)? You can undo with Ctrl+Z.",
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_connections()
