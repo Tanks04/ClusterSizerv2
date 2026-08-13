@@ -449,7 +449,13 @@ class ClusterPreparationWizard(QWizard):
             f"({result.dr_recommended_storage_raw_tb:.1f} TB raw).<br><br>"
             f"<i>Assumptions: {vendor_preset.label}, {policy.ha_level} HA, "
             f"{policy.growth_percent:.0f}% growth, {policy.memory_reserve_percent:.0f}% "
-            f"memory reserve, {policy.storage_overhead_percent:.0f}% storage overhead.</i>"
+            f"memory reserve, {policy.storage_overhead_percent:.0f}% storage overhead.</i><br><br>"
+            f"\u26a0 <b>Not reserved above: CPU for the hypervisor itself</b> (only RAM is, via "
+            f"Memory Reserve). Real hypervisors do consume some CPU - commonly cited around "
+            f"8-10% overhead for VMware ESXi (similar magnitude to its RAM overhead). Hyper-V's "
+            f"parent partition runs a full Windows Server, so its overhead tends to run higher, "
+            f"though there's no single widely-quoted figure the way there is for VMware. Leave "
+            f"yourself a small margin if you're sizing close to the edge."
         )
 
         self.result_page.add_primary_button.setEnabled(self.recommended_primary_hosts > 0)

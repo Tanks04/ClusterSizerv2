@@ -99,6 +99,13 @@ class SiteCapacityWidget(QFrame):
         grid.addWidget(self.n1_label, row, 1)
         row += 1
 
+        self.n1_detail_label = QLabel("")
+        self.n1_detail_label.setWordWrap(True)
+        self.n1_detail_label.setStyleSheet("color: #ed6c02; font-style: italic;")
+        self.n1_detail_label.setVisible(False)
+        grid.addWidget(self.n1_detail_label, row, 0, 1, 3)
+        row += 1
+
     def set_report(self, report: SiteReport) -> None:
         self.servers_label.setText(
             f"{report.server_count} servers / {report.physical_cores} cores "
@@ -131,10 +138,57 @@ class SiteCapacityWidget(QFrame):
 
         if report.n_plus_one_ok is None:
             self.n1_label.setText("n/a")
+            self.n1_label.setToolTip("No servers at this site.")
+            self.n1_detail_label.setVisible(False)
+        elif report.vm_count == 0:
+            self.n1_label.setText("n/a (no VMs)")
+            self.n1_label.setToolTip(
+                "There are no VMs at this site, so losing a host trivially "
+                "\"survives\" - there's nothing running here to fail over."
+            )
+            self.n1_detail_label.setVisible(False)
         elif report.n_plus_one_ok:
             self.n1_label.setText("\u2705 Yes")
+            self.n1_label.setToolTip(
+                "RAM has zero overcommit tolerance; CPU is checked against your "
+                "configured oversubscription warning threshold (Settings), not a "
+                "strict 1:1 - a healthy cluster is expected to run CPU oversubscribed."
+            )
+            self.n1_detail_label.setVisible(False)
         else:
             self.n1_label.setText("\u274c No")
+            self.n1_label.setToolTip(
+                "Either RAM demand exceeds what's left after losing the largest-RAM "
+                "host (zero overcommit tolerance), or CPU demand exceeds what's left "
+                "after losing the largest-core host, beyond your configured "
+                "oversubscription warning threshold (Settings)."
+            )
+            self._set_n1_detail(report.n_plus_one_check)
+
+    def _set_n1_detail(self, check) -> None:
+        """States WHICH resource is short and by how much, instead of
+        leaving "No" to speak for itself - e.g. CPU can be comfortably
+        within its oversubscription tolerance while RAM alone is what
+        would fail, and that's worth saying plainly."""
+        if check is None:
+            self.n1_detail_label.setVisible(False)
+            return
+
+        shortfalls = []
+        if not check.ram_ok:
+            shortfalls.append(f"+{check.ram_shortfall_gb:.0f} GB RAM")
+        if not check.cpu_ok:
+            shortfalls.append(f"+{check.cpu_shortfall_effective_cores:.0f} effective CPU cores")
+
+        if not shortfalls:
+            self.n1_detail_label.setVisible(False)
+            return
+
+        self.n1_detail_label.setText(
+            f"\u26a0 Would need {' and '.join(shortfalls)} to survive losing a host "
+            "at your current oversubscription comfort level."
+        )
+        self.n1_detail_label.setVisible(True)
 
     def _set_ht_tag(self, ht_state: str) -> None:
         """HT ENABLED (red, bold) when every server at this site has

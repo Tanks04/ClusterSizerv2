@@ -106,6 +106,10 @@ class ServersPage(QWidget):
         self.table.edit_requested.connect(self._edit_server)
         self.table.delete_requested.connect(self._delete_selected)
         self.table.copy_requested.connect(self._duplicate_selected)
+        self.table.set_custom_actions([
+            ("\U0001f6d1 Disable (exclude from capacity)", lambda: self._set_enabled_for_selected(False)),
+            ("\u2705 Enable", lambda: self._set_enabled_for_selected(True)),
+        ])
 
         main_layout.addWidget(self.table)
 
@@ -131,6 +135,12 @@ class ServersPage(QWidget):
 
     def _selected_servers(self) -> list:
         return [self.model.server_at(row) for row in self.table.selected_rows()]
+
+    def _set_enabled_for_selected(self, enabled: bool):
+        servers = self._selected_servers()
+        if not servers:
+            return
+        self.service.set_enabled_for_servers(servers, enabled)
 
     def _add_server(self):
         dialog = ServerDialog(parent=self)

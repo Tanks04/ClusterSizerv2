@@ -7,14 +7,14 @@ from src.models.server import Server
 class ServerTableModel(QAbstractTableModel):
 
     HEADERS = [
-        "Name", "Site", "Vendor", "Model", "CPU",
+        "Name", "Status", "Site", "Vendor", "Model", "CPU",
         "Sockets", "Cores/Socket", "Threads/Core", "HT",
         "Total Cores", "Effective Cores",
         "RAM (GB)", "GHz", "Warranty",
     ]
 
     # Kolone koje se mogu direktno urediti u tablici (bez otvaranja dijaloga)
-    EDITABLE_COLUMNS = {5, 6, 7, 11, 12}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz
+    EDITABLE_COLUMNS = {6, 7, 8, 12, 13}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz
 
     def __init__(
         self,
@@ -65,30 +65,32 @@ class ServerTableModel(QAbstractTableModel):
             case 0:
                 return server.name
             case 1:
-                return server.site
+                return "Enabled" if server.enabled else "\u26a0 Disabled"
             case 2:
-                return server.vendor
+                return server.site
             case 3:
-                return server.model
+                return server.vendor
             case 4:
-                return server.cpu_model
+                return server.model
             case 5:
-                return server.sockets
+                return server.cpu_model
             case 6:
-                return server.cores_per_socket
+                return server.sockets
             case 7:
-                return server.threads_per_core
+                return server.cores_per_socket
             case 8:
-                return "On" if server.hyperthreading_enabled else "Off"
+                return server.threads_per_core
             case 9:
-                return server.total_cores
+                return "On" if server.hyperthreading_enabled else "Off"
             case 10:
-                return server.effective_cores
+                return server.total_cores
             case 11:
-                return server.ram_gb
+                return server.effective_cores
             case 12:
-                return server.cpu_frequency
+                return server.ram_gb
             case 13:
+                return server.cpu_frequency
+            case 14:
                 return server.warranty_expiry or "-"
 
         return None
@@ -104,15 +106,15 @@ class ServerTableModel(QAbstractTableModel):
 
         try:
             match index.column():
-                case 5:
-                    server.sockets = max(1, int(value))
                 case 6:
-                    server.cores_per_socket = max(1, int(value))
+                    server.sockets = max(1, int(value))
                 case 7:
+                    server.cores_per_socket = max(1, int(value))
+                case 8:
                     server.threads_per_core = max(1, int(value))
-                case 11:
-                    server.ram_gb = max(1, int(value))
                 case 12:
+                    server.ram_gb = max(1, int(value))
+                case 13:
                     server.cpu_frequency = max(0.1, float(value))
                 case _:
                     return False

@@ -11,6 +11,21 @@ DR = "DR"
 
 
 @dataclass
+class NPlusOneCheck:
+    """Detail behind n_plus_one_ok() - which resource (if any) would run
+    short after losing the largest host, and by how much, so the UI can
+    say something more useful than a bare Yes/No."""
+    ram_ok: bool
+    cpu_ok: bool
+    ram_shortfall_gb: float  # 0 if ram_ok
+    cpu_shortfall_effective_cores: float  # 0 if cpu_ok - additional effective cores needed
+
+    @property
+    def ok(self) -> bool:
+        return self.ram_ok and self.cpu_ok
+
+
+@dataclass
 class ClusterProject:
     """Represents one ClusterSizer project: servers, storage, VMs and
     network at the Primary and DR site, plus all derived metrics needed
@@ -29,7 +44,11 @@ class ClusterProject:
     # ------------------------------------------------------------------
 
     def servers_at(self, site: str) -> list[Server]:
-        return [s for s in self.servers if s.site == site]
+        """Only ENABLED servers - a disabled server is excluded from all
+        capacity math (this is the one place that filtering happens; every
+        capacity calculation goes through here) while staying visible in
+        the Servers table for re-enabling later."""
+        return [s for s in self.servers if s.site == site and s.enabled]
 
     def storages_at(self, site: str) -> list[Storage]:
         return [s for s in self.storages if s.site == site]
@@ -46,19 +65,19 @@ class ClusterProject:
 
     @property
     def server_count(self) -> int:
-        return len(self.servers)
+        return len([s for s in self.servers if s.enabled])
 
     @property
     def total_ram(self) -> int:
-        return sum(server.ram_gb for server in self.servers)
+        return sum(server.ram_gb for server in self.servers if server.enabled)
 
     @property
     def total_cores(self) -> int:
-        return sum(server.total_cores for server in self.servers)
+        return sum(server.total_cores for server in self.servers if server.enabled)
 
     @property
     def total_threads(self) -> int:
-        return sum(server.total_threads for server in self.servers)
+        return sum(server.total_threads for server in self.servers if server.enabled)
 
     @property
     def total_effective_cores(self) -> int:
@@ -67,8 +86,9 @@ class ClusterProject:
         width for every server regardless of whether HT is actually on
         for it). This is what's actually available for CPU capacity
         planning - same effective_cores logic physical_cores(site) uses,
-        just summed across both sites for the dashboard card."""
-        return sum(server.effective_cores for server in self.servers)
+        just summed across both sites for the dashboard card. Disabled
+        servers are excluded, same as everywhere else."""
+        return sum(server.effective_cores for server in self.servers if server.enabled)
 
     # ------------------------------------------------------------------
     # Physical capacity by site
@@ -155,12 +175,13 @@ class ClusterProject:
 
     # ------------------------------------------------------------------
 
-    def n_plus_one_ok(self, site: str) -> bool | None:
-        """True if the cluster at this site still has enough RAM AND
-        enough cores no matter WHICH single host goes down - RAM headroom
-        is checked against the RAM-largest host, CPU headroom against the
-        cores-largest host, independently (they are not always the same
-        host). None if there are no servers at this site."""
+    def n_plus_one_check(self, site: str, cpu_warning_ratio: float = 1.0) -> "NPlusOneCheck | None":
+        """Same math as n_plus_one_ok(), but reports WHICH resource (if
+        any) falls short after losing the largest host, and by how much -
+        so the UI can say something more useful than a bare Yes/No, e.g.
+        "would survive with +150GB RAM". None if there are no servers at
+        this site. See n_plus_one_ok()'s docstring for the RAM-strict/
+        CPU-tolerant reasoning."""
         site_servers = self.servers_at(site)
         if not site_servers:
             return None
@@ -171,10 +192,42 @@ class ClusterProject:
         remaining_ram = self.physical_ram_gb(site) - largest_ram_host.ram_gb
         remaining_cores = self.physical_cores(site) - largest_core_host.effective_cores
 
-        ram_ok = remaining_ram >= self.vm_ram_demand_gb(site)
-        cpu_ok = remaining_cores >= self.vm_vcpu_demand(site)
+        ram_demand = self.vm_ram_demand_gb(site)
+        vcpu_demand = self.vm_vcpu_demand(site)
+        required_effective_cores = vcpu_demand / cpu_warning_ratio if cpu_warning_ratio > 0 else vcpu_demand
 
-        return ram_ok and cpu_ok
+        ram_ok = remaining_ram >= ram_demand
+        cpu_ok = remaining_cores >= required_effective_cores
+
+        return NPlusOneCheck(
+            ram_ok=ram_ok,
+            cpu_ok=cpu_ok,
+            ram_shortfall_gb=max(0.0, ram_demand - remaining_ram),
+            cpu_shortfall_effective_cores=max(0.0, required_effective_cores - remaining_cores),
+        )
+
+    def n_plus_one_ok(self, site: str, cpu_warning_ratio: float = 1.0) -> bool | None:
+        """True if the cluster at this site still has enough RAM AND
+        enough CPU no matter WHICH single host goes down - RAM headroom
+        is checked against the RAM-largest host, CPU headroom against the
+        cores-largest host, independently (they are not always the same
+        host). None if there are no servers at this site.
+
+        RAM is checked with ZERO oversubscription tolerance (remaining
+        RAM must literally cover remaining demand) - RAM overcommit
+        causes swapping/ballooning, a fundamentally different and worse
+        risk than CPU time-slicing. CPU is checked against
+        cpu_warning_ratio (defaults to a strict 1.0 = no tolerance if not
+        given) - a healthy cluster is EXPECTED to run some CPU
+        oversubscription day to day, so "survives losing a host" should
+        mean "stays within your configured comfort threshold after the
+        loss", not "reaches literal 1:1 vCPU:pCPU". Pass your project's
+        Thresholds.cpu_warning_ratio here for a realistic answer -
+        build_site_report() already does. Use n_plus_one_check() instead
+        of this if you need to know WHICH resource is short, not just
+        whether the whole thing passes."""
+        check = self.n_plus_one_check(site, cpu_warning_ratio)
+        return check.ok if check is not None else None
 
     # ------------------------------------------------------------------
     # DR failover demand - "what DR would have to carry if the Primary

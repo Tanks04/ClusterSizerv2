@@ -25,9 +25,7 @@ It's not a monitoring tool (it doesn't look at what the cluster is
 actually doing live), but a tool for **planning before the HW is ordered
 or the tender is written**.
 
-
 ## Features
-
 
 - **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, NIC
   inventory (incl. direct-attach SAS), and a Hyperthreading toggle that
@@ -83,7 +81,25 @@ or the tender is written**.
 - Multi-select everywhere (Ctrl/Shift-click, Delete, right-click → Edit/
   Copy/Delete), strictly-typed CSV import (each tab only accepts its own
   format), a "Clear All" button per tab, project save/load (`.clsz`, JSON).
-  
+
+## Scope & Assumptions
+
+ClusterSizer is intentionally simple: no NUMA topology, no per-VM CPU
+reservations, no storage RAID/erasure-coding overhead beyond the flat
+percentage you enter on the Storage tab. Every ratio, tier, and
+percentage in this tool (oversubscription ratios, Workload Tiers,
+Memory Reserve, Storage Overhead) is a sizing ASSUMPTION meant as a
+sensible starting point, not a measurement of your actual environment -
+adjust them to match what you know about your own workload.
+
+One specific gap worth calling out: Cluster Preparation reserves RAM for
+the hypervisor itself (Memory Reserve), but does NOT reserve CPU the
+same way - real hypervisors do consume some CPU (commonly cited around
+8-10% overhead for VMware ESXi; Hyper-V's parent partition runs a full
+Windows Server, so it tends to need more, though there's no single
+widely-quoted figure the way there is for VMware). Leave yourself a
+small margin if you're sizing close to the edge.
+
 ## Running it
 
 ```bash
@@ -92,7 +108,10 @@ python main.py
 ```
 
 Example CSVs for every type (servers/storage/vms/switches/connections)
-are in `examples/`.
+are in `examples/`. `examples/scenario_full_example.clsz` is a complete
+ready-to-load project (Primary+DR, mixed Hyperthreading, storage, and
+network already wired up) - File > Open it directly instead of importing
+each CSV separately.
 
 ## Status and changelog
 

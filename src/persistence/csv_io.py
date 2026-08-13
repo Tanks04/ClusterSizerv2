@@ -31,7 +31,7 @@ SERVER_FIELDS = [
     "sockets", "cores_per_socket", "threads_per_core", "hyperthreading_enabled",
     "ram_gb", "cpu_frequency", "warranty_expiry",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
-    "notes",
+    "enabled", "notes",
 ]
 
 STORAGE_FIELDS = [
@@ -122,6 +122,7 @@ def import_servers(path: str | Path) -> list[Server]:
                 nic_100g=int(float(row.get("nic_100g") or 0)),
                 nic_fc=int(float(row.get("nic_fc") or 0)),
                 nic_sas=int(float(row.get("nic_sas") or 0)),
+                enabled=_bool(row.get("enabled"), default=True),
                 notes=row.get("notes", "") or "",
             )
         )

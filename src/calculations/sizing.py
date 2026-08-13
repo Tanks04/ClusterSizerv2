@@ -3,7 +3,7 @@ so it can be tested and reused from Reports/CLI if ever needed."""
 
 from dataclasses import dataclass
 
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
+from src.models.cluster_project import ClusterProject, NPlusOneCheck, PRIMARY, DR
 from .thresholds import Thresholds, Status
 
 
@@ -31,6 +31,7 @@ class SiteReport:
     storage_status: Status
 
     n_plus_one_ok: bool | None
+    n_plus_one_check: NPlusOneCheck | None  # detail - which resource is short, by how much
     ht_state: str  # "all_on" | "all_off" | "mixed" | "no_servers"
 
 
@@ -51,6 +52,7 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
     cpu_ratio = project.cpu_oversubscription_ratio(site)
     ram_ratio = project.ram_oversubscription_ratio(site)
     storage_ratio = project.storage_utilization_ratio(site)
+    n1_check = project.n_plus_one_check(site, thresholds.cpu_warning_ratio)
 
     return SiteReport(
         site=site,
@@ -69,7 +71,8 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
         cpu_status=thresholds.cpu_status(cpu_ratio),
         ram_status=thresholds.ram_status(ram_ratio),
         storage_status=thresholds.storage_status(storage_ratio),
-        n_plus_one_ok=project.n_plus_one_ok(site),
+        n_plus_one_ok=n1_check.ok if n1_check is not None else None,
+        n_plus_one_check=n1_check,
         ht_state=project.hyperthreading_state(site),
     )
 

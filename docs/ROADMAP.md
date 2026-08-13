@@ -1,5 +1,79 @@
 # ROADMAP
 
+## v2.10.1 (N+1 explains WHAT is short, not just Yes/No)
+
+- Follow-up to v2.10.0's N+1 CPU-tolerance fix: a bare "No" left the
+  actual blocker invisible - on the real example project, RAM alone was
+  short (RAM demand already exceeds total capacity even with both hosts
+  up) while CPU was comfortably within tolerance, but the old display
+  gave no way to tell the two apart.
+- New `ClusterProject.n_plus_one_check(site, cpu_warning_ratio)` returns
+  an `NPlusOneCheck` (ram_ok, cpu_ok, ram_shortfall_gb,
+  cpu_shortfall_effective_cores) instead of a bare bool -
+  `n_plus_one_ok()` is now a thin wrapper around it, unchanged for
+  existing callers. `SiteReport` carries the full check alongside the
+  bool. Summary tab now shows a specific line under a failing N+1 - e.g.
+  "Would need +514 GB RAM to survive losing a host" - instead of leaving
+  the reader to guess whether it's a CPU or RAM problem, or by how much.
+  Same detail added to the Reports text export.
+
+## v2.10.0 (N+1 CPU tolerance fix, Server Disable toggle)
+
+- **Fixed a real N+1 correctness bug**, caught by testing against
+  `scenario_full_example.clsz`: `n_plus_one_ok()` compared CPU demand
+  against remaining capacity at a strict, literal 1:1 vCPU:pCPU ratio -
+  meaning almost ANY healthy, normally-oversubscribed virtualized
+  cluster would show "Survives N+1: No", even when losing a host would
+  land well within a totally reasonable oversubscription range (verified
+  case: 176 vCPU across 48 remaining cores = 3.67:1, comfortably within
+  Dev/Test-tier tolerance, but the strict check failed it outright).
+  `n_plus_one_ok(site, cpu_warning_ratio=1.0)` now takes the project's
+  configured CPU warning threshold (Settings) as an optional parameter -
+  `build_site_report()` passes it in for a realistic answer everywhere
+  it's shown (Summary/Reports/Compare). RAM deliberately keeps ZERO
+  overcommit tolerance regardless of the ratio passed in - RAM overcommit
+  (swapping/ballooning) is a fundamentally different, worse risk than
+  CPU time-slicing, so "survives" for RAM still means literal capacity
+  covers demand. Direct callers not passing a ratio keep the old strict
+  behavior by default (no silent behavior change for existing callers).
+- Also fixed a confusing display case surfaced by the same investigation:
+  a site with a server but ZERO VMs assigned to it trivially "survives"
+  N+1 (nothing to fail over) - the Summary tab now shows "n/a (no VMs)"
+  with an explanatory tooltip there, instead of a bare "Yes" that reads
+  like a real resilience claim.
+- **New: Disable a server without deleting it.** Right-click a server
+  (or a multi-selection) -> "\U0001f6d1 Disable" / "\u2705 Enable". A
+  disabled server is excluded from ALL capacity math (`ClusterProject.
+  servers_at()` is the one choke point every calculation already goes
+  through) while staying fully visible in the Servers table - a "Status"
+  column shows Enabled/\u26a0 Disabled. This is exactly what's needed to
+  quickly simulate "this host is down" (a real failure, maintenance) and
+  see the effect on oversubscription/N+1 immediately, without the
+  previous delete-then-recreate friction. New `Server.enabled` field
+  (CSV column added, old files without it default to enabled=True) and
+  `ProjectService.set_enabled_for_servers()` (selection-scoped, one undo
+  snapshot for the whole selection).
+
+## v2.9.3 (honest disclosure: CPU-for-hypervisor not modeled, scope notes added)
+
+- Verified via web search (not memory) that there's no universal fixed
+  "N CPUs reserved" figure for VMware ESXi the way IBM's own
+  product-specific docs sometimes state (that 2-core figure is IBM
+  Spectrum Accelerate's own requirement, not a general VMware rule) -
+  the closest real vendor-best-practices figure found is ~8-10% CPU
+  overhead (Delphix, citing VMware's resource management guide), same
+  magnitude as RAM overhead. No clean current figure was found for
+  Hyper-V's CPU overhead specifically (only RAM, 512MB-2GB for the
+  parent partition) - noted honestly as "tends to be higher, no single
+  widely-quoted number" rather than inventing one.
+- Cluster Preparation's Result page now states plainly that Memory
+  Reserve covers RAM overhead but nothing reserves CPU overhead the same
+  way - with the figures above, not a fabricated precise number.
+- New README "Scope & Assumptions" section - the same "intentionally
+  simple, no NUMA/CPU reservations/RAID overhead beyond a flat %" spirit
+  already baked into the app's own tone, now stated explicitly where
+  someone evaluating the tool will actually see it.
+
 ## v2.9.2 (VM Site bulk-move - distinct from DR Protected)
 
 - Clarified a real distinction that was causing confusion: DR Protected

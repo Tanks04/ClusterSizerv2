@@ -248,6 +248,20 @@ class ProjectService(QObject):
             server.hyperthreading_enabled = enabled
         self._notify(self.servers_changed)
 
+    def set_enabled_for_servers(self, servers: list[Server], enabled: bool) -> None:
+        """Toggles Server.enabled for a selection - excludes/includes them
+        from all capacity math without deleting the server's whole
+        configuration. Quick way to simulate "this host is down"
+        (maintenance, a real failure) and see the effect on
+        oversubscription/N+1 immediately. One undo snapshot for the whole
+        selection."""
+        if not servers:
+            return
+        self._push_undo_snapshot()
+        for server in servers:
+            server.enabled = enabled
+        self._notify(self.servers_changed)
+
     def update_server(self, index: int, server: Server) -> None:
         self._push_undo_snapshot()
         self._project.servers[index] = server

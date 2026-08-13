@@ -107,6 +107,15 @@ class ReportsPage(QWidget):
             lines.append(f"  RAM utilization     : {_fmt_ratio(report.ram_ratio, True)} ({report.ram_status.value})")
             lines.append(f"  Storage utilization : {_fmt_ratio(report.storage_ratio, True)} ({report.storage_status.value})")
             lines.append(f"  Survives N+1        : {_fmt_bool(report.n_plus_one_ok)}")
+            if report.n_plus_one_ok is False and report.n_plus_one_check is not None:
+                check = report.n_plus_one_check
+                shortfalls = []
+                if not check.ram_ok:
+                    shortfalls.append(f"+{check.ram_shortfall_gb:.0f} GB RAM")
+                if not check.cpu_ok:
+                    shortfalls.append(f"+{check.cpu_shortfall_effective_cores:.0f} effective CPU cores")
+                if shortfalls:
+                    lines.append(f"    (would need {' and '.join(shortfalls)} to survive losing a host)")
             lines.append("")
 
         lines.append("[DR READINESS] (failover Primary -> DR)")

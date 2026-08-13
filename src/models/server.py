@@ -42,6 +42,13 @@ class Server:
     nic_fc: int = 0
     nic_sas: int = 0  # direct-attach SAS HBA ports (server -> storage, no switch)
 
+    # When False, this server is excluded from ALL capacity math
+    # (ClusterProject.servers_at() filters on this) while staying visible
+    # in the Servers table - a quick way to simulate "this host is down"
+    # (maintenance, a real failure, decommissioning) without deleting and
+    # later re-adding its whole configuration.
+    enabled: bool = True
+
     notes: str = ""
 
     @property
