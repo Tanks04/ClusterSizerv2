@@ -66,9 +66,11 @@ or the tender is written**.
 - **Settings** — recommended oversubscription presets by hypervisor
   vendor (VMware, Hyper-V, Proxmox/KVM, Citrix Hypervisor), or set your
   own thresholds manually.
-- **Reports** — readable text report, a color-coded PDF export (built
-  with Qt's own printing support, no extra libraries), and CSV export of
-  all data.
+- **Reports** — readable text report, a structured Word (.docx) report
+  (Servers → Storage → Network → Cluster config → VMs, each with a
+  summary plus the full per-device listing - editable afterward, add a
+  letterhead or trim what a client doesn't need to see), and CSV export
+  of all data.
 - **Compare** — load two saved scenarios side by side (or snapshot the
   current project into either slot) under the same thresholds - a
   highlighted table plus a quick at-a-glance delta card row. "Save
@@ -119,21 +121,21 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Thanks
 
-Ovaj alat je nastao u suradnji s Claude-om (Anthropic) — od prve ideje do
-zadnjeg bugfixa.
+This tool was built in collaboration with Claude (Anthropic) — from the
+first idea to the last bugfix. What would have taken me weeks to put
+together in my spare time came together here in a handful of sessions:
+I'd describe the problem the way a sysadmin sees it, and the code,
+architecture, and fixes mostly came from the other side — with plenty of
+my own testing, pushback, and "that's not right, try again." Including
+hunting down one particularly nasty Windows crash that didn't want to be
+found.
 
-Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
-Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
-za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
-provesti u djelo još koju ideju ,)
-Revolut: revolut.me/@ivan50ba6
+The full story of that collaboration (and why it's stated openly) is in
+[`docs/ABOUT.md`](docs/ABOUT.md).
 
-Although the code, app, and idea are offered for free, if you think you 
-like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
-to the author of the program <3 who will be more willing to put 
-new ideas into practice ,)
-Revolut: revolut.me/@ivan50ba6
+Thanks, Claude. 🥰
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE). Before publishing on GitHub, replace
+`[YOUR NAME / ORGANIZATION]` in the LICENSE file with your own name.

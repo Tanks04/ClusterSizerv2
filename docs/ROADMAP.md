@@ -1,5 +1,19 @@
 # ROADMAP
 
+## v2.11.1 (CI actually run for real - caught a genuinely stale test)
+
+- GitHub Actions correctly ran `.github/workflows/tests.yml` on the first
+  real push (that's what `on: push:` in that file does - automatically,
+  no separate action needed) and failed - `python -m pytest` had never
+  actually been run end-to-end before this point, since pytest wasn't
+  installed anywhere it could be invoked earlier. First real run: 34/35
+  passed, 1 failed - `test_import_servers_accepts_float_formatted_ints`
+  built its own inline test CSV that predated the `enabled` column added
+  to Server/SERVER_FIELDS in v2.10.0 (the Disable-a-server feature), so
+  the schema check correctly flagged "missing column: enabled" -
+  correct behavior from the schema validator, a stale fixture in the
+  test. Fixed the fixture; 35/35 now pass, exit code 0.
+
 ## v2.11.0 (PDF report replaced with a structured, editable Word report)
 
 - Reports tab's "Export PDF Report" replaced with "Export Word Report"
