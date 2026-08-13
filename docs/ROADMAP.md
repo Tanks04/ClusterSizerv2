@@ -1,5 +1,36 @@
 # ROADMAP
 
+## v2.11.0 (PDF report replaced with a structured, editable Word report)
+
+- Reports tab's "Export PDF Report" replaced with "Export Word Report"
+  (.docx) - a PDF nobody was going to print wasn't earning its place;
+  a Word document is something the recipient can actually keep working
+  with (add a letterhead, trim sections, rebrand for a client).
+- New structure, in order: **Servers** (per-site summary table, then
+  every server listed individually - name, vendor, model, sockets x
+  cores, HT, effective cores, RAM, enabled/disabled status), **Storage**
+  (same summary-then-detail pattern), **Network** (switches + full
+  connections list, endpoint names resolved), **Cluster** (the
+  Primary/DR breakdown that used to be the whole report - demand,
+  oversubscription with color-coded status, N+1 with the v2.10.1
+  shortfall detail, DR readiness, thresholds used), **Virtual Machines**
+  (every VM - vCPU/RAM/disk/Workload Tier/DR Protected/power state).
+  Every inventory section leads with an aggregate table, then the full
+  per-device listing below it, deliberately always all sections (no
+  section-picker dialog) - trimming what's not needed is a few clicks in
+  Word afterward.
+- New `python-docx` dependency (same precedent as openpyxl for Smart
+  Import) - `src/calculations/docx_report.py`, Qt-free like
+  `html_report.py` was, fully testable by inspecting the returned
+  `Document` object's paragraphs/tables directly
+  (tests/test_docx_report.py). `html_report.py` and the QTextDocument/
+  QPrinter PDF-printing path are both deleted - dead code once nothing
+  calls them.
+- Verified visually: rendered a real example project's report through
+  LibreOffice to PDF and inspected the page images - tables, color-coded
+  status text (green/orange/red), and the N+1 shortfall message all
+  render correctly.
+
 ## v2.10.1 (N+1 explains WHAT is short, not just Yes/No)
 
 - Follow-up to v2.10.0's N+1 CPU-tolerance fix: a bare "No" left the

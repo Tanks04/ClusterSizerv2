@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtGui import QFont, QTextDocument
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.sizing import build_reports
-from src.calculations.html_report import build_html_report
+from src.calculations.docx_report import build_docx_report
 from src.services.project_service import ProjectService
 from src.version import VERSION
 from src.gui.error_handling import report_error
@@ -57,13 +57,15 @@ class ReportsPage(QWidget):
         export_txt_button.clicked.connect(self._export_txt)
         buttons.addWidget(export_txt_button)
 
-        export_pdf_button = QPushButton("📄 Export PDF Report")
-        export_pdf_button.setToolTip(
-            "A nicer-looking, color-coded PDF version of this report - "
-            "built with Qt's own printing support, no extra libraries needed."
+        export_docx_button = QPushButton("📄 Export Word Report")
+        export_docx_button.setToolTip(
+            "A structured, editable Word document - Servers, Storage, Network, "
+            "Cluster config, and VMs, each with a summary plus the full "
+            "per-device listing. Add a letterhead, trim sections, or rebrand "
+            "for a client afterward."
         )
-        export_pdf_button.clicked.connect(self._export_pdf)
-        buttons.addWidget(export_pdf_button)
+        export_docx_button.clicked.connect(self._export_docx)
+        buttons.addWidget(export_docx_button)
 
         export_all_button = QPushButton("📤 Export All Data (CSV bundle)")
         export_all_button.clicked.connect(self._export_all_csv)
@@ -143,39 +145,19 @@ class ReportsPage(QWidget):
         except Exception as exc:
             report_error(self, "Export Error", exc)
 
-    def _export_pdf(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Export PDF Report", "report.pdf", "PDF (*.pdf)")
+    def _export_docx(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Export Word Report", "report.docx", "Word Document (*.docx)")
         if not path:
             return
-        if not path.lower().endswith(".pdf"):
-            path += ".pdf"
+        if not path.lower().endswith(".docx"):
+            path += ".docx"
 
         try:
-            from PySide6.QtPrintSupport import QPrinter
-        except ImportError as exc:
-            QMessageBox.critical(
-                self, "Export Error",
-                "PDF export needs Qt's QtPrintSupport module, which should ship "
-                "with PySide6 / PySide6-Essentials. If this keeps happening, try:\n"
-                "pip install PySide6-Addons\n\n"
-                f"Underlying error: {exc}",
-            )
-            return
-
-        try:
-            html = build_html_report(
+            document = build_docx_report(
                 self.service.project, self.service.thresholds, app_version=VERSION,
             )
-
-            document = QTextDocument()
-            document.setHtml(html)
-
-            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-            printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-            printer.setOutputFileName(path)
-            document.print_(printer)
-
-            QMessageBox.information(self, "Export", "PDF report exported.")
+            document.save(path)
+            QMessageBox.information(self, "Export", "Word report exported.")
         except Exception as exc:
             report_error(self, "Export Error", exc)
 
