@@ -106,35 +106,71 @@ class VirtualMachinesPage(QWidget):
         main_layout.addWidget(toolbar)
 
         bulk_row = QHBoxLayout()
-        bulk_row.addWidget(QLabel("Bulk edit (all VMs):"))
+        bulk_row.addWidget(QLabel("Bulk edit:"))
 
         self.bulk_tier_combo = QComboBox()
         self.bulk_tier_combo.addItems(WORKLOAD_TIER_NAMES)
         bulk_row.addWidget(self.bulk_tier_combo)
 
-        bulk_tier_button = QPushButton("Set Workload Tier")
-        bulk_tier_button.setToolTip("Sets the Workload Tier on every VM at once - one undo step, adjust individually afterward if needed.")
-        bulk_tier_button.clicked.connect(self._set_all_workload_tier)
-        bulk_row.addWidget(bulk_tier_button)
+        bulk_tier_selected_button = QPushButton("Set Tier (Selected)")
+        bulk_tier_selected_button.setToolTip("Sets the Workload Tier on the SELECTED VM(s) only - one undo step.")
+        bulk_tier_selected_button.clicked.connect(self._set_workload_tier_for_selected)
+        bulk_row.addWidget(bulk_tier_selected_button)
+
+        bulk_tier_all_button = QPushButton("Set Tier (All)")
+        bulk_tier_all_button.setToolTip("Sets the Workload Tier on EVERY VM at once - one undo step, adjust individually afterward if needed.")
+        bulk_tier_all_button.clicked.connect(self._set_all_workload_tier)
+        bulk_row.addWidget(bulk_tier_all_button)
 
         bulk_row.addSpacing(16)
 
         self.bulk_dr_check = QCheckBox("DR Protected")
         bulk_row.addWidget(self.bulk_dr_check)
 
-        bulk_dr_button = QPushButton("Apply to All")
-        bulk_dr_button.setToolTip("Sets DR Protected on every VM at once - one undo step.")
-        bulk_dr_button.clicked.connect(self._set_all_dr_protected)
-        bulk_row.addWidget(bulk_dr_button)
+        bulk_dr_selected_button = QPushButton("Apply (Selected)")
+        bulk_dr_selected_button.setToolTip("Sets DR Protected on the SELECTED VM(s) only - one undo step. Same as right-click \u2192 Mark/Un-mark DR Protected on the table.")
+        bulk_dr_selected_button.clicked.connect(self._set_dr_protected_for_selected_from_checkbox)
+        bulk_row.addWidget(bulk_dr_selected_button)
+
+        bulk_dr_all_button = QPushButton("Apply (All)")
+        bulk_dr_all_button.setToolTip("Sets DR Protected on EVERY VM at once - one undo step.")
+        bulk_dr_all_button.clicked.connect(self._set_all_dr_protected)
+        bulk_row.addWidget(bulk_dr_all_button)
 
         bulk_row.addStretch()
         main_layout.addLayout(bulk_row)
+
+        site_row = QHBoxLayout()
+        site_row.addWidget(QLabel("Bulk move (Site \u2260 DR Protected - this actually relocates the VM):"))
+
+        self.bulk_site_combo = QComboBox()
+        self.bulk_site_combo.addItems(["Primary", "DR"])
+        site_row.addWidget(self.bulk_site_combo)
+
+        bulk_site_selected_button = QPushButton("Set Site (Selected)")
+        bulk_site_selected_button.setToolTip("Moves the SELECTED VM(s) to the chosen site - one undo step. Same as right-click \u2192 Move to Primary/DR.")
+        bulk_site_selected_button.clicked.connect(self._set_site_for_selected_from_combo)
+        site_row.addWidget(bulk_site_selected_button)
+
+        bulk_site_all_button = QPushButton("Set Site (All)")
+        bulk_site_all_button.setToolTip("Moves EVERY VM to the chosen site at once - one undo step.")
+        bulk_site_all_button.clicked.connect(self._set_all_vms_site)
+        site_row.addWidget(bulk_site_all_button)
+
+        site_row.addStretch()
+        main_layout.addLayout(site_row)
 
         self.table = MultiSelectTableView()
         self.table.set_source_model(self.model)
         self.table.edit_requested.connect(self._edit_vm)
         self.table.delete_requested.connect(self._delete_selected)
         self.table.copy_requested.connect(self._duplicate_selected)
+        self.table.set_custom_actions([
+            ("\U0001f6e1 Mark DR Protected", lambda: self._set_dr_protected_for_selected(True)),
+            ("Un-mark DR Protected", lambda: self._set_dr_protected_for_selected(False)),
+            ("\U0001f4cd Move to Primary", lambda: self._set_site_for_selected("Primary")),
+            ("\U0001f4cd Move to DR", lambda: self._set_site_for_selected("DR")),
+        ])
 
         main_layout.addWidget(self.table)
 
@@ -290,6 +326,66 @@ class VirtualMachinesPage(QWidget):
         if not self.service.project.vms:
             return
         self.service.set_all_vms_dr_protected(self.bulk_dr_check.isChecked())
+
+    def _set_workload_tier_for_selected(self):
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "Set Workload Tier", "Select at least one VM in the table.")
+            return
+        tier = self.bulk_tier_combo.currentText()
+        self.service.set_workload_tier_for_vms(vms, tier)
+
+    def _set_dr_protected_for_selected_from_checkbox(self):
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "DR Protected", "Select at least one VM in the table.")
+            return
+        self._set_dr_protected_for_selected(self.bulk_dr_check.isChecked(), vms=vms)
+
+    def _set_dr_protected_for_selected(self, protected: bool, vms: list | None = None):
+        if vms is None:
+            vms = self._selected_vms()
+        if not vms:
+            return
+        verb = "DR Protected" if protected else "NOT DR Protected"
+        reply = QMessageBox.question(
+            self, "DR Protected",
+            f"Mark {len(vms)} selected VM(s) as {verb}?",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.set_dr_protected_for_vms(vms, protected)
+
+    def _set_all_vms_site(self):
+        if not self.service.project.vms:
+            return
+        site = self.bulk_site_combo.currentText()
+        reply = QMessageBox.question(
+            self, "Set Site",
+            f"Move ALL {len(self.service.project.vms)} VM(s) to {site}?",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.set_site_for_vms(self.service.project.vms, site)
+
+    def _set_site_for_selected_from_combo(self):
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "Set Site", "Select at least one VM in the table.")
+            return
+        self._set_site_for_selected(self.bulk_site_combo.currentText(), vms=vms)
+
+    def _set_site_for_selected(self, site: str, vms: list | None = None):
+        if vms is None:
+            vms = self._selected_vms()
+        if not vms:
+            return
+        reply = QMessageBox.question(
+            self, "Set Site",
+            f"Move {len(vms)} selected VM(s) to {site}? This relocates where the "
+            "VM lives - it's separate from DR Protected (which just flags a VM "
+            "as replicated while it stays on its current site).",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.set_site_for_vms(vms, site)
 
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export VMs CSV", "vms.csv", "CSV (*.csv)")

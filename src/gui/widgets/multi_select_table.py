@@ -1,3 +1,5 @@
+from typing import Callable
+
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QTimer, Signal
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QMenu, QTableView
 
@@ -33,6 +35,7 @@ class MultiSelectTableView(QTableView):
         super().__init__(parent)
 
         self._proxy: QSortFilterProxyModel | None = None
+        self._custom_actions: list[tuple[str, "Callable[[], None]"]] = []
 
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
@@ -75,6 +78,16 @@ class MultiSelectTableView(QTableView):
         self.resizeColumnsToContents()
         self.horizontalHeader().setStretchLastSection(True)
 
+    def set_custom_actions(self, actions: list[tuple[str, "Callable[[], None]"]]) -> None:
+        """Extra context-menu actions specific to this page's entity type
+        (e.g. the VMs page adding "Mark DR Protected") - kept out of this
+        shared widget's own signal set so Servers/Storage/Network pages
+        aren't forced to know about VM-only concepts. Each entry is
+        (label, no-arg callback); shown after Copy and before Delete,
+        same "only when something's selected" rule as the built-in
+        actions. Replaces any previously set custom actions."""
+        self._custom_actions = list(actions)
+
     def selected_rows(self) -> list[int]:
         """Sorted, unique selected row indices - always relative to the
         SOURCE model, even if the view is currently sorted (translated
@@ -107,6 +120,12 @@ class MultiSelectTableView(QTableView):
 
         copy_action = menu.addAction(f"📄 Copy{count_suffix}")
         copy_action.triggered.connect(self.copy_requested.emit)
+
+        if self._custom_actions:
+            menu.addSeparator()
+            for label, callback in self._custom_actions:
+                action = menu.addAction(label)
+                action.triggered.connect(callback)
 
         menu.addSeparator()
 

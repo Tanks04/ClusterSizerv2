@@ -1,5 +1,57 @@
 # ROADMAP
 
+## v2.9.2 (VM Site bulk-move - distinct from DR Protected)
+
+- Clarified a real distinction that was causing confusion: DR Protected
+  (v2.9.0) flags a VM as replicated to DR while it keeps living on its
+  current site - it does NOT relocate the VM. Moving a VM's actual
+  location (Primary <-> DR) is a separate concept, `VirtualMachine.site`.
+  Both now have the same bulk/selection tooling: new second row on the
+  VMs tab, "Bulk move" - a Site combo (Primary/DR) with "Set Site
+  (Selected)" / "Set Site (All)" buttons, plus matching right-click
+  context actions ("\U0001f4cd Move to Primary" / "Move to DR"). New
+  `ProjectService.set_site_for_vms()` (selection-scoped, one undo
+  snapshot). Every confirmation dialog for this explicitly states it's
+  different from DR Protected, to head off the exact confusion that
+  prompted this.
+
+## v2.9.1 (full ready-to-load example project)
+
+- New `examples/scenario_full_example.clsz` - a complete project (3
+  servers Primary/DR with mixed Hyperthreading, 2 storage systems, 45
+  VMs, 4 switches, 5 connections incl. a direct-attach FC link) that
+  loads directly via File > Open, instead of importing 5 separate CSVs
+  by hand to reconstruct the same scenario. Verified it round-trips
+  cleanly through project_repository (save -> load -> same counts).
+
+## v2.9.0 (selection-scoped DR Protected / Workload Tier, two new example files)
+
+- New examples: `vms_no_dr_example.csv` (45 VMs, none DR-protected - a
+  clean starting point for the "select some, mark as DR" workflow below)
+  and `servers_2primary_1dr_example.csv` (2 Primary hosts with HT off, 1
+  DR host with HT on - a mixed-HT scenario for testing).
+- VMs tab: right-click a selection now offers "\U0001f6e1 Mark DR
+  Protected" / "Un-mark DR Protected" (with a confirmation dialog stating
+  the count) - the common real workflow is loading a full VM list, then
+  selecting just the subset that should actually go to DR (e.g. 12 of
+  45), not touching the other 33. The existing top "Bulk edit" row's DR
+  Protected checkbox and Workload Tier combo each gained an "Apply
+  (Selected)" button alongside the existing "Apply (All)", covering the
+  same selection-scoped case a second way.
+- New `ProjectService.set_dr_protected_for_vms()` / 
+  `set_workload_tier_for_vms()` - selection-scoped siblings of the
+  existing set_all_vms_* methods, one undo snapshot per action regardless
+  of how many VMs are in the selection.
+- `MultiSelectTableView` (shared by Servers/Storage/VMs/Network) gained
+  generic `set_custom_actions()` extensibility for page-specific
+  right-click menu items, instead of hardcoding VM-only concepts (DR
+  Protected) into a widget the other three pages also use.
+- Confirmed existing behaviour, no change needed: Cluster Preparation's
+  2-host minimum floor only applies to ITS OWN recommendation - the
+  Servers tab has no such restriction, adding a single server manually
+  (e.g. to check one box's own oversubscription) has always worked and
+  still does.
+
 ## v2.8.2 (HA semantics corrected - Basic HA and None share host count, N+1 is the real reservation)
 
 The v2.8.0 fix went too far: it made "Basic HA" behave exactly like

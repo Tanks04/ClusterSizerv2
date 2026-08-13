@@ -369,11 +369,51 @@ class ProjectService(QObject):
         leaving the footprint numbers in place in case it's turned back on."""
         self._push_undo_snapshot()
         for vm in self._project.vms:
-            vm.dr_protected = protected
-            if protected and vm.dr_vcpu == 0 and vm.dr_ram_gb == 0 and vm.dr_disk_gb == 0:
-                vm.dr_vcpu = vm.vcpu
-                vm.dr_ram_gb = vm.ram_gb
-                vm.dr_disk_gb = vm.disk_gb
+            self._apply_dr_protected(vm, protected)
+        self._notify(self.vms_changed)
+
+    def set_dr_protected_for_vms(self, vms: list[VirtualMachine], protected: bool) -> None:
+        """Same as set_all_vms_dr_protected, but scoped to a specific
+        selection (e.g. from a table's right-click menu or "Apply to
+        Selected") - one undo snapshot for the whole selection, not one
+        per VM. The typical workflow this exists for: load 45 VMs, select
+        only the 12 that should actually go to DR, mark just those."""
+        if not vms:
+            return
+        self._push_undo_snapshot()
+        for vm in vms:
+            self._apply_dr_protected(vm, protected)
+        self._notify(self.vms_changed)
+
+    @staticmethod
+    def _apply_dr_protected(vm: VirtualMachine, protected: bool) -> None:
+        vm.dr_protected = protected
+        if protected and vm.dr_vcpu == 0 and vm.dr_ram_gb == 0 and vm.dr_disk_gb == 0:
+            vm.dr_vcpu = vm.vcpu
+            vm.dr_ram_gb = vm.ram_gb
+            vm.dr_disk_gb = vm.disk_gb
+
+    def set_workload_tier_for_vms(self, vms: list[VirtualMachine], tier: str) -> None:
+        """Same as set_all_vms_workload_tier, but scoped to a selection -
+        one undo snapshot for the whole selection."""
+        if not vms:
+            return
+        self._push_undo_snapshot()
+        for vm in vms:
+            vm.workload_tier = tier
+        self._notify(self.vms_changed)
+
+    def set_site_for_vms(self, vms: list[VirtualMachine], site: str) -> None:
+        """Moves the given VMs to a different site (Primary/DR) - a
+        DIFFERENT concept from dr_protected (which flags a VM as
+        replicated to DR while it keeps living on its current site).
+        This actually relocates where the VM "lives". One undo snapshot
+        for the whole selection."""
+        if not vms:
+            return
+        self._push_undo_snapshot()
+        for vm in vms:
+            vm.site = site
         self._notify(self.vms_changed)
 
     def import_vms_csv(self, path: str | Path) -> int:
