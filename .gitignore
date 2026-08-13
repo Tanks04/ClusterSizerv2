@@ -10,7 +10,6 @@ dist/
 
 # ClusterSizer runtime artifacts - don't belong in the repo
 crash.log
-*.clsz
 
 # IDE / OS
 .vscode/
