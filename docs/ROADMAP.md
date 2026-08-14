@@ -1,5 +1,64 @@
 # ROADMAP
 
+## v2.13.0 (RAID Calculator)
+
+- New Tools > RAID Calculator... - disk type, size, count, RAID level
+  (0/1/5/6/10/50/60, including nested with a groups input), and optional
+  hot spares, with live-updating raw/usable/overhead%/fault-tolerance
+  output. Deliberately does NOT cross-reference the choice against VM
+  Workload Tiers elsewhere in the project - a Storage entity isn't tied
+  to specific VMs anywhere in the data model, so "you have a Tier-0 VM
+  somewhere, but chose RAID 5 HERE" would often be a false alarm (that
+  VM might live on a completely different array). The warning is scoped
+  to what's actually knowable from the RAID config alone: parity levels
+  (5/6/50/60) combined with spinning-disk types trigger a write-penalty/
+  rebuild-time warning; RAID 0 always warns regardless of disk type
+  (zero redundancy is true no matter what runs on it).
+- Apply to a Server or Storage already in the project, or leave the
+  target at "None" to just play with the numbers - switching the target
+  dropdown never discards what's been entered, only Apply commits
+  anything. Storage gets real fields (raw_capacity_tb, usable_capacity_tb,
+  raid_overhead_percent) - a confirmation dialog appears first if the
+  target already has nonzero capacity set, so a calculation doesn't
+  silently clobber real data. Server has no local-disk fields in the
+  data model (deliberately not adding any - nothing currently sums
+  server-local storage into any calculation, and adding fields nothing
+  reads risks confusing double-accounting later) - applying to a Server
+  appends a descriptive note instead ("Local RAID: 8x 4TB SAS SSD in
+  RAID 6 = 24.0 TB usable, tolerates 2 disk failures").
+- `src/calculations/raid_calculator.py` - pure math, Qt-free, no project
+  dependency at all (the dialog is the only thing that knows about
+  Server/Storage). 16 new tests covering every RAID level's capacity
+  formula, hot spares, both warning branches and their absence, and
+  input validation (too few disks, uneven RAID 50/60 groups, groups
+  smaller than the minimum, zero disk size, spares >= disk count).
+
+## v2.12.0 (Import from RVTools)
+
+- New Tools > Import from RVTools... - reads a standard RVTools export
+  (.xlsx, "Export all to Excel" - the common single-file case, not the
+  per-tab CSV folder variant). `vHost` sheet becomes Servers, `vInfo`
+  becomes VMs, both added to a single site chosen in the dialog (RVTools
+  has no Primary/DR concept of its own - one export is normally one
+  vCenter's inventory). One undo step for the whole import
+  (`ProjectService.add_servers_and_vms()`, same pattern as
+  `add_servers_and_storages()`).
+- `src/persistence/rvtools_import.py` - Qt-free, same architecture as
+  `generic_import.py`. Column lookups try a short alias list per field
+  (RVTools' naming has drifted slightly across versions) rather than one
+  exact name. RVTools labels values "MB"/"GB" but they're actually
+  MiB/GiB (base-2) - every memory/disk value is divided by 1024, not
+  1000, verified against a synthetic export with known values.
+  Hyperthreading is deliberately left at a conservative default
+  (disabled) since RVTools doesn't reliably expose it across versions -
+  flagged in the imported server's notes for manual review, same
+  treatment given to Workload Tier and DR Protected on the VM side
+  (concepts RVTools has no equivalent of at all).
+- 6 new tests (tests/test_rvtools_import.py) against a synthetic
+  RVTools-shaped export: field mapping, MiB->GiB conversion, a
+  not-actually-RVTools file raising a clear error, and graceful handling
+  when only one of the two sheets is present.
+
 ## v2.11.3 (the four deferred decisions, resolved)
 
 - **S25 (CI)** — recommended keeping it: zero cost, already caught one

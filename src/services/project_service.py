@@ -222,6 +222,17 @@ class ProjectService(QObject):
         self.storages_changed.emit()
         self._notify()
 
+    def add_servers_and_vms(self, servers: list[Server], vms: list[VirtualMachine]) -> None:
+        """Same idea as add_servers_and_storages, for RVTools import -
+        one file produces both hosts and VMs, one undo step for the
+        whole import."""
+        self._push_undo_snapshot()
+        self._project.servers.extend(servers)
+        self._project.vms.extend(vms)
+        self.servers_changed.emit()
+        self.vms_changed.emit()
+        self._notify()
+
     def replace_servers_and_storages_at_site(
         self, site: str, servers: list[Server], storages: list[Storage]
     ) -> None:

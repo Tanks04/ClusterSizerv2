@@ -79,17 +79,9 @@ or the tender is written**.
   active project.
 - **Smart Import** — import VM inventory from VMware/Nutanix/Proxmox
   exports (CSV/XLSX/JSON) via column mapping, with reusable saved
-  profiles. For RVTools specifically, 
-  **Tools → Import from RVTools...**
+  profiles. For RVTools specifically, **Tools → Import from RVTools...**
   is faster - no manual mapping, reads the vHost/vInfo sheets directly
   and imports Servers AND VMs together in one step.
-- **Tools → RAID Calculator...** — size a RAID array (0/1/5/6/10/50/60,
-  hot spares) from disk count/size/type, then optionally apply the
-  result straight to a Server or Storage entry already in the project.
-  Warns on RAID 0 (no redundancy) and on parity levels (5/6/50/60)
-  combined with spinning disks (write penalty) - deliberately doesn't
-  try to guess from VM Workload Tiers elsewhere in the project, since a
-  Storage entity isn't tied to specific VMs anywhere in the model.
 - Undo/Redo (Ctrl+Z / Ctrl+Y) for Add/Delete/Duplicate/Import/Clear All.
 - Multi-select everywhere (Ctrl/Shift-click, Delete, right-click → Edit/
   Copy/Delete), strictly-typed CSV import (each tab only accepts its own
@@ -133,19 +125,13 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 ## Thanks
 
 This tool was built in collaboration with Claude (Anthropic) — from the
-first idea to the last bugfix. 
-
-Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
-Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
-za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
-provesti u djelo još koju ideju ,)
-Revolut: revolut.me/@ivan50ba6
-
-Although the code, app, and idea are offered for free, if you think you 
-like it and it saves you time, you can donate a few EUR for beer and whisk(e)y 
-to the author of the program <3 who will be more willing to put 
-new ideas into practice ,)
-Revolut: revolut.me/@ivan50ba6
+first idea to the last bugfix. What would have taken me weeks to put
+together in my spare time came together here in a handful of sessions:
+I'd describe the problem the way a sysadmin sees it, and the code,
+architecture, and fixes mostly came from the other side — with plenty of
+my own testing, pushback, and "that's not right, try again." Including
+hunting down one particularly nasty Windows crash that didn't want to be
+found.
 
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
@@ -154,4 +140,5 @@ Thanks, Claude. 🥰
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE)
+MIT — see [`LICENSE`](LICENSE). Before publishing on GitHub, replace
+`[YOUR NAME / ORGANIZATION]` in the LICENSE file with your own name.

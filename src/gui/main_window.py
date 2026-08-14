@@ -24,6 +24,8 @@ from src.gui.pages.summary_page import SummaryPage
 from src.gui.pages.compare_page import ComparePage
 from src.gui.pages.reports_page import ReportsPage
 from src.gui.pages.settings_page import SettingsPage
+from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
+from src.gui.dialogs.raid_calculator_dialog import RaidCalculatorDialog
 from src.gui.widgets.lazy_tab_container import LazyTabContainer
 from src.gui.error_handling import report_error
 
@@ -121,6 +123,24 @@ class MainWindow(QMainWindow):
         rename_action = QAction("Rename Project...", self)
         rename_action.triggered.connect(self._rename_project)
         tools_menu.addAction(rename_action)
+
+        tools_menu.addSeparator()
+
+        rvtools_action = QAction("Import from RVTools...", self)
+        rvtools_action.setToolTip(
+            "Import a standard RVTools export (.xlsx) - vHost becomes "
+            "Servers, vInfo becomes VMs, added to one site of your choice."
+        )
+        rvtools_action.triggered.connect(self._import_rvtools)
+        tools_menu.addAction(rvtools_action)
+
+        raid_calc_action = QAction("RAID Calculator...", self)
+        raid_calc_action.setToolTip(
+            "Size a RAID array from disk count/size/level, then optionally "
+            "apply the result to a Server or Storage entry already in the project."
+        )
+        raid_calc_action.triggered.connect(self._open_raid_calculator)
+        tools_menu.addAction(raid_calc_action)
 
         about_action = QAction("About", self)
         about_action.triggered.connect(self._show_about)
@@ -289,6 +309,28 @@ class MainWindow(QMainWindow):
         if ok and name:
             self.project_service.project.name = name
             self.project_service.touch()
+
+    def _import_rvtools(self):
+        dialog = RVToolsImportDialog(parent=self)
+        if not dialog.exec():
+            return
+
+        servers = dialog.get_servers()
+        vms = dialog.get_vms()
+        if not servers and not vms:
+            return
+
+        self.project_service.add_servers_and_vms(servers, vms)
+        QMessageBox.information(
+            self, "Import from RVTools",
+            f"Imported {len(servers)} server(s) and {len(vms)} VM(s) - "
+            "review Hyperthreading, Workload Tier, and DR Protected on the "
+            "respective tabs, RVTools doesn't reliably expose those.",
+        )
+
+    def _open_raid_calculator(self):
+        dialog = RaidCalculatorDialog(self.project_service, parent=self)
+        dialog.exec()
 
     def _undo(self):
         self.project_service.undo()
