@@ -1,5 +1,48 @@
 # ROADMAP
 
+## v2.14.0 (Backup tab - destinations + 3-2-1-1 compliance)
+
+- New **Backup** tab (right after Storage) - same CRUD pattern as every
+  other entity tab (Add/Edit/Delete/Duplicate/CSV Import-Export/Clear
+  All, inline table editing, right-click menu). A *list* of backup
+  destinations, not a single flat config - a real setup usually has
+  several (a fast local repo, an offsite copy, maybe an immutable one
+  too), and the 3-2-1-1 check needs something real to count across.
+- Each destination: name, site, type (NAS / Disk Appliance / Storage
+  Array / Offsite / Tape-Offline), backup software (free text - Veeam,
+  CommVault, etc.), raw capacity, dedup ratio (effective capacity =
+  raw x ratio), and two independent flags - Offsite (geographic
+  separation) and Immutable/Offline (ransomware protection) - since a
+  single destination can be neither, either, or both.
+- New `src/calculations/backup.py` - computes the classic 3-2-1 rule (3
+  total copies incl. production, 2+ distinct media types, 1+ offsite)
+  and the modern 3-2-1-1 extension (+1 immutable/offline copy).
+  Evaluated project-wide, not per-site - 3-2-1 is about how many
+  independent copies of your data exist anywhere, not a site-scoped
+  capacity question. Deliberately stops at 3-2-1-1, not the fuller
+  "3-2-1-1-0" some vendors promote - the "0" (verified, tested-
+  restorable backups) is a PRACTICE, not something derivable from
+  static config, and claiming to compute it would be dishonest. The tab
+  shows a compliance badge (Full / 3-2-1 only / Not met) plus an exact
+  list of what's missing, not just pass/fail.
+- Data model: `ClusterProject.backup_destinations` (new list field),
+  `.clsz` schema bumped to v4 (adds a `backup_destinations` key) - older
+  v3 files still load fine, defaulting to an empty list, same tolerance
+  every other schema addition has had. New `ProjectService` CRUD +
+  `backup_changed` signal, new CSV import/export
+  (`BACKUP_DESTINATION_FIELDS`).
+- 21 new tests total: 8 for the compliance logic (empty/single/same-type/
+  full 3-2-1/full 3-2-1-1/exact gap messages/flags-on-one-destination),
+  1 CSV round-trip, 2 `.clsz` persistence (round-trip + v3-file backward
+  compat, including fixing a stale `SCHEMA_VERSION == 3` assertion the
+  bump broke).
+- Deliberately NOT built yet (flagged as later ideas, not part of this
+  pass): a reverse-sizing Backup Wizard (VM list + retention + change
+  rate -> required destination capacity, same spirit as Cluster
+  Preparation) and a Backup<->DR replication link (a Primary destination
+  pointing at a DR destination it copies to, enabling recovery-from-
+  backup as a third DR path alongside live VM replication).
+
 ## v2.13.0 (RAID Calculator)
 
 - New Tools > RAID Calculator... - disk type, size, count, RAID level

@@ -11,9 +11,10 @@ from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
+from src.models.backup_destination import BackupDestination
 
 FILE_EXTENSION = ".clsz"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 @dataclass
@@ -41,6 +42,7 @@ def save_project(
         "vms": [asdict(v) for v in project.vms],
         "switches": [asdict(s) for s in project.switches],
         "connections": [asdict(c) for c in project.connections],
+        "backup_destinations": [asdict(d) for d in project.backup_destinations],
         "thresholds": asdict(thresholds if thresholds is not None else Thresholds()),
     }
 
@@ -60,6 +62,9 @@ def load_project(path: str | Path) -> LoadedProject:
     project.vms = [_build(VirtualMachine, row) for row in raw.get("vms", [])]
     project.switches = [_build(NetworkSwitch, row) for row in raw.get("switches", [])]
     project.connections = [_build(NetworkConnection, row) for row in raw.get("connections", [])]
+    project.backup_destinations = [
+        _build(BackupDestination, row) for row in raw.get("backup_destinations", [])
+    ]
 
     # Absent for files saved before schema v3 - fall back to defaults
     # rather than failing, same tolerance _build() already gives every

@@ -19,6 +19,7 @@ from src.models.virtual_machine import VirtualMachine
 from src.models.workload_tier import WORKLOAD_TIER_NAMES, DEFAULT_WORKLOAD_TIER
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
+from src.models.backup_destination import BackupDestination
 
 
 class CsvSchemaError(ValueError):
@@ -39,6 +40,11 @@ STORAGE_FIELDS = [
     "usable_capacity_tb", "raid_overhead_percent",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
     "notes",
+]
+
+BACKUP_DESTINATION_FIELDS = [
+    "name", "site", "destination_type", "backup_software",
+    "raw_capacity_tb", "dedup_ratio", "is_offsite", "is_immutable", "notes",
 ]
 
 VM_FIELDS = [
@@ -168,6 +174,32 @@ def import_storages(path: str | Path) -> list[Storage]:
 def export_storages(path: str | Path, storages: list[Storage]) -> None:
     rows = [{field: getattr(s, field) for field in STORAGE_FIELDS} for s in storages]
     _write_rows(path, STORAGE_FIELDS, rows)
+
+
+def import_backup_destinations(path: str | Path) -> list[BackupDestination]:
+    destinations = []
+    for row in _read_rows(path, BACKUP_DESTINATION_FIELDS, "Backup Destination"):
+        default = BackupDestination.create_default()
+        destinations.append(
+            BackupDestination(
+                uid=default.uid,
+                name=row.get("name", ""),
+                site=row.get("site") or "Primary",
+                destination_type=row.get("destination_type") or "Disk Appliance",
+                backup_software=row.get("backup_software", "") or "",
+                raw_capacity_tb=float(row.get("raw_capacity_tb") or 0),
+                dedup_ratio=float(row.get("dedup_ratio") or 1.0),
+                is_offsite=_bool(row.get("is_offsite"), default=False),
+                is_immutable=_bool(row.get("is_immutable"), default=False),
+                notes=row.get("notes", "") or "",
+            )
+        )
+    return destinations
+
+
+def export_backup_destinations(path: str | Path, destinations: list[BackupDestination]) -> None:
+    rows = [{field: getattr(d, field) for field in BACKUP_DESTINATION_FIELDS} for d in destinations]
+    _write_rows(path, BACKUP_DESTINATION_FIELDS, rows)
 
 
 # ----------------------------------------------------------------------

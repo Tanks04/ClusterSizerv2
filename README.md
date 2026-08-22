@@ -60,6 +60,12 @@ or the tender is written**.
   including direct-attach storage links with no switch in between (e.g.
   FC/SAS HBAs wired straight to an array) - with a free/used overview by
   speed. Fully optional.
+- **Backup** — a list of backup destinations (local repo, offsite,
+  immutable/offline, etc. - most real setups have several), each with a
+  type, backup software, dedup ratio, and Offsite/Immutable flags. Shows
+  a live 3-2-1-1 compliance badge (3 copies of data, 2 different media
+  types, 1 offsite, +1 immutable/offline) with an exact list of what's
+  missing, not just pass/fail.
 - **Summary** — the landing tab: a quick top-line card row (servers,
   cores, RAM, storage, VMs, DR readiness), then Primary vs DR side by
   side in detail: capacity, demand, oversubscription (OK/Warning/

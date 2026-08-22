@@ -7,6 +7,7 @@ from src.calculations.thresholds import Thresholds
 from src.models.cluster_project import ClusterProject
 from src.models.server import Server
 from src.models.storage import Storage
+from src.models.backup_destination import BackupDestination
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
@@ -49,6 +50,7 @@ class ProjectService(QObject):
     storages_changed = Signal()
     vms_changed = Signal()
     network_changed = Signal()  # switches + connections together
+    backup_changed = Signal()
 
     undo_state_changed = Signal()  # for enabling/disabling Undo/Redo menu items
 
@@ -103,6 +105,9 @@ class ProjectService(QObject):
 
     def touch_storages(self) -> None:
         QTimer.singleShot(0, lambda: self._notify(self.storages_changed))
+
+    def touch_backup_destinations(self) -> None:
+        QTimer.singleShot(0, lambda: self._notify(self.backup_changed))
 
     def touch_vms(self) -> None:
         QTimer.singleShot(0, lambda: self._notify(self.vms_changed))
@@ -333,6 +338,48 @@ class ProjectService(QObject):
         self._push_undo_snapshot()
         self._project.storages = []
         self._notify(self.storages_changed)
+
+    # ------------------------------------------------------------------
+    # Backup Destinations
+    # ------------------------------------------------------------------
+
+    def add_backup_destination(self, destination: BackupDestination) -> None:
+        self._push_undo_snapshot()
+        self._project.backup_destinations.append(destination)
+        self._notify(self.backup_changed)
+
+    def add_backup_destinations(self, destinations: list[BackupDestination]) -> None:
+        self._push_undo_snapshot()
+        self._project.backup_destinations.extend(destinations)
+        self._notify(self.backup_changed)
+
+    def update_backup_destination(self, index: int, destination: BackupDestination) -> None:
+        self._push_undo_snapshot()
+        self._project.backup_destinations[index] = destination
+        self._notify(self.backup_changed)
+
+    def remove_backup_destinations(self, destinations: list[BackupDestination]) -> None:
+        self._push_undo_snapshot()
+        removed = set(id(d) for d in destinations)
+        self._project.backup_destinations = [
+            d for d in self._project.backup_destinations if id(d) not in removed
+        ]
+        self._notify(self.backup_changed)
+
+    def clear_backup_destinations(self) -> None:
+        self._push_undo_snapshot()
+        self._project.backup_destinations = []
+        self._notify(self.backup_changed)
+
+    def import_backup_destinations_csv(self, path: str | Path) -> int:
+        new_destinations = csv_io.import_backup_destinations(path)
+        self._push_undo_snapshot()
+        self._project.backup_destinations.extend(new_destinations)
+        self._notify(self.backup_changed)
+        return len(new_destinations)
+
+    def export_backup_destinations_csv(self, path: str | Path) -> None:
+        csv_io.export_backup_destinations(path, self._project.backup_destinations)
 
     def import_storages_csv(self, path: str | Path) -> int:
         new_storages = csv_io.import_storages(path)

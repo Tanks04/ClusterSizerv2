@@ -5,6 +5,7 @@ from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
+from src.models.backup_destination import BackupDestination
 
 PRIMARY = "Primary"
 DR = "DR"
@@ -48,6 +49,7 @@ class ClusterProject:
     vms: list[VirtualMachine] = field(default_factory=list)
     switches: list[NetworkSwitch] = field(default_factory=list)
     connections: list[NetworkConnection] = field(default_factory=list)
+    backup_destinations: list[BackupDestination] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # Filtering by site

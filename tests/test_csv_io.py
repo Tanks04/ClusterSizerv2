@@ -43,3 +43,33 @@ def test_import_servers_accepts_float_formatted_ints(tmp_path):
     assert servers[0].sockets == 2
     assert servers[0].cores_per_socket == 16
     assert servers[0].threads_per_core == 2
+
+
+def test_backup_destinations_csv_round_trip(tmp_path):
+    from src.models.backup_destination import BackupDestination
+    from src.persistence.csv_io import import_backup_destinations, export_backup_destinations
+
+    d1 = BackupDestination.create_default()
+    d1.name = "veeam-repo-01"
+    d1.destination_type = "Disk Appliance"
+    d1.backup_software = "Veeam"
+    d1.raw_capacity_tb = 40
+    d1.dedup_ratio = 5.0
+    d1.is_immutable = True
+
+    d2 = BackupDestination.create_default()
+    d2.name = "offsite-cloud"
+    d2.site = "DR"
+    d2.destination_type = "Offsite"
+    d2.is_offsite = True
+
+    path = tmp_path / "backup.csv"
+    export_backup_destinations(path, [d1, d2])
+    loaded = import_backup_destinations(path)
+
+    assert len(loaded) == 2
+    assert loaded[0].name == "veeam-repo-01"
+    assert loaded[0].is_immutable is True
+    assert loaded[0].is_offsite is False
+    assert loaded[1].is_offsite is True
+    assert loaded[0].effective_capacity_tb == 200
