@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "name": "Primary+DR with Mixed HT, Storage & Network",
   "servers": [
     {
@@ -914,6 +914,44 @@
       "purpose": "Storage",
       "storage_uid": "89b4d226-fa18-4941-9f26-511dd8a9aebd",
       "notes": "storage <-> SAN fabric"
+    }
+  ],
+  "backup_destinations": [
+    {
+      "uid": "7944bc03-d738-4b94-98f0-1a5991e21b88",
+      "name": "veeam-repo-primary",
+      "site": "Primary",
+      "destination_type": "Disk Appliance",
+      "backup_software": "Veeam",
+      "raw_capacity_tb": 40.0,
+      "dedup_ratio": 4.0,
+      "is_offsite": false,
+      "is_immutable": false,
+      "notes": "Fast local repo - primary restore target, shortest RTO."
+    },
+    {
+      "uid": "f7fd5cc8-068d-4f73-9fd5-56463760ab43",
+      "name": "veeam-repo-dr",
+      "site": "DR",
+      "destination_type": "NAS",
+      "backup_software": "Veeam",
+      "raw_capacity_tb": 30.0,
+      "dedup_ratio": 3.5,
+      "is_offsite": true,
+      "is_immutable": false,
+      "notes": "Copy job target at DR site - geographic separation from Primary."
+    },
+    {
+      "uid": "158ab389-0881-4bd0-8c6c-1210c56c9d24",
+      "name": "cloud-immutable",
+      "site": "DR",
+      "destination_type": "Offsite",
+      "backup_software": "Veeam",
+      "raw_capacity_tb": 25.0,
+      "dedup_ratio": 1.0,
+      "is_offsite": true,
+      "is_immutable": true,
+      "notes": "Object storage with immutability/object-lock enabled - survives even if the backup server itself is compromised."
     }
   ],
   "thresholds": {

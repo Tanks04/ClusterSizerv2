@@ -1,5 +1,17 @@
 # ROADMAP
 
+## v2.14.1 (backup example added to the full example project)
+
+- `examples/scenario_full_example.clsz` now includes 3 backup
+  destinations, deliberately designed to demonstrate FULL 3-2-1-1
+  compliance (not a failing example) - a fast local Disk Appliance repo
+  at Primary, a NAS copy at DR (different media type, offsite relative
+  to Primary), and an immutable Offsite/cloud copy (object-lock enabled)
+  covering the ransomware-protection leg. 3 distinct destination types,
+  offsite and immutable both present. Re-saved through the app's own
+  writer, verified round-trip - the rest of the project (3 servers, 2
+  storages, 45 VMs, 4 switches, 5 connections) is untouched.
+
 ## v2.14.0 (Backup tab - destinations + 3-2-1-1 compliance)
 
 - New **Backup** tab (right after Storage) - same CRUD pattern as every
