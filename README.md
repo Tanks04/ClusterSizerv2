@@ -156,8 +156,6 @@ Revolut: revolut.me/@ivan50ba6
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
 
-Thanks, Claude. 🥰
-
 ## License
 
 MIT — see [`LICENSE`](LICENSE)
