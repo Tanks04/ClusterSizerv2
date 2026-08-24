@@ -1,7 +1,8 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from src.calculations.sizing import build_reports
+from src.calculations.sizing import build_reports, build_dr_failover_report
+from src.calculations.rack import compute_rack_sizing
 from src.services.project_service import ProjectService
 
 from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
@@ -68,12 +69,29 @@ class SummaryPage(QWidget):
         # Deep-dive: Primary vs DR
         #
 
+        summary_header = QHBoxLayout()
+
         summary_title = QLabel("Cluster Summary")
         summary_title_font = summary_title.font()
         summary_title_font.setBold(True)
         summary_title_font.setPointSize(16)
         summary_title.setFont(summary_title_font)
-        layout.addWidget(summary_title)
+        summary_header.addWidget(summary_title)
+
+        summary_header.addStretch()
+
+        self.dr_failover_toggle_button = QPushButton("Preview DR Failover")
+        self.dr_failover_toggle_button.setCheckable(True)
+        self.dr_failover_toggle_button.setToolTip(
+            "Shows what the DR card WOULD look like if every DR-protected VM "
+            "were activated there right now (e.g. a Veeam/backup-driven DR "
+            "plan) - same physical DR hardware, but demand includes the "
+            "failover load, not just what's actually running on DR today."
+        )
+        self.dr_failover_toggle_button.toggled.connect(self._on_dr_failover_toggle)
+        summary_header.addWidget(self.dr_failover_toggle_button)
+
+        layout.addLayout(summary_header)
 
         sites_layout = QHBoxLayout()
 
@@ -84,6 +102,58 @@ class SummaryPage(QWidget):
         sites_layout.addWidget(self.dr_card)
 
         layout.addLayout(sites_layout)
+
+        self.dr_failover_note_label = QLabel(
+            "\u26a0 Showing the DR FAILOVER scenario - live DR load + every DR-protected VM's footprint, "
+            "not what's actually running on DR right now."
+        )
+        self.dr_failover_note_label.setStyleSheet("color: #ed6c02; font-weight: bold;")
+        self.dr_failover_note_label.setWordWrap(True)
+        self.dr_failover_note_label.setVisible(False)
+        layout.addWidget(self.dr_failover_note_label)
+
+        #
+        # Rack sizing - optional, only meaningful once someone has
+        # entered Rack Size/Power on at least some equipment. Hidden by
+        # default behind a toggle since a project with none of that
+        # filled in would just show a row of dashes.
+        #
+
+        rack_header = QHBoxLayout()
+
+        rack_title = QLabel("Rack Sizing")
+        rack_title_font = rack_title.font()
+        rack_title_font.setBold(True)
+        rack_title_font.setPointSize(16)
+        rack_title.setFont(rack_title_font)
+        rack_header.addWidget(rack_title)
+
+        rack_header.addStretch()
+
+        self.rack_toggle_button = QPushButton("Show Rack Sizing")
+        self.rack_toggle_button.setCheckable(True)
+        self.rack_toggle_button.toggled.connect(self._on_rack_toggle)
+        rack_header.addWidget(self.rack_toggle_button)
+
+        layout.addLayout(rack_header)
+
+        self.rack_cards_widget = QWidget()
+        rack_grid = QGridLayout(self.rack_cards_widget)
+
+        self.card_primary_rack_units = SummaryWidget("Primary Rack Units", "-", compact=True)
+        self.card_primary_power = SummaryWidget("Primary Power (W)", "-", compact=True)
+        self.card_dr_rack_units = SummaryWidget("DR Rack Units", "-", compact=True)
+        self.card_dr_power = SummaryWidget("DR Power (W)", "-", compact=True)
+
+        rack_cards = [
+            self.card_primary_rack_units, self.card_primary_power,
+            self.card_dr_rack_units, self.card_dr_power,
+        ]
+        for i, card in enumerate(rack_cards):
+            rack_grid.addWidget(card, 0, i)
+
+        self.rack_cards_widget.setVisible(False)
+        layout.addWidget(self.rack_cards_widget)
 
         #
         # DR readiness
@@ -109,6 +179,23 @@ class SummaryPage(QWidget):
         layout.addWidget(self.dr_detail_label)
 
         layout.addStretch()
+
+    def _on_dr_failover_toggle(self, checked: bool):
+        self.dr_failover_toggle_button.setText("Show Current DR" if checked else "Preview DR Failover")
+        self.dr_failover_note_label.setVisible(checked)
+        self.refresh()
+
+    def _on_rack_toggle(self, checked: bool):
+        self.rack_cards_widget.setVisible(checked)
+        self.rack_toggle_button.setText("Hide Rack Sizing" if checked else "Show Rack Sizing")
+
+    @staticmethod
+    def _format_watts(watts: float) -> str:
+        if not watts:
+            return "-"
+        if watts >= 1000:
+            return f"{watts / 1000:.2f} kW"
+        return f"{watts:.0f} W"
 
     def refresh(self):
         from src.calculations.thresholds import Status
@@ -149,7 +236,22 @@ class SummaryPage(QWidget):
         primary_report, dr_report, dr_check = build_reports(project, thresholds)
 
         self.primary_card.set_report(primary_report)
-        self.dr_card.set_report(dr_report)
+        if self.dr_failover_toggle_button.isChecked():
+            self.dr_card.set_report(build_dr_failover_report(project, thresholds))
+        else:
+            self.dr_card.set_report(dr_report)
+
+        #
+        # Rack sizing
+        #
+
+        primary_rack = compute_rack_sizing(project, PRIMARY)
+        dr_rack = compute_rack_sizing(project, DR)
+
+        self.card_primary_rack_units.set_value(f"{primary_rack.rack_units} U" if primary_rack.rack_units else "-")
+        self.card_primary_power.set_value(self._format_watts(primary_rack.power_watts))
+        self.card_dr_rack_units.set_value(f"{dr_rack.rack_units} U" if dr_rack.rack_units else "-")
+        self.card_dr_power.set_value(self._format_watts(dr_rack.power_watts))
 
         if dr_check.ready is None:
             self.dr_badge.set_status(Status.UNKNOWN)

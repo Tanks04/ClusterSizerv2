@@ -17,7 +17,7 @@ def test_thresholds_round_trip(tmp_path):
 
     assert loaded.thresholds.cpu_warning_ratio == 3.5
     assert loaded.thresholds.ram_warning_ratio == 0.7
-    assert project_repository.SCHEMA_VERSION == 4
+    assert project_repository.SCHEMA_VERSION == 5
 
 
 def test_v2_file_loads_with_default_thresholds(tmp_path):
@@ -72,3 +72,62 @@ def test_v3_file_without_backup_destinations_loads_with_empty_list(tmp_path):
     loaded = project_repository.load_project(path)
 
     assert loaded.project.backup_destinations == []
+
+
+def test_storage_shelves_round_trip_as_real_objects_not_dicts(tmp_path):
+    """_build() only does a shallow field filter - Storage.expansion_shelves
+    needed a dedicated reconstruction step (_build_storage()) or shelves
+    would come back as plain dicts, breaking .rack_units/.power_watts
+    attribute access."""
+    from src.models.backup_destination import BackupDestination  # noqa: F401 - keep import group consistent
+    from src.models.storage import Storage, StorageShelf
+
+    project = ClusterProject(name="Rack round trip")
+    storage = Storage.create_default()
+    storage.name = "san-01"
+    storage.rack_units = 4
+    storage.power_watts = 1200.0
+    storage.expansion_shelves = [StorageShelf(name="shelf-1", rack_units=2, power_watts=400.0)]
+    project.storages.append(storage)
+
+    path = tmp_path / "rack.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    loaded = project_repository.load_project(path)
+    loaded_storage = loaded.project.storages[0]
+
+    assert loaded_storage.rack_units == 4
+    assert loaded_storage.power_watts == 1200.0
+    assert len(loaded_storage.expansion_shelves) == 1
+
+    shelf = loaded_storage.expansion_shelves[0]
+    assert isinstance(shelf, StorageShelf)
+    assert shelf.rack_units == 2
+    assert loaded_storage.total_rack_units == 6
+
+
+def test_v4_file_without_rack_fields_loads_with_defaults(tmp_path):
+    """A .clsz saved before schema v5 has no rack_units/power_watts/
+    expansion_shelves keys at all - must load fine with defaults, not crash."""
+    from src.models.server import Server
+
+    project = ClusterProject(name="Pre-rack")
+    project.servers.append(Server.create_default())
+    path = tmp_path / "v4.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    for server in raw["servers"]:
+        del server["rack_units"]
+        del server["power_watts"]
+    for storage in raw["storages"]:
+        del storage["rack_units"]
+        del storage["power_watts"]
+        del storage["expansion_shelves"]
+    raw["schema_version"] = 4
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.servers[0].rack_units == 0
+    assert loaded.project.servers[0].power_watts == 0.0

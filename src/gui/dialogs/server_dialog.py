@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QLineEdit,
+    QPlainTextEdit,
     QSpinBox,
     QDoubleSpinBox,
     QVBoxLayout,
@@ -110,6 +111,7 @@ class ServerDialog(QDialog):
         self.core_spin = QSpinBox()
 
         self.core_spin.setRange(1, 256)
+        self.core_spin.setSingleStep(2)  # cores per socket are always even
 
         self.core_spin.setValue(16)
 
@@ -156,6 +158,7 @@ class ServerDialog(QDialog):
         self.ram_spin = QSpinBox()
 
         self.ram_spin.setRange(1, 32768)
+        self.ram_spin.setSingleStep(1024)  # common DIMM-friendly increment
 
         self.ram_spin.setSuffix(" GB")
 
@@ -194,6 +197,26 @@ class ServerDialog(QDialog):
         self.ip_address_edit = QLineEdit()
         self.ip_address_edit.setPlaceholderText("e.g. 10.88.1.10 (management or primary IP)")
         layout.addRow("IP Address", self.ip_address_edit)
+
+        self.rack_units_spin = QSpinBox()
+        self.rack_units_spin.setRange(0, 60)
+        self.rack_units_spin.setSuffix(" U")
+        self.rack_units_spin.setSpecialValueText("(not set)")
+        layout.addRow("Rack Size", self.rack_units_spin)
+
+        self.power_watts_spin = QDoubleSpinBox()
+        self.power_watts_spin.setRange(0.0, 20000.0)
+        self.power_watts_spin.setSuffix(" W")
+        self.power_watts_spin.setSpecialValueText("(not set)")
+        self.power_watts_spin.setToolTip(
+            "Use the nameplate/max draw from the datasheet, not \"typical\" - "
+            "safer for circuit/PDU capacity planning."
+        )
+        layout.addRow("Power Consumption", self.power_watts_spin)
+
+        self.notes_edit = QPlainTextEdit()
+        self.notes_edit.setFixedHeight(60)
+        layout.addRow("Notes", self.notes_edit)
 
         #
         # NIC inventory (Network tab koristi ovo za slobodno/zauzeto)
@@ -316,6 +339,9 @@ class ServerDialog(QDialog):
 
         self.warranty_edit.setText(server.warranty_expiry)
         self.ip_address_edit.setText(server.ip_address)
+        self.rack_units_spin.setValue(server.rack_units)
+        self.power_watts_spin.setValue(server.power_watts)
+        self.notes_edit.setPlainText(server.notes)
 
         self.nic_1g_spin.setValue(server.nic_1g)
         self.nic_10g_spin.setValue(server.nic_10g)
@@ -339,6 +365,9 @@ class ServerDialog(QDialog):
         server.cpu_frequency = self.freq_spin.value()
         server.warranty_expiry = self.warranty_edit.text()
         server.ip_address = self.ip_address_edit.text()
+        server.rack_units = self.rack_units_spin.value()
+        server.power_watts = self.power_watts_spin.value()
+        server.notes = self.notes_edit.toPlainText()
         server.nic_1g = self.nic_1g_spin.value()
         server.nic_10g = self.nic_10g_spin.value()
         server.nic_25g = self.nic_25g_spin.value()

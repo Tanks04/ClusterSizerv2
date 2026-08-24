@@ -7,14 +7,14 @@ from pathlib import Path
 from src.calculations.thresholds import Thresholds
 from src.models.cluster_project import ClusterProject
 from src.models.server import Server
-from src.models.storage import Storage
+from src.models.storage import Storage, StorageShelf
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 
 FILE_EXTENSION = ".clsz"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 @dataclass
@@ -58,7 +58,7 @@ def load_project(path: str | Path) -> LoadedProject:
     project = ClusterProject(name=raw.get("name", "New Project"))
 
     project.servers = [_build(Server, row) for row in raw.get("servers", [])]
-    project.storages = [_build(Storage, row) for row in raw.get("storages", [])]
+    project.storages = [_build_storage(row) for row in raw.get("storages", [])]
     project.vms = [_build(VirtualMachine, row) for row in raw.get("vms", [])]
     project.switches = [_build(NetworkSwitch, row) for row in raw.get("switches", [])]
     project.connections = [_build(NetworkConnection, row) for row in raw.get("connections", [])]
@@ -84,3 +84,18 @@ def _build(cls, row: dict):
     known = {f.name for f in fields(cls)}
     filtered = {k: v for k, v in row.items() if k in known}
     return cls(**filtered)
+
+
+def _build_storage(row: dict) -> Storage:
+    """_build() only does a SHALLOW field filter - Storage.expansion_shelves
+    is a list of nested StorageShelf objects, which would otherwise come
+    back as plain dicts (breaking .rack_units/.power_watts attribute
+    access) since JSON has no concept of a nested dataclass. Reconstruct
+    those explicitly; everything else goes through the normal helper."""
+    storage = _build(Storage, row)
+    known_shelf_fields = {f.name for f in fields(StorageShelf)}
+    storage.expansion_shelves = [
+        StorageShelf(**{k: v for k, v in shelf.items() if k in known_shelf_fields})
+        for shelf in row.get("expansion_shelves", [])
+    ]
+    return storage

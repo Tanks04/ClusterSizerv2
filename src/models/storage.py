@@ -1,5 +1,20 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import uuid
+
+
+@dataclass
+class StorageShelf:
+    """One expansion shelf/tray attached to a Storage system - embedded
+    directly in its parent Storage rather than a separate top-level
+    entity, since a shelf never exists independently of the storage it
+    expands (usually SAS-cabled straight to the head unit, or to the
+    previous shelf in a chain). Only its own rack footprint matters here
+    - capacity math still lives on the parent Storage's raw/usable
+    fields, since RVTools-style per-shelf capacity breakdowns are well
+    beyond what this tool tries to model."""
+    name: str = ""
+    rack_units: int = 0
+    power_watts: float = 0.0
 
 
 @dataclass
@@ -32,6 +47,14 @@ class Storage:
     ports_fc: int = 0
     ports_sas: int = 0
 
+    # Rack sizing - same pattern as Server/NetworkSwitch. 0 = not entered,
+    # excluded from the Summary tab's rack totals rather than counted as
+    # a real zero.
+    rack_units: int = 0
+    power_watts: float = 0.0  # nameplate/max draw from the datasheet, not "typical" - safer for circuit/PDU planning
+
+    expansion_shelves: list[StorageShelf] = field(default_factory=list)
+
     notes: str = ""
 
     @property
@@ -44,6 +67,16 @@ class Storage:
             self.ports_1g + self.ports_10g + self.ports_25g
             + self.ports_40g + self.ports_100g + self.ports_fc + self.ports_sas
         )
+
+    @property
+    def total_rack_units(self) -> int:
+        """This storage's own U plus every attached shelf's U."""
+        return self.rack_units + sum(shelf.rack_units for shelf in self.expansion_shelves)
+
+    @property
+    def total_power_watts(self) -> float:
+        """This storage's own power plus every attached shelf's power."""
+        return self.power_watts + sum(shelf.power_watts for shelf in self.expansion_shelves)
 
     @staticmethod
     def create_default() -> "Storage":

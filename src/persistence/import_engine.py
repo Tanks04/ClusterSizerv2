@@ -65,6 +65,7 @@ def convert_rows(
     power_col = profile.mapping_for("powered_on")
     site_col = profile.mapping_for("site")
     notes_col = profile.mapping_for("notes")
+    ip_col = profile.mapping_for("ip_address")
 
     if join_key_column is None:
         join_key_column = name_col.source_column if name_col else ""
@@ -116,6 +117,7 @@ def convert_rows(
         if row_site not in ("Primary", "DR"):
             row_site = site
         notes = str(_resolve(row, notes_col) or "").strip() if notes_col else ""
+        ip_address = str(_resolve(row, ip_col) or "").strip() if ip_col else ""
 
         vms.append(VirtualMachine(
             uid=str(uuid.uuid4()),
@@ -130,6 +132,7 @@ def convert_rows(
             dr_ram_gb=ram_gb,
             dr_disk_gb=disk_gb,
             notes=notes,
+            ip_address=ip_address,
         ))
 
     return vms, skipped

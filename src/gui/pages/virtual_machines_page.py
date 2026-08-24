@@ -39,7 +39,13 @@ class VirtualMachinesPage(QWidget):
 
         self._create_ui()
 
-        self.service.vms_changed.connect(self.refresh)
+        # Not just vms_changed - the CPU Oversub. card depends on Server
+        # data too (physical cores, HT, enabled/disabled), so a
+        # Servers-only change (e.g. toggling HT, re-enabling a disabled
+        # host) must also refresh this page, or the card goes stale
+        # while Summary (which listens to the general "changed" signal)
+        # correctly shows the current number.
+        self.service.changed.connect(self.refresh)
         self.refresh()
 
     def _create_ui(self):
@@ -185,7 +191,7 @@ class VirtualMachinesPage(QWidget):
 
         for card in (
             self.card_vms, self.card_vcpu, self.card_ram,
-            self.card_cpu_ratio, self.card_vm_storage, self.card_dr_protected,
+            self.card_vm_storage, self.card_cpu_ratio, self.card_dr_protected,
         ):
             summary_layout.addWidget(card)
 

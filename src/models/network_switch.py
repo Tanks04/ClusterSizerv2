@@ -24,6 +24,11 @@ class NetworkSwitch:
     ports_fc: int = 0
     ports_sas: int = 0
 
+    # Rack sizing - 0 = not entered, excluded from the Summary tab's rack
+    # totals rather than counted as a real zero.
+    rack_units: int = 0
+    power_watts: float = 0.0  # nameplate/max draw from the datasheet, not "typical" - safer for circuit/PDU planning
+
     notes: str = ""
 
     @property

@@ -69,7 +69,14 @@ or the tender is written**.
 - **Summary** — the landing tab: a quick top-line card row (servers,
   cores, RAM, storage, VMs, DR readiness), then Primary vs DR side by
   side in detail: capacity, demand, oversubscription (OK/Warning/
-  Critical), N+1 check, DR Readiness.
+  Critical), N+1 check, DR Readiness. "Preview DR Failover" swaps the DR
+  card to show what DR would need if every DR-protected VM were
+  activated there (e.g. a Veeam/backup-driven DR plan), not just what's
+  actually running on DR today - same OK/Warning/Critical system, so a
+  site that looks healthy can reveal it'd go CRITICAL under a real
+  failover. "Show Rack Sizing" reveals total Rack Units and Power
+  Consumption per site, aggregated from whatever's been entered on
+  Servers/Storage/Switches.
 - **Settings** — recommended oversubscription presets by hypervisor
   vendor (VMware, Hyper-V, Proxmox/KVM, Citrix Hypervisor), or set your
   own thresholds manually.
@@ -120,6 +127,10 @@ same way - real hypervisors do consume some CPU (commonly cited around
 Windows Server, so it tends to need more, though there's no single
 widely-quoted figure the way there is for VMware). Leave yourself a
 small margin if you're sizing close to the edge.
+
+For exactly how every number on screen is calculated, with small worked
+examples, see
+[`docs/HOW_THE_MATH_WORKS.md`](docs/HOW_THE_MATH_WORKS.md).
 
 ## Running it
 

@@ -90,6 +90,56 @@ def build_dr_report(project: ClusterProject) -> DRReport:
     )
 
 
+def build_dr_failover_report(project: ClusterProject, thresholds: Thresholds) -> SiteReport:
+    """Same shape as build_site_report(DR), but demand is the FAILOVER
+    scenario - DR's own baseline VMs PLUS every DR-protected Primary VM's
+    DR footprint (project.dr_failover_*_demand(), which already combines
+    both) - "what would DR need to carry if the disaster plan were
+    activated right now", not what's actually running there today.
+    Physical capacity (servers/cores/RAM/storage) is DR's real hardware,
+    unchanged - only the demand side of each ratio flips to the failover
+    scenario, reusing the exact same OK/Warning/Critical status system
+    as every other capacity check in the app, so "would DR survive
+    activating the DR plan" reads the same way "is Primary healthy"
+    already does."""
+    site = DR
+    vcpu_demand = project.dr_failover_vcpu_demand()
+    ram_demand_gb = project.dr_failover_ram_demand_gb()
+    disk_demand_gb = project.dr_failover_disk_demand_gb()
+
+    physical_cores = project.physical_cores(site)
+    physical_ram_gb = project.physical_ram_gb(site)
+    usable_storage_gb = project.usable_storage_gb(site)
+
+    cpu_ratio = (vcpu_demand / physical_cores) if physical_cores > 0 else None
+    ram_ratio = (ram_demand_gb / physical_ram_gb) if physical_ram_gb > 0 else None
+    storage_ratio = (disk_demand_gb / usable_storage_gb) if usable_storage_gb > 0 else None
+
+    n1_check = project.n_plus_one_check(site, thresholds.cpu_warning_ratio)
+
+    return SiteReport(
+        site=site,
+        server_count=len(project.servers_at(site)),
+        physical_cores=physical_cores,
+        physical_threads=project.physical_threads(site),
+        physical_ram_gb=physical_ram_gb,
+        usable_storage_gb=usable_storage_gb,
+        vm_count=project.dr_protected_vm_count() + len(project.vms_at(site)),
+        vcpu_demand=vcpu_demand,
+        ram_demand_gb=ram_demand_gb,
+        disk_demand_gb=disk_demand_gb,
+        cpu_ratio=cpu_ratio,
+        ram_ratio=ram_ratio,
+        storage_ratio=storage_ratio,
+        cpu_status=thresholds.cpu_status(cpu_ratio),
+        ram_status=thresholds.ram_status(ram_ratio),
+        storage_status=thresholds.storage_status(storage_ratio),
+        n_plus_one_ok=n1_check.ok if n1_check is not None else None,
+        n_plus_one_check=n1_check,
+        ht_state=project.hyperthreading_state(site),
+    )
+
+
 def build_reports(
     project: ClusterProject, thresholds: Thresholds
 ) -> tuple[SiteReport, SiteReport, DRReport]:

@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
     QSpinBox,
@@ -63,6 +64,22 @@ class SwitchDialog(QDialog):
         self.ports_fc_spin.setRange(0, 512)
         layout.addRow("Ports FC", self.ports_fc_spin)
 
+        self.rack_units_spin = QSpinBox()
+        self.rack_units_spin.setRange(0, 60)
+        self.rack_units_spin.setSuffix(" U")
+        self.rack_units_spin.setSpecialValueText("(not set)")
+        layout.addRow("Rack Size", self.rack_units_spin)
+
+        self.power_watts_spin = QDoubleSpinBox()
+        self.power_watts_spin.setRange(0.0, 20000.0)
+        self.power_watts_spin.setSuffix(" W")
+        self.power_watts_spin.setSpecialValueText("(not set)")
+        self.power_watts_spin.setToolTip(
+            "Use the nameplate/max draw from the datasheet, not \"typical\" - "
+            "safer for circuit/PDU capacity planning."
+        )
+        layout.addRow("Power Consumption", self.power_watts_spin)
+
         self.notes_edit = QLineEdit()
         layout.addRow("Notes", self.notes_edit)
 
@@ -92,6 +109,8 @@ class SwitchDialog(QDialog):
         self.ports_40g_spin.setValue(switch.ports_40g)
         self.ports_100g_spin.setValue(switch.ports_100g)
         self.ports_fc_spin.setValue(switch.ports_fc)
+        self.rack_units_spin.setValue(switch.rack_units)
+        self.power_watts_spin.setValue(switch.power_watts)
         self.notes_edit.setText(switch.notes)
 
     def get_switch(self) -> NetworkSwitch:
@@ -111,6 +130,8 @@ class SwitchDialog(QDialog):
         switch.ports_40g = self.ports_40g_spin.value()
         switch.ports_100g = self.ports_100g_spin.value()
         switch.ports_fc = self.ports_fc_spin.value()
+        switch.rack_units = self.rack_units_spin.value()
+        switch.power_watts = self.power_watts_spin.value()
         switch.notes = self.notes_edit.text()
 
         return switch

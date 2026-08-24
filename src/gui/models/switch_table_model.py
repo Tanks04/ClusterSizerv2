@@ -7,7 +7,7 @@ from src.calculations.networking import switch_port_usage, format_usage, any_ove
 
 class SwitchTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "Vendor", "Model", "Type", "Ports (declared)", "Used/Free"]
+    HEADERS = ["Name", "Site", "Vendor", "Model", "Type", "Ports (declared)", "Used/Free", "Rack (U)", "Power (W)", "Notes"]
 
     def __init__(
         self,
@@ -73,6 +73,12 @@ class SwitchTableModel(QAbstractTableModel):
                 usage = switch_port_usage(switch, self._connections_provider())
                 text = format_usage(usage)
                 return f"⚠ {text}" if any_over_committed(usage) else text
+            case 7:
+                return switch.rack_units if switch.rack_units else "-"
+            case 8:
+                return switch.power_watts if switch.power_watts else "-"
+            case 9:
+                return switch.notes or "-"
 
         return None
 

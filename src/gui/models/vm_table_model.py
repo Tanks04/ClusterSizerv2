@@ -6,7 +6,7 @@ from src.models.virtual_machine import VirtualMachine
 
 class VMTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Protected"]
+    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Protected", "IP Address", "Notes"]
 
     EDITABLE_COLUMNS = {2, 4, 5}  # vCPU, RAM, Disk
 
@@ -66,6 +66,10 @@ class VMTableModel(QAbstractTableModel):
                 if vm.dr_protected:
                     return f"✓ {vm.dr_vcpu}vCPU/{vm.dr_ram_gb:.0f}GB/{vm.dr_disk_gb:.0f}GB"
                 return "-"
+            case 8:
+                return vm.ip_address or "-"
+            case 9:
+                return vm.notes or "-"
 
         return None
 

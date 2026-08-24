@@ -10,11 +10,11 @@ class ServerTableModel(QAbstractTableModel):
         "Name", "Status", "Site", "Vendor", "Model", "CPU",
         "Sockets", "Cores/Socket", "Threads/Core", "HT",
         "Total Cores", "Effective Cores",
-        "RAM (GB)", "GHz", "Warranty", "IP Address",
+        "RAM (GB)", "GHz", "Warranty", "IP Address", "Rack (U)", "Power (W)", "Notes",
     ]
 
     # Kolone koje se mogu direktno urediti u tablici (bez otvaranja dijaloga)
-    EDITABLE_COLUMNS = {6, 7, 8, 12, 13}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz
+    EDITABLE_COLUMNS = {6, 7, 8, 12, 13, 16, 17}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz, Rack(U), Power(W)
 
     def __init__(
         self,
@@ -94,6 +94,12 @@ class ServerTableModel(QAbstractTableModel):
                 return server.warranty_expiry or "-"
             case 15:
                 return server.ip_address or "-"
+            case 16:
+                return server.rack_units if server.rack_units else "-"
+            case 17:
+                return server.power_watts if server.power_watts else "-"
+            case 18:
+                return server.notes or "-"
 
         return None
 
@@ -118,6 +124,10 @@ class ServerTableModel(QAbstractTableModel):
                     server.ram_gb = max(1, int(value))
                 case 13:
                     server.cpu_frequency = max(0.1, float(value))
+                case 16:
+                    server.rack_units = max(0, int(value))
+                case 17:
+                    server.power_watts = max(0.0, float(value))
                 case _:
                     return False
         except (TypeError, ValueError):

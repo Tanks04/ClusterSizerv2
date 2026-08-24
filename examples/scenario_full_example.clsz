@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "name": "Primary+DR with Mixed HT, Storage & Network",
   "servers": [
     {
@@ -16,6 +16,9 @@
       "ram_gb": 512,
       "cpu_frequency": 2.0,
       "warranty_expiry": "2027-06-01",
+      "ip_address": "",
+      "rack_units": 2,
+      "power_watts": 800.0,
       "hyperthreading_enabled": false,
       "nic_1g": 2,
       "nic_10g": 0,
@@ -41,6 +44,9 @@
       "ram_gb": 512,
       "cpu_frequency": 2.0,
       "warranty_expiry": "2027-06-01",
+      "ip_address": "",
+      "rack_units": 2,
+      "power_watts": 800.0,
       "hyperthreading_enabled": false,
       "nic_1g": 2,
       "nic_10g": 0,
@@ -66,6 +72,9 @@
       "ram_gb": 256,
       "cpu_frequency": 2.5,
       "warranty_expiry": "",
+      "ip_address": "",
+      "rack_units": 2,
+      "power_watts": 850.0,
       "hyperthreading_enabled": true,
       "nic_1g": 2,
       "nic_10g": 0,
@@ -95,6 +104,15 @@
       "ports_100g": 0,
       "ports_fc": 4,
       "ports_sas": 0,
+      "rack_units": 3,
+      "power_watts": 1200.0,
+      "expansion_shelves": [
+        {
+          "name": "san-p01-shelf1",
+          "rack_units": 2,
+          "power_watts": 400.0
+        }
+      ],
       "notes": ""
     },
     {
@@ -113,6 +131,9 @@
       "ports_100g": 0,
       "ports_fc": 4,
       "ports_sas": 0,
+      "rack_units": 3,
+      "power_watts": 900.0,
+      "expansion_shelves": [],
       "notes": "DR array"
     }
   ],
@@ -130,6 +151,7 @@
       "dr_ram_gb": 32.0,
       "dr_disk_gb": 301.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -145,6 +167,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 1653.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -160,6 +183,7 @@
       "dr_ram_gb": 48.0,
       "dr_disk_gb": 709.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -175,6 +199,7 @@
       "dr_ram_gb": 64.0,
       "dr_disk_gb": 1440.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -190,6 +215,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 3533.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -205,6 +231,7 @@
       "dr_ram_gb": 32.0,
       "dr_disk_gb": 1854.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -220,6 +247,7 @@
       "dr_ram_gb": 10.0,
       "dr_disk_gb": 171.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -235,6 +263,7 @@
       "dr_ram_gb": 32.0,
       "dr_disk_gb": 1872.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -250,6 +279,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 425.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -265,6 +295,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 2328.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -280,6 +311,7 @@
       "dr_ram_gb": 10.0,
       "dr_disk_gb": 202.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -295,6 +327,7 @@
       "dr_ram_gb": 32.0,
       "dr_disk_gb": 361.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -310,6 +343,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 2084.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -325,6 +359,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 599.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -340,6 +375,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 112.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -355,6 +391,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 140.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -370,6 +407,7 @@
       "dr_ram_gb": 12.0,
       "dr_disk_gb": 3440.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -385,6 +423,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 87.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -400,6 +439,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 98.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -415,6 +455,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 1731.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -430,6 +471,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 229.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -445,6 +487,7 @@
       "dr_ram_gb": 32.0,
       "dr_disk_gb": 471.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -460,6 +503,7 @@
       "dr_ram_gb": 12.0,
       "dr_disk_gb": 1980.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -475,6 +519,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 111.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -490,6 +535,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 110.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -505,6 +551,7 @@
       "dr_ram_gb": 24.0,
       "dr_disk_gb": 308.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -520,6 +567,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 491.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -535,6 +583,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 84.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -550,6 +599,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 84.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -565,6 +615,7 @@
       "dr_ram_gb": 10.0,
       "dr_disk_gb": 118.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -580,6 +631,7 @@
       "dr_ram_gb": 128.0,
       "dr_disk_gb": 770.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -595,6 +647,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 92.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -610,6 +663,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 539.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -625,6 +679,7 @@
       "dr_ram_gb": 4.0,
       "dr_disk_gb": 203.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -640,6 +695,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 214.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -655,6 +711,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 426.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -670,6 +727,7 @@
       "dr_ram_gb": 4.0,
       "dr_disk_gb": 160.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -685,6 +743,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 1674.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -700,6 +759,7 @@
       "dr_ram_gb": 12.0,
       "dr_disk_gb": 2732.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -715,6 +775,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 397.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -730,6 +791,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 180.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -745,6 +807,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 112.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -760,6 +823,7 @@
       "dr_ram_gb": 16.0,
       "dr_disk_gb": 320.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -775,6 +839,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 85.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     },
     {
@@ -790,6 +855,7 @@
       "dr_ram_gb": 8.0,
       "dr_disk_gb": 93.0,
       "workload_tier": "Standard Production",
+      "ip_address": "",
       "notes": ""
     }
   ],
@@ -808,6 +874,8 @@
       "ports_100g": 6,
       "ports_fc": 0,
       "ports_sas": 0,
+      "rack_units": 1,
+      "power_watts": 300.0,
       "notes": "ToR switch A"
     },
     {
@@ -824,6 +892,8 @@
       "ports_100g": 6,
       "ports_fc": 0,
       "ports_sas": 0,
+      "rack_units": 1,
+      "power_watts": 300.0,
       "notes": "ToR switch B (redundancy)"
     },
     {
@@ -840,6 +910,8 @@
       "ports_100g": 6,
       "ports_fc": 0,
       "ports_sas": 0,
+      "rack_units": 1,
+      "power_watts": 300.0,
       "notes": ""
     },
     {
@@ -856,6 +928,8 @@
       "ports_100g": 0,
       "ports_fc": 24,
       "ports_sas": 0,
+      "rack_units": 1,
+      "power_watts": 150.0,
       "notes": "FC fabric switch"
     }
   ],

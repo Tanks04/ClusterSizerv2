@@ -114,3 +114,19 @@ def test_import_servers_detects_ip_address_from_real_ip_host(tmp_path):
     servers = rvtools_import.import_servers(path)
     assert servers[0].name == "10.88.1.10"
     assert servers[0].ip_address == "10.88.1.10"
+
+
+def test_import_vms_populates_ip_address_when_present(tmp_path):
+    path = tmp_path / "export_vm_ip.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory", "Total disk capacity MiB", "Primary IP Address"])
+    vinfo.append(["app-01", "poweredOn", 4, 16384, 153600, "10.20.1.15"])
+    vinfo.append(["app-02", "poweredOn", 2, 8192, 51200, ""])
+    wb.save(path)
+
+    vms = rvtools_import.import_vms(path)
+
+    assert vms[0].ip_address == "10.20.1.15"
+    assert vms[1].ip_address == ""

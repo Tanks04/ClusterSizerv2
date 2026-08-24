@@ -26,15 +26,18 @@ def test_bool_truthy_tokens():
 
 
 def test_import_servers_accepts_float_formatted_ints(tmp_path):
+    from src.persistence.csv_io import SERVER_FIELDS
+
     csv_path = tmp_path / "servers.csv"
-    header = (
-        "name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,"
-        "threads_per_core,hyperthreading_enabled,ram_gb,cpu_frequency,warranty_expiry,ip_address,"
-        "nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,nic_sas,enabled,notes\n"
-    )
-    row = (
-        "esxi01,Primary,Dell,R750,Intel,Xeon,2.0,16.0,2.0,True,256,2.5,,,0,0,0,0,0,0,0,True,\n"
-    )
+    values = {
+        "name": "esxi01", "site": "Primary", "vendor": "Dell", "model": "R750",
+        "cpu_vendor": "Intel", "cpu_model": "Xeon",
+        "sockets": "2.0", "cores_per_socket": "16.0", "threads_per_core": "2.0",
+        "hyperthreading_enabled": "True", "ram_gb": "256", "cpu_frequency": "2.5",
+        "enabled": "True",
+    }
+    header = ",".join(SERVER_FIELDS) + "\n"
+    row = ",".join(values.get(f, "") for f in SERVER_FIELDS) + "\n"
     csv_path.write_text(header + row, encoding="utf-8")
 
     servers = import_servers(csv_path)

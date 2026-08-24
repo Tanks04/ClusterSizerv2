@@ -152,6 +152,7 @@ def import_vms(path) -> list[VirtualMachine]:
             "Total disk capacity MiB", "Total disk capacity MB",
             "Provisioned MiB", "Provisioned MB", "Provisioned in MB", "In Use MiB", "In Use MB",
         ])
+        col_ip = _find_column(headers, ["Primary IP Address", "IP Address"])
 
         if col_name is None:
             raise RVToolsImportError(
@@ -174,6 +175,9 @@ def import_vms(path) -> list[VirtualMachine]:
             vm.disk_gb = int(float(disk_mib) / MIB_PER_GIB) if disk_mib else 0
             power = _cell(row, col_power)
             vm.powered_on = _normalize(power) == "poweredon" if power else True
+            ip_address = _cell(row, col_ip)
+            if ip_address:
+                vm.ip_address = str(ip_address)
             vm.notes = "Imported from RVTools - review Workload Tier and DR Protected manually."
             vms.append(vm)
 

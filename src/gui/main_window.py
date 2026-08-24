@@ -213,9 +213,7 @@ class MainWindow(QMainWindow):
     def _update_title(self):
         name = self.project_service.project.name or "New Project"
         dirty_mark = " *" if self.project_service.dirty else ""
-        path = self.project_service.current_path
-        path_part = f" - {path}" if path else ""
-        self.setWindowTitle(f"ClusterSizer {self.VERSION} - {name}{dirty_mark}{path_part}")
+        self.setWindowTitle(f"ClusterSizer {self.VERSION} - {name}{dirty_mark}")
 
     def _confirm_discard_if_dirty(self) -> bool:
         if not self.project_service.dirty:

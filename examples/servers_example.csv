@@ -1,5 +1,5 @@
-name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,threads_per_core,hyperthreading_enabled,ram_gb,cpu_frequency,warranty_expiry,ip_address,nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,nic_sas,enabled,notes
-esxi-p01,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2027-06-01,,2,0,2,0,0,0,0,True,
-esxi-p02,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2027-06-01,,2,0,2,0,0,0,0,True,
-esxi-p03,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2027-06-01,,2,0,2,0,0,2,0,True,
-esxi-dr01,DR,Dell,PowerEdge R650,Intel,Xeon Gold 6330,2,28,2,True,768,2.0,2027-06-01,,2,0,2,0,0,0,0,True,DR host
+name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,threads_per_core,hyperthreading_enabled,ram_gb,cpu_frequency,warranty_expiry,ip_address,nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,nic_sas,rack_units,power_watts,enabled,notes
+esxi-p01,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2027-06-01,,2,0,2,0,0,0,0,2,800,True,
+esxi-p02,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2027-06-01,,2,0,2,0,0,0,0,2,800,True,
+esxi-p03,Primary,Dell,PowerEdge R750,Intel,Xeon Gold 6338,2,32,2,True,1024,2.0,2027-06-01,,2,0,2,0,0,2,0,2,800,True,
+esxi-dr01,DR,Dell,PowerEdge R650,Intel,Xeon Gold 6330,2,28,2,True,768,2.0,2027-06-01,,2,0,2,0,0,0,0,1,600,True,DR host

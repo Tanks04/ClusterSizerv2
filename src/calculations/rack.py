@@ -1,0 +1,42 @@
+"""Aggregates rack units (U) and power draw (W) across everything that
+occupies physical rack space at a site - Servers, Storage (including
+their expansion shelves), and Network Switches. Fields left at 0
+(not entered) don't count as real zeros - they're simply excluded, same
+convention as every other optional numeric field in this app.
+
+Deliberately does NOT filter by Server.enabled the way capacity math
+(servers_at(), physical_cores(), etc.) does - "disabled" means "exclude
+from compute capacity planning" (e.g. simulating a host being down), not
+"physically removed from the rack". A disabled server still occupies its
+U and, if it's still plugged in, still draws power - so it stays counted
+here even when it's invisible to CPU/RAM/storage oversubscription.
+"""
+
+from dataclasses import dataclass
+
+from src.models.cluster_project import ClusterProject
+
+
+@dataclass
+class RackSizingSummary:
+    rack_units: int
+    power_watts: float
+
+
+def compute_rack_sizing(project: ClusterProject, site: str) -> RackSizingSummary:
+    servers = [s for s in project.servers if s.site == site]  # NOT servers_at() - see module docstring
+    storages = [s for s in project.storages if s.site == site]
+    switches = [s for s in project.switches if s.site == site]
+
+    rack_units = (
+        sum(s.rack_units for s in servers)
+        + sum(s.total_rack_units for s in storages)  # includes attached shelves
+        + sum(s.rack_units for s in switches)
+    )
+    power_watts = (
+        sum(s.power_watts for s in servers)
+        + sum(s.total_power_watts for s in storages)  # includes attached shelves
+        + sum(s.power_watts for s in switches)
+    )
+
+    return RackSizingSummary(rack_units=rack_units, power_watts=power_watts)

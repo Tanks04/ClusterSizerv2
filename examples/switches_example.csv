@@ -1,5 +1,5 @@
-name,site,vendor,model,switch_type,ports_1g,ports_10g,ports_25g,ports_40g,ports_100g,ports_fc,ports_sas,notes
-sw-p01,Primary,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,0,ToR switch A
-sw-p02,Primary,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,0,ToR switch B (redundancy)
-sw-dr01,DR,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,0,
-sw-san01,Primary,Brocade,6510,SAN/FC,0,0,0,0,0,24,0,FC fabric switch
+name,site,vendor,model,switch_type,ports_1g,ports_10g,ports_25g,ports_40g,ports_100g,ports_fc,ports_sas,rack_units,power_watts,notes
+sw-p01,Primary,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,0,1,300,ToR switch A
+sw-p02,Primary,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,0,1,300,ToR switch B (redundancy)
+sw-dr01,DR,Cisco,Nexus 93180YC-FX,LAN,0,0,48,0,6,0,0,1,300,
+sw-san01,Primary,Brocade,6510,SAN/FC,0,0,0,0,0,24,0,1,150,FC fabric switch

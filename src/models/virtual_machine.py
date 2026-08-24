@@ -42,6 +42,8 @@ class VirtualMachine:
 
     workload_tier: str = DEFAULT_WORKLOAD_TIER
 
+    ip_address: str = ""  # guest OS IP, free text (not validated - IPv4/IPv6/hostname all fine)
+
     notes: str = ""
 
     @property

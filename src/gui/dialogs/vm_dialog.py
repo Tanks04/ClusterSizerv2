@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QSpinBox,
     QDoubleSpinBox,
     QVBoxLayout,
@@ -80,6 +81,14 @@ class VMDialog(QDialog):
         self.powered_check = QCheckBox("Powered on")
         self.powered_check.setChecked(True)
         layout.addRow("", self.powered_check)
+
+        self.ip_address_edit = QLineEdit()
+        self.ip_address_edit.setPlaceholderText("e.g. 10.20.1.15 (guest OS IP)")
+        layout.addRow("IP Address", self.ip_address_edit)
+
+        self.notes_edit = QPlainTextEdit()
+        self.notes_edit.setFixedHeight(60)
+        layout.addRow("Notes", self.notes_edit)
 
         #
         # DR protection - VMs are often NOT replicated 1:1 to DR, so the
@@ -170,6 +179,8 @@ class VMDialog(QDialog):
         self.ram_spin.setValue(vm.ram_gb)
         self.disk_spin.setValue(vm.disk_gb)
         self.powered_check.setChecked(vm.powered_on)
+        self.ip_address_edit.setText(vm.ip_address)
+        self.notes_edit.setPlainText(vm.notes)
 
         self.workload_combo.setCurrentText(vm.workload_tier)
         self._update_workload_description()
@@ -194,6 +205,8 @@ class VMDialog(QDialog):
         vm.ram_gb = self.ram_spin.value()
         vm.disk_gb = self.disk_spin.value()
         vm.powered_on = self.powered_check.isChecked()
+        vm.ip_address = self.ip_address_edit.text()
+        vm.notes = self.notes_edit.toPlainText()
         vm.workload_tier = self.workload_combo.currentText()
 
         vm.dr_protected = self.dr_check.isChecked()

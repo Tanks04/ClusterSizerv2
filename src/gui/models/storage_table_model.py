@@ -10,7 +10,7 @@ class StorageTableModel(QAbstractTableModel):
     HEADERS = [
         "Name", "Site", "Vendor", "Model",
         "Raw (TB)", "Usable (TB)", "Overhead %",
-        "Ports (declared)", "Used/Free",
+        "Ports (declared)", "Used/Free", "Rack (U)", "Power (W)", "Notes",
     ]
 
     EDITABLE_COLUMNS = {4, 5}  # Raw, Usable
@@ -90,6 +90,14 @@ class StorageTableModel(QAbstractTableModel):
                 usage = storage_port_usage(storage, self._connections_provider())
                 text = format_usage(usage)
                 return f"\u26a0 {text}" if any_over_committed(usage) else text
+            case 9:
+                total_u = storage.total_rack_units
+                shelf_note = f" (+{len(storage.expansion_shelves)} shelf/shelves)" if storage.expansion_shelves else ""
+                return f"{total_u}{shelf_note}" if total_u else "-"
+            case 10:
+                return round(storage.total_power_watts, 0) if storage.total_power_watts else "-"
+            case 11:
+                return storage.notes or "-"
 
         return None
 

@@ -1,5 +1,139 @@
 # ROADMAP
 
+## v2.17.2 (examples now demonstrate Rack Sizing - it wasn't there before)
+
+The user asked directly: did the examples get updated for Rack
+Units/Power when that feature was built? Checked - no, every example
+(the full `.clsz` and all Servers/Storage/Switches CSVs) still had
+rack_units=0/power_watts=0 everywhere, so opening any of them and
+clicking "Show Rack Sizing" would've shown a wall of dashes. Fixed:
+
+- Populated realistic rack_units/power_watts on every example, matched
+  to each entry's actual vendor/model (Dell PowerEdge R750 = 2U/800W,
+  Pure Storage FlashArray//X = 3U/1200W, Cisco Nexus 93180YC-FX =
+  1U/300W, etc. - commonly-cited ballpark nameplate figures for each
+  real product line, not arbitrary numbers).
+- `examples/scenario_full_example.clsz` also got a demo
+  `StorageShelf` attached to its primary storage, so that feature has a
+  visible example too, not just the flat fields.
+- Found and documented a real design question while doing this:
+  `esxi-p02` in that same example is deliberately `enabled=False` (from
+  an earlier N+1 demonstration) - and `compute_rack_sizing()` counts it
+  anyway, unlike every capacity calculation (`servers_at()` and
+  everything built on it), which excludes disabled servers entirely.
+  Decided this is correct AS-IS rather than a bug: "disabled" means
+  "exclude from compute capacity planning" (simulating a host being
+  down), not "physically removed from the rack" - a disabled server
+  still occupies its U and still draws power if it's plugged in.
+  Documented this explicitly in `rack.py`'s module docstring (so it
+  doesn't look like an oversight to the next person reading it), added
+  a pinning regression test, and added the same explanation to
+  `docs/HOW_THE_MATH_WORKS.md`.
+
+## v2.17.1 (ELI5 math documentation)
+
+- New `docs/HOW_THE_MATH_WORKS.md` - plain-language explanation of every
+  calculation in the app, with small worked numeric examples: CPU/RAM/
+  Storage oversubscription, why CPU is a ratio but RAM/Storage are
+  percentages, Hyperthreading's effective-cores math, N+1/N+2 (including
+  the corrected Basic HA semantics), DR Readiness vs the DR Failover
+  Preview, Cluster Preparation's workload-tier weighting, all 7 RAID
+  formulas, backup 3-2-1-1 compliance, and rack sizing. Linked from
+  README's Scope & Assumptions section. Every formula and worked example
+  in it was checked against the actual current code before writing (the
+  Basic HA explanation was initially drafted wrong - from an EARLIER,
+  since-corrected version of that logic - caught and fixed before
+  publishing, not after).
+
+## v2.17.0 (real-usage feedback batch: a genuine cross-page staleness bug, DR Failover Preview, missing Notes/IP fields, dialog polish)
+
+Tested by loading `scenario_full_example.clsz` and using the app - found
+and fixed a real bug, plus a batch of smaller gaps:
+
+- **Fixed a real bug**: VMs tab's "CPU Oversub." card only refreshed on
+  `vms_changed`, but the ratio also depends on Server data (physical
+  cores, HT, enabled/disabled) - a Servers-only change (toggling HT,
+  re-enabling a disabled host) never fired `vms_changed`, so the card
+  went stale while Summary (listening to the general `changed` signal)
+  correctly showed the current number - exactly the reported "VMs tab
+  says 3.7:1, Summary says 1.8:1 for the same project" symptom. VMs page
+  now also listens to `service.changed`.
+- **New: DR Failover Preview.** A "Preview DR Failover" toggle on the
+  Summary tab (same pattern as "Show Rack Sizing") swaps the DR card
+  from "what's actually running on DR right now" to "what DR would need
+  if every DR-protected VM were activated there" (e.g. a Veeam/backup-
+  driven DR plan) - same physical DR hardware, demand becomes the
+  failover scenario, reusing the exact same OK/Warning/Critical status
+  system as every other capacity check. Confirmed the underlying model
+  (`dr_failover_*_demand()`) already correctly combined VMs that live on
+  DR permanently (e.g. a redundant always-on domain controller) with
+  DR-protected Primary VMs (the Veeam scenario) - this was a display
+  gap, not a logic gap. New `build_dr_failover_report()`
+  (src/calculations/sizing.py), 5 new tests including one that
+  demonstrates a site looking healthy in the current view while going
+  CRITICAL in the failover view - the whole point of the feature.
+- **Notes was invisible on every entity table** (Server/Storage/Switch/
+  VM) despite the model field existing on all four - added to all four
+  table models. VMDialog and ServerDialog had NO notes field in the GUI
+  at all (StorageDialog too, added alongside its new Rack/Shelves
+  section) - fixed all three; SwitchDialog already had one.
+- **New: VM IP Address** (guest OS IP) - model, CSV schema, Smart
+  Import mappable field, VMDialog field. The dedicated RVTools importer
+  now also populates it from RVTools' "Primary IP Address" column when
+  present (confirmed against the user's real export: 58 of 72 VMs had
+  it - the rest presumably lack VMware Tools, which RVTools needs to
+  report a guest IP at all).
+- Server dialog: Cores/Socket now steps by 2 (cores per socket are
+  always even), RAM steps by 1024 GB (common DIMM-friendly increment) -
+  VM dialog's RAM deliberately left stepping by 1, per explicit request.
+- VMs tab card order: VM Storage moved between RAM Demand and CPU
+  Oversub (was after CPU Oversub).
+- Window title no longer includes the full file path - just
+  "ClusterSizer {version} - {project name}".
+- Confirmed NOT a bug: the plain "Import CSV" button is intentionally
+  CSV-only (expects our exact schema); "Smart Import" already supports
+  CSV/XLSX/JSON/XLSM - likely just the wrong button was clicked.
+- A static-import check caught a real bug before packaging this time:
+  `storage_dialog.py`'s new Notes field used `QPlainTextEdit` without
+  importing it - would have crashed the Storage dialog on open. Fixed
+  before shipping, not after.
+
+## v2.16.0 (Rack sizing - Rack Units + Power Consumption)
+
+- New `rack_units`/`power_watts` fields on Server, Storage, and Network
+  Switch - 0 means "not entered", excluded from totals rather than
+  counted as a real zero, same convention as every other optional
+  numeric field in this app. Power is meant as nameplate/max draw from
+  the datasheet, not "typical" - safer for circuit/PDU capacity
+  planning (a single field, not min/max - deliberately not
+  over-engineering this).
+- New `StorageShelf` - expansion shelves/trays are embedded directly in
+  their parent Storage (not a separate top-level entity - a shelf never
+  exists independently of the storage it expands, usually SAS-cabled to
+  the head unit or the previous shelf in a chain). `Storage.
+  total_rack_units`/`total_power_watts` include attached shelves
+  automatically. Edited via a small embedded sub-table in the Storage
+  dialog (add/remove rows), not its own tab or CSV file.
+- New `src/calculations/rack.py` - aggregates U and W per site across
+  Servers + Storage (incl. shelves) + Switches. Summary tab gained a
+  "Rack Sizing" section below Cluster Summary, same card style as the
+  top-line row, behind a "Show Rack Sizing" toggle (hidden by default -
+  a project with nothing entered would just show a row of dashes).
+- `.clsz` schema bumped to v5. `_build()`'s generic shallow-field-filter
+  doesn't reconstruct NESTED dataclasses (StorageShelf would come back
+  as a plain dict, breaking `.rack_units` attribute access) - added a
+  dedicated `_build_storage()` that reconstructs shelves properly.
+  Verified round-trip and v4-file backward compatibility (missing
+  rack_units/power_watts/expansion_shelves keys all default correctly).
+- CSV schemas for Servers/Storage/Switches gained rack_units/power_watts
+  columns (examples updated). Table models and dialogs for all three
+  gained Rack (U) and Power (W) fields/columns.
+- 12 new tests: 6 for rack aggregation (empty project, unset-fields-
+  excluded, cross-entity aggregation, shelves counting toward the total,
+  site independence, Storage's own total_* properties) and 6 for
+  persistence (shelf reconstruction as real objects not dicts, v4
+  backward compat).
+
 ## v2.15.0 (Server IP Address, cross-sheet field mapping in Smart Import)
 
 - New `Server.ip_address` field (management or primary network IP, free

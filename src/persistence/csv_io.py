@@ -32,6 +32,7 @@ SERVER_FIELDS = [
     "sockets", "cores_per_socket", "threads_per_core", "hyperthreading_enabled",
     "ram_gb", "cpu_frequency", "warranty_expiry", "ip_address",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
+    "rack_units", "power_watts",
     "enabled", "notes",
 ]
 
@@ -39,6 +40,7 @@ STORAGE_FIELDS = [
     "name", "site", "vendor", "model", "raw_capacity_tb",
     "usable_capacity_tb", "raid_overhead_percent",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
+    "rack_units", "power_watts",
     "notes",
 ]
 
@@ -50,12 +52,13 @@ BACKUP_DESTINATION_FIELDS = [
 VM_FIELDS = [
     "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on",
     "dr_protected", "dr_vcpu", "dr_ram_gb", "dr_disk_gb",
-    "workload_tier", "notes",
+    "workload_tier", "ip_address", "notes",
 ]
 
 SWITCH_FIELDS = [
     "name", "site", "vendor", "model", "switch_type",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
+    "rack_units", "power_watts",
     "notes",
 ]
 
@@ -122,6 +125,8 @@ def import_servers(path: str | Path) -> list[Server]:
                 cpu_frequency=float(row.get("cpu_frequency") or 2.5),
                 warranty_expiry=row.get("warranty_expiry", "") or "",
                 ip_address=row.get("ip_address", "") or "",
+                rack_units=int(float(row.get("rack_units") or 0)),
+                power_watts=float(row.get("power_watts") or 0),
                 nic_1g=int(float(row.get("nic_1g") or 0)),
                 nic_10g=int(float(row.get("nic_10g") or 0)),
                 nic_25g=int(float(row.get("nic_25g") or 0)),
@@ -166,6 +171,8 @@ def import_storages(path: str | Path) -> list[Storage]:
                 ports_100g=int(float(row.get("ports_100g") or 0)),
                 ports_fc=int(float(row.get("ports_fc") or 0)),
                 ports_sas=int(float(row.get("ports_sas") or 0)),
+                rack_units=int(float(row.get("rack_units") or 0)),
+                power_watts=float(row.get("power_watts") or 0),
                 notes=row.get("notes", "") or "",
             )
         )
@@ -232,6 +239,7 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
                 dr_ram_gb=float(row.get("dr_ram_gb") or ram_gb),
                 dr_disk_gb=float(row.get("dr_disk_gb") or disk_gb),
                 workload_tier=workload_tier,
+                ip_address=row.get("ip_address", "") or "",
                 notes=row.get("notes", "") or "",
             )
         )
@@ -266,6 +274,8 @@ def import_switches(path: str | Path) -> list[NetworkSwitch]:
                 ports_100g=int(float(row.get("ports_100g") or 0)),
                 ports_fc=int(float(row.get("ports_fc") or 0)),
                 ports_sas=int(float(row.get("ports_sas") or 0)),
+                rack_units=int(float(row.get("rack_units") or 0)),
+                power_watts=float(row.get("power_watts") or 0),
                 notes=row.get("notes", "") or "",
             )
         )

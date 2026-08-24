@@ -25,6 +25,11 @@ class Server:
     warranty_expiry: str = ""  # free format e.g. "2027-05-01", "-" if unknown
     ip_address: str = ""  # management or primary network IP, free text (not validated - IPv4/IPv6/hostname all fine)
 
+    # Rack sizing - 0 = not entered, excluded from the Summary tab's rack
+    # totals rather than counted as a real zero.
+    rack_units: int = 0
+    power_watts: float = 0.0  # nameplate/max draw from the datasheet, not "typical" - safer for circuit/PDU planning
+
     # Hyperthreading/SMT gate: threads_per_core stays as the raw SMT width
     # (2 for typical x86 HT, could be higher on other architectures), but
     # it only counts toward CPU capacity math when this is True. Lets
