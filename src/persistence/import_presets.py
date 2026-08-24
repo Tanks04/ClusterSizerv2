@@ -36,12 +36,18 @@ PRESETS: list[ImportProfile] = [
         built_in=True,
         powered_on_value="poweredOn",
         skip_name_prefixes=["vCLS-"],
-        notes="Export the vInfo tab as CSV/XLSX from RVTools.",
+        notes=(
+            "Export the vInfo tab as CSV/XLSX from RVTools. Disk maps to "
+            "'Total disk capacity MiB' (the VM's configured vDisk size) "
+            "rather than 'Provisioned MiB' (datastore space actually "
+            "reserved, which includes thin-provisioning/snapshot overhead "
+            "and runs noticeably higher) - verified against a real export."
+        ),
         mappings=[
             ColumnMapping(target_field="name", source_column="VM"),
             ColumnMapping(target_field="vcpu", source_column="CPUs"),
-            ColumnMapping(target_field="ram_gb", source_column="Memory", unit="MB"),
-            ColumnMapping(target_field="disk_gb", source_column="Provisioned MB", unit="MB"),
+            ColumnMapping(target_field="ram_gb", source_column="Memory", unit="MIB"),
+            ColumnMapping(target_field="disk_gb", source_column="Total disk capacity MiB", unit="MIB"),
             ColumnMapping(target_field="powered_on", source_column="Powerstate"),
             ColumnMapping(target_field="notes", source_column="OS according to the configuration file"),
         ],

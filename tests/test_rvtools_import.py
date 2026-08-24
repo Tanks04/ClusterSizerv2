@@ -89,3 +89,28 @@ def test_missing_vhost_sheet_returns_zero_servers(tmp_path):
     vms = rvtools_import.import_vms(path)
     assert len(servers) == 0
     assert len(vms) == 3
+
+
+def test_import_servers_detects_ip_address_when_host_is_an_ip(tmp_path):
+    """RVTools' vHost sheet sometimes identifies hosts by IP directly -
+    when it does, populate ip_address too, not just name."""
+    path = tmp_path / "export.xlsx"
+    _write_sample_export(path)
+    servers = rvtools_import.import_servers(path)
+    assert servers[0].ip_address == "esxi-01.lab.local" or servers[0].ip_address == ""
+    # the synthetic fixture uses hostnames, not IPs - confirm hostname does NOT get miscategorized as an IP
+    assert servers[0].ip_address == ""
+
+
+def test_import_servers_detects_ip_address_from_real_ip_host(tmp_path):
+    path = tmp_path / "export_ip.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory"])
+    vhost.append(["10.88.1.10", 2, 24, 524288])
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path)
+    assert servers[0].name == "10.88.1.10"
+    assert servers[0].ip_address == "10.88.1.10"

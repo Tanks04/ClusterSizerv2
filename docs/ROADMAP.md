@@ -1,5 +1,98 @@
 # ROADMAP
 
+## v2.15.0 (Server IP Address, cross-sheet field mapping in Smart Import)
+
+- New `Server.ip_address` field (management or primary network IP, free
+  text) - Server dialog, table column, CSV schema
+  (examples/servers_*.csv updated to match). The dedicated Tools > Import
+  from RVTools importer now populates it automatically when RVTools'
+  "Host" column is itself an IP (common - confirmed against the user's
+  real export, all 4 hosts identified by IP) - a simple IPv4-shape check,
+  left blank when Host is a real hostname instead.
+- **Smart Import wizard: per-field cross-sheet mapping.** Each mapped
+  field (Name, vCPU, RAM, Disk, ...) can now independently pull its
+  source column from a DIFFERENT sheet in the same workbook, not just
+  the one primary sheet - pick a sheet per field, one at a time, until
+  everything needed is mapped. Sheets are joined by whatever the Name
+  field's own column is (RVTools' "VM" column is consistent across
+  vInfo/vCPU/vMemory/vPartition/etc, so this needs no extra
+  configuration for RVTools specifically). Verified end-to-end against
+  the user's real 27-sheet export: pulled a vCPU-sheet-only column
+  ("Sockets", absent from vInfo) into a VM field, correctly varying
+  per-VM (not a constant), proving the join matches the right row for
+  each VM rather than the first/any row.
+  - `ColumnMapping` gained `source_sheet` (blank = the primary sheet
+    currently selected - fully backward compatible, existing profiles
+    and single-sheet files are unaffected).
+  - `convert_rows()` now accepts optional `sheets_data` (other sheets'
+    rows, keyed by sheet name) and `join_key_column` (defaults to the
+    Name field's own column) - builds a lookup index per referenced
+    sheet, falls back to blank/default (never crashes) when a join key
+    isn't found or a referenced sheet wasn't loaded.
+  - The wizard lazily loads and caches only the sheets actually
+    referenced by a field's sheet choice, not the whole workbook - a
+    27-sheet RVTools export doesn't get fully parsed just because one or
+    two fields use a non-primary sheet. Cache is cleared on file/sheet
+    reload and on header-row changes (a stale cache would otherwise read
+    a different sheet under the wrong header-row assumption).
+- 6 new tests (tests/test_import_engine.py) covering: single-sheet
+  behavior is unchanged, a real two-sheet join, three distinct graceful-
+  fallback cases (key not found / sheets_data is None / referenced sheet
+  absent from sheets_data), and that profile auto-matching still works
+  with the new field present on ColumnMapping.
+- Also fixed 2 real Smart Import bugs found testing against the user's
+  actual RVTools export for the first time (see v2.14.2's entry above
+  for the mechanism) - this release builds directly on those fixes.
+
+## v2.14.2 (two real RVTools import bugs, found against a real export)
+
+Tested against a real 27-sheet RVTools export for the first time (all
+prior testing used a synthetic fixture) - found and fixed two genuine
+bugs:
+
+- **Smart Import wizard: mapping UI could silently show the WRONG
+  sheet's columns.** Root cause: `QComboBox.setCurrentIndex()` only
+  emits `currentIndexChanged` when the index actually changes - a no-op
+  call fires no signal. `_load_file()` auto-selects a matching profile
+  via `setCurrentIndex()` and relied on that signal to trigger rebuilding
+  the mapping UI. RVTools' vInfo and vCPU sheets both best-match the same
+  built-in "RVTools (vInfo tab)" preset (both have VM, Powerstate, CPUs,
+  "OS according to..."), so switching vInfo -> vCPU -> vInfo left the
+  profile combo at the SAME index the whole time - the second vInfo visit
+  fired no signal, and the mapping UI stayed showing vCPU's 7 columns
+  instead of vInfo's real 90. This matched the exact symptom reported:
+  Name/vCPU still mappable (both sheets happen to have VM/CPUs), Memory
+  missing (vCPU has no Memory column). Fixed by calling the rebuild
+  directly after auto-matching a profile, instead of depending on the
+  signal firing. Also fixed the related first-load case (the initial
+  sheet dropdown population via `addItems()` isn't a reliable way to
+  auto-trigger the first load either) - now falls through to load the
+  first sheet directly instead of returning and hoping the signal fires.
+- **RVTools preset pointed at the wrong disk column, both in Smart
+  Import's built-in profile and the dedicated Tools > Import from
+  RVTools importer.** "Provisioned MB" (Smart Import preset) doesn't
+  exist in a real RVTools export - confirmed against one. Real column:
+  "Total disk capacity MiB". The dedicated importer's "Provisioned MiB"
+  (which DOES exist) measures something different - datastore space
+  actually reserved, including thin-provisioning and snapshot overhead -
+  and reads far higher than a VM's configured disk size (confirmed: 68TB
+  vs 29TB on the same real file). Both paths now prefer "Total disk
+  capacity MiB", matching what "how big is this VM's disk" should mean
+  for capacity planning, and matching the user's own by-hand
+  verification (~30TB) almost exactly (28.76TB) - previously this same
+  file imported at roughly 21TB via a workaround, neither number
+  matching the correct total.
+- 3 new tests (tests/test_import_presets.py) pin both fixes: the
+  preset's disk column name, the vInfo/vCPU same-preset-match condition
+  that caused the signal bug (so a future preset edit that removes the
+  overlap doesn't silently invalidate the regression guard), and an
+  end-to-end conversion check against a realistic row.
+- Tested end-to-end against the real export (not shared, per the user's
+  request - analyzed in place, never copied into the repo or any
+  output): 72 VMs, 4 hosts, totals now consistent between the Smart
+  Import path and the dedicated RVTools importer, both matching the
+  user's independent by-hand calculation.
+
 ## v2.14.1 (backup example added to the full example project)
 
 - `examples/scenario_full_example.clsz` now includes 3 backup

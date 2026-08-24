@@ -10,7 +10,7 @@ class ServerTableModel(QAbstractTableModel):
         "Name", "Status", "Site", "Vendor", "Model", "CPU",
         "Sockets", "Cores/Socket", "Threads/Core", "HT",
         "Total Cores", "Effective Cores",
-        "RAM (GB)", "GHz", "Warranty",
+        "RAM (GB)", "GHz", "Warranty", "IP Address",
     ]
 
     # Kolone koje se mogu direktno urediti u tablici (bez otvaranja dijaloga)
@@ -92,6 +92,8 @@ class ServerTableModel(QAbstractTableModel):
                 return server.cpu_frequency
             case 14:
                 return server.warranty_expiry or "-"
+            case 15:
+                return server.ip_address or "-"
 
         return None
 

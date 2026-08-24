@@ -23,6 +23,7 @@ class Server:
     cpu_frequency: float
 
     warranty_expiry: str = ""  # free format e.g. "2027-05-01", "-" if unknown
+    ip_address: str = ""  # management or primary network IP, free text (not validated - IPv4/IPv6/hostname all fine)
 
     # Hyperthreading/SMT gate: threads_per_core stays as the raw SMT width
     # (2 for typical x86 HT, could be higher on other architectures), but

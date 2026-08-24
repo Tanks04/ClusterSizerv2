@@ -27,11 +27,11 @@ or the tender is written**.
 
 ## Features
 
-- **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, NIC
-  inventory (incl. direct-attach SAS), and a Hyperthreading toggle that
-  actually affects CPU oversubscription math (HT-adjusted per server, not
-  a flat multiplier). Batch-add N identical servers at once. Inline
-  editing directly in the table.
+- **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, IP
+  address, NIC inventory (incl. direct-attach SAS), and a Hyperthreading
+  toggle that actually affects CPU oversubscription math (HT-adjusted
+  per server, not a flat multiplier). Batch-add N identical servers at
+  once. Inline editing directly in the table.
 - **Storage** — Primary/DR, you enter both raw and usable capacity; the
   RAID/EC overhead percentage is derived from those two and shown
   read-only - it's informational only and doesn't feed the sizing
@@ -85,10 +85,12 @@ or the tender is written**.
   active project.
 - **Smart Import** — import VM inventory from VMware/Nutanix/Proxmox
   exports (CSV/XLSX/JSON) via column mapping, with reusable saved
-  profiles. For RVTools specifically, 
-  **Tools → Import from RVTools...**
-  is faster - no manual mapping, reads the vHost/vInfo sheets directly
-  and imports Servers AND VMs together in one step.
+  profiles. Each field can pull from a DIFFERENT sheet in a multi-sheet
+  workbook if needed (joined by the Name field's own column) - e.g. pull
+  vCPU/RAM from one RVTools sheet and a field only present on another.
+  For RVTools specifically, **Tools → Import from RVTools...** is faster
+  for the common case - no manual mapping, reads the vHost/vInfo sheets
+  directly and imports Servers AND VMs together in one step.
 - **Tools → RAID Calculator...** — size a RAID array (0/1/5/6/10/50/60,
   hot spares) from disk count/size/type, then optionally apply the
   result straight to a Server or Storage entry already in the project.
@@ -155,6 +157,8 @@ Revolut: revolut.me/@ivan50ba6
 
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
+
+Thanks, Claude. 🥰
 
 ## License
 

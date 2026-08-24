@@ -61,6 +61,13 @@ def _cell(row, idx: int | None):
     return row[idx].value
 
 
+def _looks_like_ipv4(text: str) -> bool:
+    parts = text.strip().split(".")
+    if len(parts) != 4:
+        return False
+    return all(part.isdigit() and 0 <= int(part) <= 255 for part in parts)
+
+
 def preview_counts(path) -> tuple[int, int]:
     """Returns (vm_count, host_count) without building full objects -
     for the import dialog to show "will import X VMs and Y hosts" before
@@ -110,6 +117,8 @@ def import_servers(path) -> list[Server]:
 
             server = Server.create_default()
             server.name = str(host_name)
+            if _looks_like_ipv4(str(host_name)):
+                server.ip_address = str(host_name)
             server.sockets = int(_cell(row, col_sockets) or 1)
             server.cores_per_socket = int(_cell(row, col_cores_per_cpu) or 1)
             server.threads_per_core = 1
@@ -140,6 +149,7 @@ def import_vms(path) -> list[VirtualMachine]:
         col_vcpu = _find_column(headers, ["CPUs"])
         col_ram_mib = _find_column(headers, ["Memory"])
         col_disk_mib = _find_column(headers, [
+            "Total disk capacity MiB", "Total disk capacity MB",
             "Provisioned MiB", "Provisioned MB", "Provisioned in MB", "In Use MiB", "In Use MB",
         ])
 

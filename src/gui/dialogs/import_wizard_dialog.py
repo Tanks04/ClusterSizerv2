@@ -36,12 +36,19 @@ FIELD_LABELS = {
 }
 
 NOT_MAPPED = "-- not mapped --"
+CURRENT_SHEET = "(current sheet)"
 
 
 class ImportWizardDialog(QDialog):
     """Import any CSV/XLSX/JSON VM export by mapping its columns to
     ClusterSizer fields - once, then save the mapping as a reusable
-    profile so the next export from the same tool needs zero re-mapping."""
+    profile so the next export from the same tool needs zero re-mapping.
+
+    For multi-sheet XLSX (e.g. RVTools' vInfo/vCPU/vPartition/...), each
+    FIELD can independently pull from a different sheet than the primary
+    one - joined by whatever the Name field's own column is (e.g.
+    RVTools' "VM" column, consistent across its sheets). Pick a sheet per
+    field one at a time until every field you need is mapped."""
 
     def __init__(self, path: Path, parent=None):
         super().__init__(parent)
@@ -54,6 +61,13 @@ class ImportWizardDialog(QDialog):
         self._data_rows: list[dict] = []
         self._field_combos: dict[str, QComboBox] = {}
         self._unit_combos: dict[str, QComboBox] = {}
+        self._field_sheet_combos: dict[str, QComboBox] = {}
+
+        # Lazy cache for OTHER sheets referenced by a per-field sheet
+        # choice - keyed by sheet name, populated on first use so we
+        # don't eagerly read all 27 sheets of a large workbook up front.
+        self._sheet_header_cache: dict[str, list[str]] = {}
+        self._sheet_rows_cache: dict[str, list[dict]] = {}
 
         self._build_ui()
         self._load_file()
@@ -147,6 +161,9 @@ class ImportWizardDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _load_file(self):
+        self._sheet_header_cache.clear()
+        self._sheet_rows_cache.clear()
+
         if not self.sheet_combo.isVisible():
             try:
                 sheets = generic_import.sheet_names(self.path)
@@ -155,9 +172,15 @@ class ImportWizardDialog(QDialog):
                 self.reject()
                 return
             if len(sheets) > 1:
+                # Populate the dropdown WITHOUT relying on addItems() to
+                # reliably fire currentIndexChanged and re-trigger this
+                # method on its own - that's fragile (observed: the first
+                # sheet sometimes never actually loads). Block the signal
+                # and fall through to load the first sheet directly instead.
+                self.sheet_combo.blockSignals(True)
                 self.sheet_combo.setVisible(True)
                 self.sheet_combo.addItems(sheets)
-                return  # _load_file() will be re-triggered by the combo signal
+                self.sheet_combo.blockSignals(False)
 
         sheet = self.sheet_combo.currentText() if self.sheet_combo.isVisible() else None
 
@@ -190,8 +213,17 @@ class ImportWizardDialog(QDialog):
         if matched:
             idx = self.profile_combo.findText(matched.name)
             if idx >= 0:
+                # setCurrentIndex() emits currentIndexChanged only when the
+                # index actually changes - a NO-OP here (e.g. this sheet and
+                # the previous one both best-match the same profile) would
+                # silently skip rebuilding the mapping UI, leaving it showing
+                # the PREVIOUS sheet's columns. Call it directly instead of
+                # relying on the signal.
+                self.profile_combo.blockSignals(True)
                 self.profile_combo.setCurrentIndex(idx)
-                return  # triggers _on_profile_selected, which builds the mapping UI
+                self.profile_combo.blockSignals(False)
+                self._on_profile_selected()
+                return
 
         self._rebuild_mapping_ui(None)
 
@@ -206,6 +238,8 @@ class ImportWizardDialog(QDialog):
                 self.preview_table.setItem(r, c, QTableWidgetItem(str(value)))
 
     def _on_header_row_changed(self):
+        self._sheet_header_cache.clear()
+        self._sheet_rows_cache.clear()
         self._apply_header_row()
         # Re-check whether the currently chosen mapping's columns still exist
         self._rebuild_mapping_ui(self._current_profile())
@@ -216,6 +250,43 @@ class ImportWizardDialog(QDialog):
             self._header, self._data_rows = generic_import.rows_to_dicts(self._raw_rows, header_index)
         except IndexError:
             self._header, self._data_rows = [], []
+
+    def _available_sheets(self) -> list[str]:
+        """All sheet names in the workbook, for the per-field sheet
+        combos - empty for single-sheet files (CSV/JSON, or an XLSX with
+        only one sheet), in which case those combos just won't be shown."""
+        if not self.sheet_combo.isVisible():
+            return []
+        return [self.sheet_combo.itemText(i) for i in range(self.sheet_combo.count())]
+
+    def _get_sheet_data(self, sheet_name: str) -> tuple[list[str], list[dict]]:
+        """Loads and caches ONE other sheet's (header, rows), using the
+        SAME header-row position as the primary sheet - a reasonable
+        assumption for one tool's own multi-sheet export, and the wizard
+        still lets you fix the primary header row if that's ever wrong."""
+        if sheet_name not in self._sheet_rows_cache:
+            try:
+                raw = generic_import.load_raw_rows(self.path, sheet=sheet_name)
+                header_index = self.header_row_spin.value() - 1
+                header, rows = generic_import.rows_to_dicts(raw, header_index)
+            except Exception:
+                header, rows = [], []
+            self._sheet_header_cache[sheet_name] = header
+            self._sheet_rows_cache[sheet_name] = rows
+        return self._sheet_header_cache[sheet_name], self._sheet_rows_cache[sheet_name]
+
+    def _gather_sheets_data(self) -> dict[str, list[dict]]:
+        """Collects (name -> rows) for every OTHER sheet actually
+        referenced by a field's sheet combo right now - only those, not
+        the whole workbook, so a 27-sheet file doesn't get fully read
+        just because a couple of fields use non-primary sheets."""
+        sheets_data = {}
+        for combo in self._field_sheet_combos.values():
+            sheet_name = combo.currentText()
+            if sheet_name and sheet_name != CURRENT_SHEET and sheet_name not in sheets_data:
+                _, rows = self._get_sheet_data(sheet_name)
+                sheets_data[sheet_name] = rows
+        return sheets_data
 
     # ------------------------------------------------------------------
     # Profile / mapping UI
@@ -237,23 +308,42 @@ class ImportWizardDialog(QDialog):
             self.mapping_form.removeRow(0)
         self._field_combos.clear()
         self._unit_combos.clear()
+        self._field_sheet_combos.clear()
+
+        available_sheets = self._available_sheets()
 
         for field in VM_TARGET_FIELDS:
             row_widget = QWidget()
             row_layout = QHBoxLayout(row_widget)
             row_layout.setContentsMargins(0, 0, 0, 0)
 
+            existing = profile.mapping_for(field) if profile else None
+            existing_sheet = (existing.source_sheet if existing else "") or CURRENT_SHEET
+
             combo = QComboBox()
-            combo.addItem(NOT_MAPPED)
-            combo.addItems(self._header)
+            self._field_combos[field] = combo
+
+            if len(available_sheets) > 1:
+                sheet_combo = QComboBox()
+                sheet_combo.addItem(CURRENT_SHEET)
+                sheet_combo.addItems(available_sheets)
+                if existing_sheet in available_sheets or existing_sheet == CURRENT_SHEET:
+                    sheet_combo.setCurrentText(existing_sheet)
+                sheet_combo.currentIndexChanged.connect(
+                    lambda _idx, f=field: self._on_field_sheet_changed(f)
+                )
+                sheet_combo.setToolTip(
+                    "Pull this field from a DIFFERENT sheet in the same "
+                    "workbook, joined by the Name field's own column "
+                    "(e.g. RVTools' \"VM\" column, consistent across its sheets)."
+                )
+                row_layout.addWidget(sheet_combo)
+                self._field_sheet_combos[field] = sheet_combo
+
+            self._populate_column_combo(field, combo, existing_sheet, existing)
             combo.currentIndexChanged.connect(self._update_result_preview)
 
-            existing = profile.mapping_for(field) if profile else None
-            if existing and existing.source_column in self._header:
-                combo.setCurrentText(existing.source_column)
-
             row_layout.addWidget(combo, stretch=1)
-            self._field_combos[field] = combo
 
             if field in ("ram_gb", "disk_gb"):
                 unit_combo = QComboBox()
@@ -268,6 +358,31 @@ class ImportWizardDialog(QDialog):
 
             self.mapping_form.addRow(FIELD_LABELS[field], row_widget)
 
+    def _populate_column_combo(self, field: str, combo: QComboBox, sheet_name: str, existing: ColumnMapping | None):
+        """Fills a field's column combo with whichever sheet's columns
+        are relevant - the primary sheet's self._header, or another
+        sheet's header if that field's own sheet combo points elsewhere."""
+        if sheet_name == CURRENT_SHEET:
+            header = self._header
+        else:
+            header, _ = self._get_sheet_data(sheet_name)
+
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(NOT_MAPPED)
+        combo.addItems(header)
+        if existing and existing.source_column in header:
+            combo.setCurrentText(existing.source_column)
+        combo.blockSignals(False)
+
+    def _on_field_sheet_changed(self, field: str):
+        sheet_combo = self._field_sheet_combos.get(field)
+        combo = self._field_combos.get(field)
+        if sheet_combo is None or combo is None:
+            return
+        self._populate_column_combo(field, combo, sheet_combo.currentText(), None)
+        self._update_result_preview()
+
         self._update_result_preview()
 
     def _build_profile_from_ui(self, name: str = "") -> ImportProfile:
@@ -277,7 +392,13 @@ class ImportWizardDialog(QDialog):
             if source == NOT_MAPPED:
                 source = ""
             unit = self._unit_combos[field].currentText() if field in self._unit_combos else "auto"
-            mappings.append(ColumnMapping(target_field=field, source_column=source, unit=unit))
+            sheet_combo = self._field_sheet_combos.get(field)
+            source_sheet = ""
+            if sheet_combo is not None and sheet_combo.currentText() != CURRENT_SHEET:
+                source_sheet = sheet_combo.currentText()
+            mappings.append(ColumnMapping(
+                target_field=field, source_column=source, unit=unit, source_sheet=source_sheet,
+            ))
 
         prefixes = [p.strip() for p in self.skip_prefixes_edit.text().split(",") if p.strip()]
 
@@ -310,7 +431,8 @@ class ImportWizardDialog(QDialog):
 
         total_rows = len(self._data_rows)
         sample = self._data_rows[: self._PREVIEW_SAMPLE_SIZE]
-        vms, skipped = convert_rows(sample, profile, site=self.default_site_combo.currentText())
+        sheets_data = self._gather_sheets_data()
+        vms, skipped = convert_rows(sample, profile, site=self.default_site_combo.currentText(), sheets_data=sheets_data)
         self.imported_vms = vms  # overwritten with the full-file result in _on_accept()
 
         if total_rows > self._PREVIEW_SAMPLE_SIZE:
@@ -333,7 +455,10 @@ class ImportWizardDialog(QDialog):
             QMessageBox.warning(self, "Import", "Map all required fields (Name, vCPU, RAM, Disk) before importing.")
             return
 
-        vms, skipped = convert_rows(self._data_rows, profile, site=self.default_site_combo.currentText())
+        vms, skipped = convert_rows(
+            self._data_rows, profile, site=self.default_site_combo.currentText(),
+            sheets_data=self._gather_sheets_data(),
+        )
         if not vms:
             QMessageBox.warning(self, "Import", "No VMs matched this mapping - nothing to import.")
             return

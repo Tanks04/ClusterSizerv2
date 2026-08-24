@@ -191,6 +191,10 @@ class ServerDialog(QDialog):
 
         layout.addRow("Warranty Expiry", self.warranty_edit)
 
+        self.ip_address_edit = QLineEdit()
+        self.ip_address_edit.setPlaceholderText("e.g. 10.88.1.10 (management or primary IP)")
+        layout.addRow("IP Address", self.ip_address_edit)
+
         #
         # NIC inventory (Network tab koristi ovo za slobodno/zauzeto)
         #
@@ -311,6 +315,7 @@ class ServerDialog(QDialog):
         self.freq_spin.setValue(server.cpu_frequency)
 
         self.warranty_edit.setText(server.warranty_expiry)
+        self.ip_address_edit.setText(server.ip_address)
 
         self.nic_1g_spin.setValue(server.nic_1g)
         self.nic_10g_spin.setValue(server.nic_10g)
@@ -333,6 +338,7 @@ class ServerDialog(QDialog):
         server.ram_gb = self.ram_spin.value()
         server.cpu_frequency = self.freq_spin.value()
         server.warranty_expiry = self.warranty_edit.text()
+        server.ip_address = self.ip_address_edit.text()
         server.nic_1g = self.nic_1g_spin.value()
         server.nic_10g = self.nic_10g_spin.value()
         server.nic_25g = self.nic_25g_spin.value()

@@ -21,6 +21,7 @@ class ColumnMapping:
     target_field: str  # one of VM_TARGET_FIELDS
     source_column: str = ""  # header text from the file, "" = unmapped
     unit: str = "auto"  # only meaningful for ram_gb / disk_gb
+    source_sheet: str = ""  # "" = the primary sheet currently selected in the wizard; set to pull this one field from a DIFFERENT sheet in the same workbook (joined by the "name" field's value)
 
 
 @dataclass

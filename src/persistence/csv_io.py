@@ -30,7 +30,7 @@ class CsvSchemaError(ValueError):
 SERVER_FIELDS = [
     "name", "site", "vendor", "model", "cpu_vendor", "cpu_model",
     "sockets", "cores_per_socket", "threads_per_core", "hyperthreading_enabled",
-    "ram_gb", "cpu_frequency", "warranty_expiry",
+    "ram_gb", "cpu_frequency", "warranty_expiry", "ip_address",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
     "enabled", "notes",
 ]
@@ -121,6 +121,7 @@ def import_servers(path: str | Path) -> list[Server]:
                 ram_gb=int(float(row.get("ram_gb") or 256)),
                 cpu_frequency=float(row.get("cpu_frequency") or 2.5),
                 warranty_expiry=row.get("warranty_expiry", "") or "",
+                ip_address=row.get("ip_address", "") or "",
                 nic_1g=int(float(row.get("nic_1g") or 0)),
                 nic_10g=int(float(row.get("nic_10g") or 0)),
                 nic_25g=int(float(row.get("nic_25g") or 0)),

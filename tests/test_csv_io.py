@@ -29,11 +29,11 @@ def test_import_servers_accepts_float_formatted_ints(tmp_path):
     csv_path = tmp_path / "servers.csv"
     header = (
         "name,site,vendor,model,cpu_vendor,cpu_model,sockets,cores_per_socket,"
-        "threads_per_core,hyperthreading_enabled,ram_gb,cpu_frequency,warranty_expiry,"
+        "threads_per_core,hyperthreading_enabled,ram_gb,cpu_frequency,warranty_expiry,ip_address,"
         "nic_1g,nic_10g,nic_25g,nic_40g,nic_100g,nic_fc,nic_sas,enabled,notes\n"
     )
     row = (
-        "esxi01,Primary,Dell,R750,Intel,Xeon,2.0,16.0,2.0,True,256,2.5,,0,0,0,0,0,0,0,True,\n"
+        "esxi01,Primary,Dell,R750,Intel,Xeon,2.0,16.0,2.0,True,256,2.5,,,0,0,0,0,0,0,0,True,\n"
     )
     csv_path.write_text(header + row, encoding="utf-8")
 
