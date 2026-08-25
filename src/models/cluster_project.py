@@ -6,6 +6,7 @@ from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
+from src.models.maintenance_item import MaintenanceItem
 
 PRIMARY = "Primary"
 DR = "DR"
@@ -50,6 +51,7 @@ class ClusterProject:
     switches: list[NetworkSwitch] = field(default_factory=list)
     connections: list[NetworkConnection] = field(default_factory=list)
     backup_destinations: list[BackupDestination] = field(default_factory=list)
+    maintenance_items: list[MaintenanceItem] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # Filtering by site

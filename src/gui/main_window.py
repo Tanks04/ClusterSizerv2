@@ -19,6 +19,7 @@ from src.persistence.csv_io import CsvSchemaError
 from src.gui.pages.servers_page import ServersPage
 from src.gui.pages.storage_page import StoragePage
 from src.gui.pages.backup_page import BackupPage
+from src.gui.pages.pricing_page import PricingPage
 from src.gui.pages.virtual_machines_page import VirtualMachinesPage
 from src.gui.pages.network_page import NetworkPage
 from src.gui.pages.summary_page import SummaryPage
@@ -169,6 +170,7 @@ class MainWindow(QMainWindow):
             ("Backup", lambda: BackupPage(self.project_service)),
             ("VMs", lambda: VirtualMachinesPage(self.project_service)),
             ("Network", lambda: NetworkPage(self.project_service)),
+            ("Pricing", lambda: PricingPage(self.project_service)),
             ("Compare", lambda: ComparePage(self.project_service)),
             ("Reports", lambda: ReportsPage(self.project_service)),
             ("Settings", lambda: SettingsPage(self.project_service)),

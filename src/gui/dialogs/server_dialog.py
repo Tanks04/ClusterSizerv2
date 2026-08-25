@@ -7,9 +7,11 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLineEdit,
     QPlainTextEdit,
+    QScrollArea,
     QSpinBox,
     QDoubleSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.models.server import Server
@@ -24,7 +26,20 @@ class ServerDialog(QDialog):
 
         self.resize(440, 620)
 
-        outer = QVBoxLayout(self)
+        # The dialog kept growing past the screen's height as fields were
+        # added over time, with no way to reach the bottom (no scrollbar,
+        # and the bottom edge could end up off-screen so it couldn't be
+        # dragged either). Fix: the form goes in a scroll area; only the
+        # OK/Cancel buttons live outside it, so they're always reachable
+        # regardless of how tall the form itself grows.
+        dialog_layout = QVBoxLayout(self)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        outer = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        dialog_layout.addWidget(scroll_area)
 
         layout = QFormLayout()
         outer.addLayout(layout)
@@ -214,6 +229,13 @@ class ServerDialog(QDialog):
         )
         layout.addRow("Power Consumption", self.power_watts_spin)
 
+        self.price_spin = QDoubleSpinBox()
+        self.price_spin.setRange(0.0, 10_000_000.0)
+        self.price_spin.setDecimals(2)
+        self.price_spin.setSuffix(" EUR")
+        self.price_spin.setSpecialValueText("(not set)")
+        layout.addRow("Price", self.price_spin)
+
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(60)
         layout.addRow("Notes", self.notes_edit)
@@ -295,7 +317,7 @@ class ServerDialog(QDialog):
 
         buttons.rejected.connect(self.reject)
 
-        outer.addWidget(buttons)
+        dialog_layout.addWidget(buttons)
 
         #
         # Existing server
@@ -341,6 +363,7 @@ class ServerDialog(QDialog):
         self.ip_address_edit.setText(server.ip_address)
         self.rack_units_spin.setValue(server.rack_units)
         self.power_watts_spin.setValue(server.power_watts)
+        self.price_spin.setValue(server.price)
         self.notes_edit.setPlainText(server.notes)
 
         self.nic_1g_spin.setValue(server.nic_1g)
@@ -367,6 +390,7 @@ class ServerDialog(QDialog):
         server.ip_address = self.ip_address_edit.text()
         server.rack_units = self.rack_units_spin.value()
         server.power_watts = self.power_watts_spin.value()
+        server.price = self.price_spin.value()
         server.notes = self.notes_edit.toPlainText()
         server.nic_1g = self.nic_1g_spin.value()
         server.nic_10g = self.nic_10g_spin.value()

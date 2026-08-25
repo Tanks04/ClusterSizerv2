@@ -1,7 +1,9 @@
 # ClusterSizer
 
-**A desktop tool for sysadmins: sizing HW for a cluster, tracking load, and
-DR sizing — without manually adding it all up in Excel for the third time.**
+**A desktop tool for architects and IT administrators planning complex
+clusters - one place to size the hardware, track the equipment behind
+the numbers, and turn that into living documentation you keep updating
+as the systems you manage grow and change.**
 
 ## About
 
@@ -66,6 +68,14 @@ or the tender is written**.
   a live 3-2-1-1 compliance badge (3 copies of data, 2 different media
   types, 1 offsite, +1 immutable/offline) with an exact list of what's
   missing, not just pass/fail.
+- **Pricing** — a single Price (EUR) on Servers/Storage/Network/Backup
+  rolls straight into a total, broken down by category, no re-entry and
+  no cost-vs-price/margin tracking - this app gives admins a running
+  total, it isn't a sales quoting tool. Separately, **Licenses,
+  Warranties & Maintenance** tracks renewals - what it is, what it
+  costs, how long it lasts, and its expiry date - flagged Expired
+  (red) or Expiring Soon (orange, within 90 days) so a renewal doesn't
+  get missed. Included as its own section in the Word report.
 - **Summary** — the landing tab: a quick top-line card row (servers,
   cores, RAM, storage, VMs, DR readiness), then Primary vs DR side by
   side in detail: capacity, demand, oversubscription (OK/Warning/

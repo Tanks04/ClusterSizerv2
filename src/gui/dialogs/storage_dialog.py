@@ -10,10 +10,12 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QDoubleSpinBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.models.storage import Storage, StorageShelf
@@ -28,7 +30,18 @@ class StorageDialog(QDialog):
 
         self.resize(440, 560)
 
-        outer = QVBoxLayout(self)
+        # See ServerDialog for why this is scrollable - the form has
+        # grown taller than a lot of screens can show at once, with no
+        # other way to reach the bottom.
+        dialog_layout = QVBoxLayout(self)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        outer = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        dialog_layout.addWidget(scroll_area)
+
         layout = QFormLayout()
         outer.addLayout(layout)
 
@@ -143,6 +156,22 @@ class StorageDialog(QDialog):
         outer.addWidget(rack_box)
 
         #
+        # Pricing - head unit only, each shelf has its own in the table below.
+        #
+
+        pricing_box = QGroupBox("Pricing (optional, head unit)")
+        pricing_form = QFormLayout(pricing_box)
+
+        self.price_spin = QDoubleSpinBox()
+        self.price_spin.setRange(0.0, 10_000_000.0)
+        self.price_spin.setDecimals(2)
+        self.price_spin.setSuffix(" EUR")
+        self.price_spin.setSpecialValueText("(not set)")
+        pricing_form.addRow("Price", self.price_spin)
+
+        outer.addWidget(pricing_box)
+
+        #
         # Expansion shelves - embedded in this Storage, not a separate
         # top-level entity (a shelf never exists independently of the
         # storage it expands, usually SAS-cabled to the head unit or the
@@ -152,8 +181,8 @@ class StorageDialog(QDialog):
         shelves_box = QGroupBox("Expansion Shelves (optional)")
         shelves_layout = QVBoxLayout(shelves_box)
 
-        self.shelves_table = QTableWidget(0, 3)
-        self.shelves_table.setHorizontalHeaderLabels(["Name", "Size (U)", "Power (W)"])
+        self.shelves_table = QTableWidget(0, 4)
+        self.shelves_table.setHorizontalHeaderLabels(["Name", "Size (U)", "Power (W)", "Price (EUR)"])
         self.shelves_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.shelves_table.setMaximumHeight(140)
         shelves_layout.addWidget(self.shelves_table)
@@ -181,7 +210,7 @@ class StorageDialog(QDialog):
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        outer.addWidget(buttons)
+        dialog_layout.addWidget(buttons)
 
         self._uid = None
 
@@ -198,12 +227,15 @@ class StorageDialog(QDialog):
         self.overhead_spin.setValue(overhead)
         self.overhead_spin.blockSignals(False)
 
-    def _add_shelf_row(self, name: str = "", rack_units: int = 0, power_watts: float = 0.0) -> None:
+    def _add_shelf_row(
+        self, name: str = "", rack_units: int = 0, power_watts: float = 0.0, price: float = 0.0,
+    ) -> None:
         row = self.shelves_table.rowCount()
         self.shelves_table.insertRow(row)
         self.shelves_table.setItem(row, 0, QTableWidgetItem(name))
         self.shelves_table.setItem(row, 1, QTableWidgetItem(str(rack_units)))
         self.shelves_table.setItem(row, 2, QTableWidgetItem(str(power_watts)))
+        self.shelves_table.setItem(row, 3, QTableWidgetItem(str(price)))
 
     def _remove_selected_shelf_row(self) -> None:
         rows = sorted({idx.row() for idx in self.shelves_table.selectedIndexes()}, reverse=True)
@@ -230,9 +262,10 @@ class StorageDialog(QDialog):
 
         self.rack_units_spin.setValue(storage.rack_units)
         self.power_watts_spin.setValue(storage.power_watts)
+        self.price_spin.setValue(storage.price)
 
         for shelf in storage.expansion_shelves:
-            self._add_shelf_row(shelf.name, shelf.rack_units, shelf.power_watts)
+            self._add_shelf_row(shelf.name, shelf.rack_units, shelf.power_watts, shelf.price)
 
         self.notes_edit.setPlainText(storage.notes)
 
@@ -260,12 +293,14 @@ class StorageDialog(QDialog):
 
         storage.rack_units = self.rack_units_spin.value()
         storage.power_watts = self.power_watts_spin.value()
+        storage.price = self.price_spin.value()
 
         shelves = []
         for row in range(self.shelves_table.rowCount()):
             name_item = self.shelves_table.item(row, 0)
             u_item = self.shelves_table.item(row, 1)
             w_item = self.shelves_table.item(row, 2)
+            price_item = self.shelves_table.item(row, 3)
             try:
                 rack_units = int(float(u_item.text())) if u_item and u_item.text() else 0
             except ValueError:
@@ -274,10 +309,15 @@ class StorageDialog(QDialog):
                 power_watts = float(w_item.text()) if w_item and w_item.text() else 0.0
             except ValueError:
                 power_watts = 0.0
+            try:
+                shelf_price = float(price_item.text()) if price_item and price_item.text() else 0.0
+            except ValueError:
+                shelf_price = 0.0
             shelves.append(StorageShelf(
                 name=name_item.text() if name_item else "",
                 rack_units=rack_units,
                 power_watts=power_watts,
+                price=shelf_price,
             ))
         storage.expansion_shelves = shelves
         storage.notes = self.notes_edit.toPlainText()

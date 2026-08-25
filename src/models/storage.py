@@ -15,6 +15,7 @@ class StorageShelf:
     name: str = ""
     rack_units: int = 0
     power_watts: float = 0.0
+    price: float = 0.0  # a shelf is commonly its own SKU on a vendor quote - easy to forget when pricing the array
 
 
 @dataclass
@@ -55,6 +56,10 @@ class Storage:
 
     expansion_shelves: list[StorageShelf] = field(default_factory=list)
 
+    # Pricing (EUR) - see Server.price for the reasoning. Covers the
+    # head unit only - each StorageShelf has its own.
+    price: float = 0.0
+
     notes: str = ""
 
     @property
@@ -77,6 +82,11 @@ class Storage:
     def total_power_watts(self) -> float:
         """This storage's own power plus every attached shelf's power."""
         return self.power_watts + sum(shelf.power_watts for shelf in self.expansion_shelves)
+
+    @property
+    def total_price(self) -> float:
+        """This storage's own price plus every attached shelf's price."""
+        return self.price + sum(shelf.price for shelf in self.expansion_shelves)
 
     @staticmethod
     def create_default() -> "Storage":

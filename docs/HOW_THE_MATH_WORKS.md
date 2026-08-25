@@ -246,3 +246,50 @@ physically removed from the rack. If it's still plugged in, it's still
 occupying its U and still drawing power, so Rack Sizing still counts it
 even while CPU/RAM/Storage oversubscription treats it as if it doesn't
 exist.
+
+
+## 12. Pricing
+
+Deliberately simple, on purpose - this app gives admins a running
+total of what things cost, it isn't a sales quoting tool. (An earlier
+version tried cost-vs-price/margin/uplift tracking here - it didn't
+fit, so it was pulled back out.)
+
+**Equipment pricing** - each Server, Storage (including every
+expansion shelf separately), Network Switch, and Backup Destination
+has one Price field, entered right on that entity - no separate
+re-entry. The Pricing tab just sums it up by category:
+
+```
+Servers total  = sum of every Server's price
+Storage total  = sum of every Storage's price + every one of its shelves' price
+Network total  = sum of every Network Switch's price
+Backup total   = sum of every Backup Destination's price
+Grand total    = sum of the four category totals
+```
+
+**Worked example**: 2 servers at 22,000 EUR each, 1 storage array at
+120,000 EUR with one 17,000 EUR expansion shelf, 4 switches averaging
+15,500 EUR each, 1 backup destination at 13,500 EUR. Servers total =
+44,000. Storage total = 120,000 + 17,000 = 137,000. Network total =
+62,000. Backup total = 13,500. Grand total = **256,500 EUR**.
+
+**Licenses, Warranties & Maintenance** - a separate, unrelated list for
+tracking renewals: what it is, what it costs, how long it lasts, and
+when it expires. The only "calculation" here is a status flag per item,
+based on comparing its expiry date to today:
+
+```
+days_until_expiry = expiry_date - today
+
+days_until_expiry < 0           -> Expired
+0 <= days_until_expiry <= 90    -> Expiring Soon
+days_until_expiry > 90          -> OK
+expiry_date blank or unparseable -> Unknown (not flagged either way)
+```
+
+**Worked example**: a support contract expiring in 68 days shows
+"Expiring Soon" - close enough that it's worth renewing now rather than
+finding out it lapsed. One expiring in 860 days shows "OK" - nothing to
+do yet. One that expired 24 days ago shows "Expired", in red, since it
+already needs attention.

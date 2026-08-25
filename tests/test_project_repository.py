@@ -17,7 +17,6 @@ def test_thresholds_round_trip(tmp_path):
 
     assert loaded.thresholds.cpu_warning_ratio == 3.5
     assert loaded.thresholds.ram_warning_ratio == 0.7
-    assert project_repository.SCHEMA_VERSION == 5
 
 
 def test_v2_file_loads_with_default_thresholds(tmp_path):
@@ -131,3 +130,89 @@ def test_v4_file_without_rack_fields_loads_with_defaults(tmp_path):
 
     assert loaded.project.servers[0].rack_units == 0
     assert loaded.project.servers[0].power_watts == 0.0
+
+
+def test_v6_unit_price_migrates_to_price_preferring_unit_price(tmp_path):
+    """v6 files had separate unit_cost/unit_price (a sales-quote-style
+    split); v7 simplified to one plain `price` field. Migration should
+    prefer the old unit_price (closer in spirit to "what gets paid")
+    over unit_cost, so upgrading doesn't silently zero out data."""
+    from src.models.server import Server
+
+    project = ClusterProject(name="Migration test")
+    project.servers.append(Server.create_default())
+    path = tmp_path / "v6.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["servers"][0]["unit_cost"] = 12000.0
+    raw["servers"][0]["unit_price"] = 18000.0
+    del raw["servers"][0]["price"]
+    raw["schema_version"] = 6
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.servers[0].price == 18000.0
+
+
+def test_v6_unit_cost_only_migrates_when_unit_price_missing(tmp_path):
+    """Falls back to unit_cost if unit_price was never set, rather than
+    losing the data entirely."""
+    from src.models.server import Server
+
+    project = ClusterProject(name="Migration test 2")
+    project.servers.append(Server.create_default())
+    path = tmp_path / "v6b.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["servers"][0]["unit_cost"] = 12000.0
+    del raw["servers"][0]["price"]
+    raw["schema_version"] = 6
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.servers[0].price == 12000.0
+
+
+def test_v6_storage_shelf_price_also_migrates(tmp_path):
+    from src.models.storage import Storage, StorageShelf
+
+    project = ClusterProject(name="Shelf migration")
+    storage = Storage.create_default()
+    storage.expansion_shelves = [StorageShelf(name="shelf-1", price=0.0)]
+    project.storages.append(storage)
+    path = tmp_path / "v6c.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["storages"][0]["unit_price"] = 50000.0
+    del raw["storages"][0]["price"]
+    raw["storages"][0]["expansion_shelves"][0]["unit_price"] = 9500.0
+    del raw["storages"][0]["expansion_shelves"][0]["price"]
+    raw["schema_version"] = 6
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.storages[0].price == 50000.0
+    assert loaded.project.storages[0].expansion_shelves[0].price == 9500.0
+
+
+def test_v6_service_line_items_absent_gives_empty_maintenance_items(tmp_path):
+    """v6 files have no `maintenance_items` key at all (the concept
+    didn't exist yet) - must load fine with an empty list, not crash."""
+    project = ClusterProject(name="Pre-maintenance")
+    path = tmp_path / "v6d.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["maintenance_items"]
+    raw["schema_version"] = 6
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.maintenance_items == []

@@ -8,6 +8,7 @@ from src.models.cluster_project import ClusterProject
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.backup_destination import BackupDestination
+from src.models.maintenance_item import MaintenanceItem
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
@@ -51,6 +52,7 @@ class ProjectService(QObject):
     vms_changed = Signal()
     network_changed = Signal()  # switches + connections together
     backup_changed = Signal()
+    pricing_changed = Signal()
 
     undo_state_changed = Signal()  # for enabling/disabling Undo/Redo menu items
 
@@ -380,6 +382,46 @@ class ProjectService(QObject):
 
     def export_backup_destinations_csv(self, path: str | Path) -> None:
         csv_io.export_backup_destinations(path, self._project.backup_destinations)
+
+    # ------------------------------------------------------------------
+    # Maintenance Items (licenses, warranties, subscriptions, support)
+    # ------------------------------------------------------------------
+
+    def add_maintenance_item(self, item: MaintenanceItem) -> None:
+        self._push_undo_snapshot()
+        self._project.maintenance_items.append(item)
+        self._notify(self.pricing_changed)
+
+    def update_maintenance_item(self, index: int, item: MaintenanceItem) -> None:
+        self._push_undo_snapshot()
+        self._project.maintenance_items[index] = item
+        self._notify(self.pricing_changed)
+
+    def remove_maintenance_items(self, items: list[MaintenanceItem]) -> None:
+        self._push_undo_snapshot()
+        removed = set(id(i) for i in items)
+        self._project.maintenance_items = [
+            i for i in self._project.maintenance_items if id(i) not in removed
+        ]
+        self._notify(self.pricing_changed)
+
+    def clear_maintenance_items(self) -> None:
+        self._push_undo_snapshot()
+        self._project.maintenance_items = []
+        self._notify(self.pricing_changed)
+
+    def touch_pricing(self) -> None:
+        QTimer.singleShot(0, lambda: self._notify(self.pricing_changed))
+
+    def import_maintenance_items_csv(self, path: str | Path) -> int:
+        new_items = csv_io.import_maintenance_items(path)
+        self._push_undo_snapshot()
+        self._project.maintenance_items.extend(new_items)
+        self._notify(self.pricing_changed)
+        return len(new_items)
+
+    def export_maintenance_items_csv(self, path: str | Path) -> None:
+        csv_io.export_maintenance_items(path, self._project.maintenance_items)
 
     def import_storages_csv(self, path: str | Path) -> int:
         new_storages = csv_io.import_storages(path)

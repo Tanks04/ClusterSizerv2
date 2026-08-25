@@ -54,6 +54,7 @@ def test_build_docx_report_has_all_expected_sections():
     assert "Storage" in headings
     assert "Network" in headings
     assert "Cluster" in headings
+    assert "Pricing" in headings
     assert "Virtual Machines" in headings
 
 
@@ -81,6 +82,54 @@ def test_build_docx_report_empty_project_does_not_crash():
     project = ClusterProject(name="Empty")
     document = build_docx_report(project, Thresholds())
     assert document is not None
+
+
+def test_pricing_section_shows_equipment_total():
+    project = _build_sample_project()
+    project.servers[0].price = 15000.0
+
+    document = build_docx_report(project, Thresholds())
+
+    all_text = "\n".join(
+        cell.text
+        for table in document.tables
+        for row in table.rows
+        for cell in row.cells
+    )
+    assert "15,000.00" in all_text
+
+
+def test_pricing_section_lists_maintenance_items():
+    from src.models.maintenance_item import MaintenanceItem
+
+    project = _build_sample_project()
+    project.maintenance_items.append(MaintenanceItem(
+        uid="x", name="Firewall subscription", category="Subscription",
+        cost=1200.0, duration_months=12, expiry_date="2027-01-01",
+    ))
+
+    document = build_docx_report(project, Thresholds())
+
+    headings = [p.text for p in document.paragraphs if p.style.name.startswith("Heading")]
+    assert "Licenses, Warranties & Maintenance" in headings
+
+    all_text = "\n".join(
+        cell.text
+        for table in document.tables
+        for row in table.rows
+        for cell in row.cells
+    )
+    assert "Firewall subscription" in all_text
+
+
+def test_pricing_section_with_no_pricing_data_does_not_crash():
+    """A project with zero pricing entered anywhere - the section should
+    still render (all zeros), not error out or skip itself."""
+    project = _build_sample_project()
+    document = build_docx_report(project, Thresholds())
+
+    headings = [p.text for p in document.paragraphs if p.style.name.startswith("Heading")]
+    assert "Pricing" in headings
 
 
 def test_build_docx_report_can_be_saved(tmp_path):

@@ -29,6 +29,9 @@ class NetworkSwitch:
     rack_units: int = 0
     power_watts: float = 0.0  # nameplate/max draw from the datasheet, not "typical" - safer for circuit/PDU planning
 
+    # Pricing (EUR) - see Server.price for the reasoning.
+    price: float = 0.0
+
     notes: str = ""
 
     @property

@@ -8,9 +8,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QScrollArea,
     QSpinBox,
     QDoubleSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.models.virtual_machine import VirtualMachine
@@ -26,7 +28,14 @@ class VMDialog(QDialog):
 
         self.resize(400, 480)
 
-        outer = QVBoxLayout(self)
+        # See ServerDialog for why this is scrollable.
+        dialog_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        outer = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        dialog_layout.addWidget(scroll_area)
 
         layout = QFormLayout()
         outer.addLayout(layout)
@@ -127,7 +136,7 @@ class VMDialog(QDialog):
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        outer.addWidget(buttons)
+        dialog_layout.addWidget(buttons)
 
         self._uid = None
         self._dr_manually_edited = False

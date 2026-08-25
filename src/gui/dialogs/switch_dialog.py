@@ -5,7 +5,10 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
+    QScrollArea,
     QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 from src.models.network_switch import NetworkSwitch
@@ -19,7 +22,14 @@ class SwitchDialog(QDialog):
         self.setWindowTitle("Network Switch")
         self.resize(400, 420)
 
-        layout = QFormLayout(self)
+        # See ServerDialog for why this is scrollable.
+        dialog_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        layout = QFormLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        dialog_layout.addWidget(scroll_area)
 
         self.name_edit = QLineEdit()
         layout.addRow("Name", self.name_edit)
@@ -80,6 +90,13 @@ class SwitchDialog(QDialog):
         )
         layout.addRow("Power Consumption", self.power_watts_spin)
 
+        self.price_spin = QDoubleSpinBox()
+        self.price_spin.setRange(0.0, 10_000_000.0)
+        self.price_spin.setDecimals(2)
+        self.price_spin.setSuffix(" EUR")
+        self.price_spin.setSpecialValueText("(not set)")
+        layout.addRow("Price", self.price_spin)
+
         self.notes_edit = QLineEdit()
         layout.addRow("Notes", self.notes_edit)
 
@@ -89,7 +106,7 @@ class SwitchDialog(QDialog):
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
+        dialog_layout.addWidget(buttons)
 
         self._uid = None
 
@@ -111,6 +128,7 @@ class SwitchDialog(QDialog):
         self.ports_fc_spin.setValue(switch.ports_fc)
         self.rack_units_spin.setValue(switch.rack_units)
         self.power_watts_spin.setValue(switch.power_watts)
+        self.price_spin.setValue(switch.price)
         self.notes_edit.setText(switch.notes)
 
     def get_switch(self) -> NetworkSwitch:
@@ -132,6 +150,7 @@ class SwitchDialog(QDialog):
         switch.ports_fc = self.ports_fc_spin.value()
         switch.rack_units = self.rack_units_spin.value()
         switch.power_watts = self.power_watts_spin.value()
+        switch.price = self.price_spin.value()
         switch.notes = self.notes_edit.text()
 
         return switch

@@ -286,6 +286,64 @@ def _vms_section(document: Document, project: ClusterProject) -> None:
     _add_table(document, ["Name", "Site", "vCPU", "RAM", "Disk", "Workload Tier", "DR Protected", "Power"], rows)
 
 
+def _eur(amount: float) -> str:
+    return f"\u20ac{amount:,.2f}"
+
+
+def _pct(value: float | None) -> str:
+    return f"{value:.1f}%" if value is not None else "n/a"
+
+
+def _pricing_section(document: Document, project: ClusterProject) -> None:
+    from src.calculations.pricing import compute_equipment_pricing, compute_maintenance_status
+
+    document.add_heading("Pricing", level=1)
+
+    equipment = compute_equipment_pricing(project)
+
+    document.add_heading("Equipment Pricing", level=2)
+    equipment_rows = [
+        [category, _eur(equipment.by_category.get(category, 0.0))]
+        for category in ("Servers", "Storage", "Network", "Backup")
+    ]
+    equipment_rows.append(["Total", _eur(equipment.total)])
+    _add_table(document, ["Category", "Total"], equipment_rows)
+
+    if project.maintenance_items:
+        document.add_heading("Licenses, Warranties & Maintenance", level=2)
+        statuses = compute_maintenance_status(project)
+        status_labels = {
+            "expired": "Expired",
+            "expiring_soon": "Expiring soon",
+            "ok": "OK",
+            "unknown": "-",
+        }
+        item_rows = []
+        for s in statuses:
+            item = s.item
+            item_rows.append([
+                item.name or "-", item.category, item.applies_to or "-",
+                _eur(item.cost), f"{item.duration_months} mo", item.expiry_date or "-",
+                status_labels[s.status],
+            ])
+        _add_table(
+            document,
+            ["Name", "Category", "Applies To", "Cost", "Duration", "Expiry Date", "Status"],
+            item_rows,
+        )
+
+        expired = [s for s in statuses if s.status == "expired"]
+        expiring = [s for s in statuses if s.status == "expiring_soon"]
+        if expired or expiring:
+            p = document.add_paragraph()
+            if expired:
+                names = ", ".join(s.item.name or "(unnamed)" for s in expired)
+                _add_colored_run(p, f"Expired: {names}\n", _RED, bold=True)
+            if expiring:
+                names = ", ".join(s.item.name or "(unnamed)" for s in expiring)
+                _add_colored_run(p, f"Expiring within 90 days: {names}", _ORANGE, bold=True)
+
+
 def build_docx_report(project: ClusterProject, thresholds: Thresholds, app_version: str = "") -> "Document":
     if Document is None:
         raise ImportError(_docx_missing_message())
@@ -307,6 +365,8 @@ def build_docx_report(project: ClusterProject, thresholds: Thresholds, app_versi
     _network_section(document, project)
     document.add_page_break()
     _cluster_section(document, project, thresholds)
+    document.add_page_break()
+    _pricing_section(document, project)
     document.add_page_break()
     _vms_section(document, project)
 

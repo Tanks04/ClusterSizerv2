@@ -1,5 +1,220 @@
 # ROADMAP
 
+## v3.2.0 (Pricing simplified back down - it isn't a quoting tool)
+
+The user's own framing: "netko će ovo koristiti za sebe, a netko za
+prodaju" (some people use this for themselves, some for selling) - but
+after using v3.0/3.1's CAPEX/OPEX/margin/uplift system for real, the
+verdict was clear: "ovo sa ponudom je grozan pokušaj... ne uklapa se
+ovako u app" (this quote-style attempt is a bad fit for the app).
+Pulled it back out and replaced it with something admin-shaped instead.
+
+- **Equipment pricing simplified to one field.** `unit_cost` +
+  `unit_price` (cost-vs-price for margin) removed from Server, Storage
+  (+ StorageShelf), NetworkSwitch, and BackupDestination - replaced
+  with a single `price`. No more CostPriceMarginFields widget, no more
+  Uplift %, no more per-category margin percentages. The Pricing tab
+  just sums `price` by category (Servers/Storage/Network/Backup,
+  Storage including its shelves) into a total - what it's for now:
+  giving an admin a running total, not building a customer quote.
+- **Services & Recurring Costs removed entirely** - OPEX monthly/
+  one-time views, contract-term amortization, "Apply Uplift to
+  Everything", total project value: all gone. Replaced with
+  **Maintenance Items** (`src/models/maintenance_item.py`) - a
+  renewal-reminder list for licenses, warranties, subscriptions, and
+  support contracts: what it is, category, cost, duration in months,
+  start/expiry dates, and an optional free-text `applies_to` (e.g.
+  "Firewall FW-01" - not a hard link to a specific device, since one
+  license often covers several, or none in particular). New
+  `compute_maintenance_status()` (src/calculations/pricing.py) flags
+  each item Expired (red), Expiring Soon (orange, within 90 days), OK,
+  or Unknown (blank/unparseable expiry date) - shown in both the
+  Pricing tab's table and the Word report.
+- **`.clsz` schema bumped to v7.** `service_line_items` +
+  `contract_months` replaced by `maintenance_items`. Old
+  `unit_cost`/`unit_price` pairs migrate to the new single `price` on
+  load - prefers the old `unit_price` (closer in spirit to "what
+  actually gets paid"), falls back to `unit_cost` if price was never
+  set, so upgrading an old file doesn't silently zero out pricing data
+  someone already entered. Verified against the project's own example
+  file (esxi-p01's price correctly migrated from unit_price=22000, not
+  unit_cost=15000). CSV schemas and all example files updated the same
+  way - migrated, not just reset to blank.
+- **Fixed a real bug found along the way**: `ServerDialog` (and, it
+  turned out, all four other entity dialogs) had grown taller than
+  many screens over the course of adding Rack/Power/Pricing/Notes
+  fields, with no scrollbar and no way to reach the OK/Cancel buttons -
+  the window's bottom edge could end up off-screen, making it
+  impossible to even resize by dragging. Fixed on Server, Storage,
+  Switch, Backup Destination, and VM dialogs: the form now lives in a
+  QScrollArea, with the buttons kept outside it so they're always
+  reachable regardless of how tall the form grows.
+- Backup dialog wording: "Offsite (geographically separate)" ->
+  "Offsite (separate)", per direct request.
+- Test suite: `test_pricing.py` fully rewritten (10 tests) for the new
+  equipment-total + maintenance-status model; 2 stale
+  `test_docx_report.py` tests rewritten for the same reason; 4 new
+  migration-specific tests added to `test_project_repository.py`
+  (unit_price preferred, unit_cost fallback, shelf price migration,
+  missing maintenance_items key defaulting to empty) - 124 passed.
+- `docs/HOW_THE_MATH_WORKS.md` and this README's Pricing description
+  both rewritten to match - no more CAPEX/OPEX/margin/uplift
+  terminology anywhere in the docs.
+
+## v3.1.1 (fixed a real formula bug: uplift vs margin were conflated)
+
+The user's own example caught it: "cost 100, +10% = 110" is uplift (%
+of cost), not margin (the standard accounting definition - % of
+price/revenue). v3.1.0 computed the aggregate "margin_percent" figures
+as `margin / cost`, which is uplift math wearing a margin label - on
+that same 100/110 example, the correct margin is 110's profit as a %
+of 110 = 9.1%, not 10%.
+
+- Fixed `CapexBreakdown.margin_percent`, `PricingSummary.
+  capex_margin_percent`, `.opex_monthly_margin_percent`, and `.
+  total_project_margin_percent` to divide by PRICE, not cost - the
+  correct definition. None (not 0) now triggers on price=0, not
+  cost=0, since price is the new denominator. On the example project,
+  this changed CAPEX margin from an incorrectly-computed 43.3% to the
+  correct 30.2%.
+- Renamed the per-item field from "Margin %" to "Uplift %" throughout
+  (`CostPriceMarginFields`, all 5 pricing dialogs, the "Apply Uplift to
+  Everything" bulk action, formerly "Apply Markup...") - its formula
+  (price = cost x (1 + X%)) was always correct, it just had the wrong
+  label. Two different, deliberately-not-interchangeable percentages
+  now exist side by side: Uplift is what you type to SET a price from
+  a known cost; Margin is what gets REPORTED for profitability, on the
+  aggregate cards and in the Word report.
+- Word report's CAPEX table gained a Margin % column, and "Total
+  margin" now shows the percentage alongside the EUR figure - visually
+  verified by rendering to PDF (30.2% CAPEX margin, 32.7% total margin
+  on the example project, matching the GUI).
+- Updated `docs/HOW_THE_MATH_WORKS.md`'s Pricing section, which had
+  been written with the same wrong assumption baked into its own
+  worked example - now correctly distinguishes the two percentages
+  with the exact 100/110/9.1% example that surfaced the bug.
+- Test suite updated: rewrote the `margin_percent` tests with correct
+  expected values (e.g. cost=15000/price=22000 is 31.8% margin, not
+  46.7%), fixed the zero-value edge case to test price=0 instead of
+  cost=0, and added a dedicated test pinning the exact 100/110/9.09%
+  example so this distinction can't silently regress back to uplift
+  math again.
+
+## v3.1.0 (Pricing UX: margin editing, global markup, layout fix)
+
+- **Margin is now directly editable**, not just a derived display. New
+  reusable `CostPriceMarginFields` (Cost/Price/Margin % trio, shared by
+  all 5 pricing dialogs - Server, Storage, Switch, Backup Destination,
+  Service Line Item) - editing any ONE of the three recomputes the
+  appropriate other field: editing Cost keeps the current margin fixed
+  and recomputes Price; editing Margin recomputes Price from Cost;
+  editing Price recomputes the displayed Margin from Cost. Covers the
+  per-item side of "some people price item by item, some just want a
+  standard markup."
+- **New: Apply Markup to Everything** (Pricing tab) - one field + one
+  button sets price = cost x (1 + markup%) across EVERY priced entity
+  (Servers, Storage + shelves, Switches, Backup Destinations, Service
+  Line Items) in a single undo step - the "selling a project at a
+  standard margin" workflow the per-item fields don't cover well on
+  their own. Confirms before running since it overwrites existing
+  prices. The actual logic (`apply_markup_to_all()`) lives in
+  `src/calculations/pricing.py`, not `ProjectService`, matching the
+  established calculations/ vs services/ split - `ProjectService` is
+  now just a thin wrapper adding the undo snapshot and notification,
+  and the logic itself is directly testable without Qt.
+- **Margin percentage now shown**, not just the absolute EUR figure -
+  CAPEX Total and Total Project Value cards on the Pricing tab show
+  e.g. "€113,000.00 (43.3%)". New `margin_percent` properties on
+  `CapexBreakdown` and `PricingSummary` (capex/opex_monthly/total) -
+  return `None` (not 0) when cost is 0, since "no cost entered yet" and
+  "confirmed 0% margin" are different things that shouldn't look
+  identical on screen.
+- **Layout fix**: OPEX Monthly/One-time, CAPEX Total, and Total Project
+  Value cards were using the tall (110px) card style meant for a handful
+  of headline numbers - switched to the compact (55px) style already
+  used for the CAPEX-by-category cards, and gave the Services &
+  Recurring Costs table a stretch priority so it grows into the
+  reclaimed space instead of staying a fixed small size while the cards
+  above it dominated the tab.
+- Storage's expansion-shelf sub-table keeps plain Cost/Price columns
+  (no live margin column) - scoped down deliberately, since computing a
+  synced margin cell inside an embedded QTableWidget is meaningfully
+  more complex than a dedicated dialog's spinboxes, for what's usually
+  a minor edge case (few projects have more than 0-1 shelves).
+- 8 new tests: 4 for `margin_percent` (CapexBreakdown, PricingSummary
+  across all three levels, the None-on-zero-cost case) and 4 for
+  `apply_markup_to_all()` (cross-entity-type application including
+  shelves, overwriting existing prices, 0% markup setting price equal
+  to cost, empty project touching nothing).
+
+## v3.0.0 (Pricing - CAPEX, OPEX, margin)
+
+Opens v3. README's opening description updated to reflect what the tool
+actually is now - a planning-and-documentation tool for architects and
+IT administrators, not just a sizing calculator.
+
+- **Unit Cost / Unit Price (EUR)** on Servers, Storage (including each
+  expansion shelf separately - a shelf is commonly its own SKU on a real
+  vendor quote), Network Switches, and Backup Destinations. Both fields,
+  not just one - cost is your own/vendor price, price is what you'd
+  charge the customer, kept separate so margin is visible rather than a
+  single opaque number. Deliberately fixed to EUR, not a per-project
+  currency picker - kept simple per explicit request.
+- New **Pricing** tab (after Backup): CAPEX auto-summed from equipment
+  already entered (by category - Servers/Storage/Network/Backup, no
+  re-entry), a free-form **Services & Recurring Costs** list for
+  everything else (implementation, licensing with activation/expiry
+  dates, support contracts...) billed One-time/Monthly/Annual, a
+  contract-term field (36/60 months, whatever applies), and a Total
+  Project Value summary (cost/price/margin) projected across that term.
+  Deliberately NOT modeled on any fixed WBS/task taxonomy (the kind a
+  services company builds for its own quoting) - every company's
+  costing methodology differs, so this is a generic, user-driven list
+  rather than an attempt to replicate one specific structure.
+- New `src/models/service_line_item.py` (`ServiceLineItem`) and
+  `src/calculations/pricing.py` (`compute_pricing()`) - Annual billing
+  normalizes to a monthly-equivalent (amount / 12) so it can be added
+  to Monthly lines into one meaningful "cost per month" figure;
+  One-time lines are tracked separately and don't pollute that view.
+  Listens to the general `service.changed` signal, not a narrower one -
+  CAPEX depends on Server/Storage/Switch/Backup data that isn't itself
+  a "pricing" change, avoiding the exact staleness bug found and fixed
+  on the VMs tab earlier.
+- `.clsz` schema bumped to v6 (`service_line_items` list,
+  `contract_months` field). CSV schemas for all four priced entity
+  types gained unit_cost/unit_price columns; new
+  `SERVICE_LINE_ITEM_FIELDS` CSV for the Services list. Examples
+  updated with realistic EUR figures matched to each entry's real
+  vendor/model (same approach as the Rack Sizing example update) plus
+  three demo service line items (one-time implementation, monthly
+  support, annual licensing with dates) - CAPEX total on the example
+  project is now ~261k/374k EUR (cost/price), landing in the same order
+  of magnitude as the real-world quote this feature was modeled on.
+- New **Pricing** section in the Word report (CAPEX by category, OPEX
+  monthly/one-time breakdown, full service line item table, Total
+  Project Value with the margin line colored green/red) - visually
+  verified by rendering to PDF, not just checked for text presence.
+- Fixed a recurring papercut: the same hardcoded
+  `SCHEMA_VERSION == N` assertion in test_project_repository.py has now
+  gone stale THREE times as the schema kept evolving (v4, v5, v6) -
+  removed it this time instead of bumping it again, since it wasn't
+  testing round-trip behavior in the first place (scope creep in an
+  otherwise-unrelated test) and a routine, intentional version bump
+  isn't a regression that needs a brittle guard.
+- 19 new tests: 11 for pricing calculation logic (empty project,
+  cross-entity CAPEX aggregation, per-category breakdown, shelves
+  counting toward CAPEX, Monthly/Annual/One-time OPEX handling,
+  quantity multiplication, full contract-term total, margin
+  properties) and 3 for the new Word report section (CAPEX figures
+  present, service line items listed, empty-pricing project doesn't
+  crash) plus the existing sections test extended to check for
+  "Pricing".
+- Explicitly deferred (separate discussion, not part of this release):
+  a "Plan a Project" wizard (Tools menu) for bootstrapping a brand-new
+  project from a guided Q&A (on-prem/cloud/managed, existing VM list
+  or not, target scale) - agreed to keep this decoupled from the
+  Pricing work.
+
 ## v2.17.2 (examples now demonstrate Rack Sizing - it wasn't there before)
 
 The user asked directly: did the examples get updated for Rack

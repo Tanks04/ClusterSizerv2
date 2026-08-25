@@ -20,6 +20,7 @@ from src.models.workload_tier import WORKLOAD_TIER_NAMES, DEFAULT_WORKLOAD_TIER
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
+from src.models.maintenance_item import MaintenanceItem
 
 
 class CsvSchemaError(ValueError):
@@ -32,7 +33,7 @@ SERVER_FIELDS = [
     "sockets", "cores_per_socket", "threads_per_core", "hyperthreading_enabled",
     "ram_gb", "cpu_frequency", "warranty_expiry", "ip_address",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
-    "rack_units", "power_watts",
+    "rack_units", "power_watts", "price",
     "enabled", "notes",
 ]
 
@@ -40,13 +41,14 @@ STORAGE_FIELDS = [
     "name", "site", "vendor", "model", "raw_capacity_tb",
     "usable_capacity_tb", "raid_overhead_percent",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
-    "rack_units", "power_watts",
+    "rack_units", "power_watts", "price",
     "notes",
 ]
 
 BACKUP_DESTINATION_FIELDS = [
     "name", "site", "destination_type", "backup_software",
-    "raw_capacity_tb", "dedup_ratio", "is_offsite", "is_immutable", "notes",
+    "raw_capacity_tb", "dedup_ratio", "is_offsite", "is_immutable",
+    "price", "notes",
 ]
 
 VM_FIELDS = [
@@ -58,8 +60,13 @@ VM_FIELDS = [
 SWITCH_FIELDS = [
     "name", "site", "vendor", "model", "switch_type",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
-    "rack_units", "power_watts",
+    "rack_units", "power_watts", "price",
     "notes",
+]
+
+MAINTENANCE_ITEM_FIELDS = [
+    "name", "category", "cost", "duration_months",
+    "start_date", "expiry_date", "applies_to", "notes",
 ]
 
 # server_name / switch_name / storage_name: exactly two of the three
@@ -126,6 +133,7 @@ def import_servers(path: str | Path) -> list[Server]:
                 warranty_expiry=row.get("warranty_expiry", "") or "",
                 ip_address=row.get("ip_address", "") or "",
                 rack_units=int(float(row.get("rack_units") or 0)),
+                price=float(row.get("price") or 0),
                 power_watts=float(row.get("power_watts") or 0),
                 nic_1g=int(float(row.get("nic_1g") or 0)),
                 nic_10g=int(float(row.get("nic_10g") or 0)),
@@ -173,6 +181,7 @@ def import_storages(path: str | Path) -> list[Storage]:
                 ports_sas=int(float(row.get("ports_sas") or 0)),
                 rack_units=int(float(row.get("rack_units") or 0)),
                 power_watts=float(row.get("power_watts") or 0),
+                price=float(row.get("price") or 0),
                 notes=row.get("notes", "") or "",
             )
         )
@@ -199,6 +208,7 @@ def import_backup_destinations(path: str | Path) -> list[BackupDestination]:
                 dedup_ratio=float(row.get("dedup_ratio") or 1.0),
                 is_offsite=_bool(row.get("is_offsite"), default=False),
                 is_immutable=_bool(row.get("is_immutable"), default=False),
+                price=float(row.get("price") or 0),
                 notes=row.get("notes", "") or "",
             )
         )
@@ -208,6 +218,31 @@ def import_backup_destinations(path: str | Path) -> list[BackupDestination]:
 def export_backup_destinations(path: str | Path, destinations: list[BackupDestination]) -> None:
     rows = [{field: getattr(d, field) for field in BACKUP_DESTINATION_FIELDS} for d in destinations]
     _write_rows(path, BACKUP_DESTINATION_FIELDS, rows)
+
+
+def import_maintenance_items(path: str | Path) -> list[MaintenanceItem]:
+    items = []
+    for row in _read_rows(path, MAINTENANCE_ITEM_FIELDS, "Maintenance Item"):
+        default = MaintenanceItem.create_default()
+        items.append(
+            MaintenanceItem(
+                uid=default.uid,
+                name=row.get("name", "") or "",
+                category=row.get("category") or "License",
+                cost=float(row.get("cost") or 0),
+                duration_months=int(float(row.get("duration_months") or 12)),
+                start_date=row.get("start_date", "") or "",
+                expiry_date=row.get("expiry_date", "") or "",
+                applies_to=row.get("applies_to", "") or "",
+                notes=row.get("notes", "") or "",
+            )
+        )
+    return items
+
+
+def export_maintenance_items(path: str | Path, items: list[MaintenanceItem]) -> None:
+    rows = [{field: getattr(i, field) for field in MAINTENANCE_ITEM_FIELDS} for i in items]
+    _write_rows(path, MAINTENANCE_ITEM_FIELDS, rows)
 
 
 # ----------------------------------------------------------------------
@@ -276,6 +311,7 @@ def import_switches(path: str | Path) -> list[NetworkSwitch]:
                 ports_sas=int(float(row.get("ports_sas") or 0)),
                 rack_units=int(float(row.get("rack_units") or 0)),
                 power_watts=float(row.get("power_watts") or 0),
+                price=float(row.get("price") or 0),
                 notes=row.get("notes", "") or "",
             )
         )

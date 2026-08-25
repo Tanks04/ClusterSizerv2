@@ -26,6 +26,9 @@ class BackupDestination:
     is_offsite: bool  # geographically separate - protects against a site-level disaster
     is_immutable: bool  # offline/immutable copy - protects against ransomware reaching this copy too
 
+    # Pricing (EUR) - see Server.price for the reasoning.
+    price: float = 0.0
+
     notes: str = ""
 
     @property

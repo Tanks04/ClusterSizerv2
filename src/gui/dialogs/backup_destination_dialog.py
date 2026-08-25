@@ -7,7 +7,9 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QLineEdit,
     QPlainTextEdit,
+    QScrollArea,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.models.backup_destination import BackupDestination, DESTINATION_TYPES
@@ -21,7 +23,14 @@ class BackupDestinationDialog(QDialog):
         self.setWindowTitle("Backup Destination")
         self.resize(420, 420)
 
-        outer = QVBoxLayout(self)
+        # See ServerDialog for why this is scrollable.
+        dialog_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        outer = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        dialog_layout.addWidget(scroll_area)
         layout = QFormLayout()
         outer.addLayout(layout)
 
@@ -59,7 +68,7 @@ class BackupDestinationDialog(QDialog):
         )
         layout.addRow("Dedup Ratio", self.dedup_spin)
 
-        self.offsite_check = QCheckBox("Offsite (geographically separate)")
+        self.offsite_check = QCheckBox("Offsite (separate)")
         self.offsite_check.setToolTip(
             "Protects against a site-level disaster (fire, flood) - part of "
             "the classic 3-2-1 rule's \"1 offsite\" requirement."
@@ -74,6 +83,13 @@ class BackupDestinationDialog(QDialog):
         )
         layout.addRow("", self.immutable_check)
 
+        self.price_spin = QDoubleSpinBox()
+        self.price_spin.setRange(0.0, 10_000_000.0)
+        self.price_spin.setDecimals(2)
+        self.price_spin.setSuffix(" EUR")
+        self.price_spin.setSpecialValueText("(not set)")
+        layout.addRow("Price", self.price_spin)
+
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(70)
         layout.addRow("Notes", self.notes_edit)
@@ -84,7 +100,7 @@ class BackupDestinationDialog(QDialog):
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        outer.addWidget(buttons)
+        dialog_layout.addWidget(buttons)
 
         self._uid = None
 
@@ -99,6 +115,7 @@ class BackupDestinationDialog(QDialog):
         self.software_edit.setText(destination.backup_software)
         self.raw_spin.setValue(destination.raw_capacity_tb)
         self.dedup_spin.setValue(destination.dedup_ratio)
+        self.price_spin.setValue(destination.price)
         self.offsite_check.setChecked(destination.is_offsite)
         self.immutable_check.setChecked(destination.is_immutable)
         self.notes_edit.setPlainText(destination.notes)
@@ -115,6 +132,7 @@ class BackupDestinationDialog(QDialog):
         destination.backup_software = self.software_edit.text()
         destination.raw_capacity_tb = self.raw_spin.value()
         destination.dedup_ratio = self.dedup_spin.value()
+        destination.price = self.price_spin.value()
         destination.is_offsite = self.offsite_check.isChecked()
         destination.is_immutable = self.immutable_check.isChecked()
         destination.notes = self.notes_edit.toPlainText()

@@ -55,6 +55,11 @@ class Server:
     # later re-adding its whole configuration.
     enabled: bool = True
 
+    # Pricing (EUR) - 0 = not entered. A single price, not cost/price/
+    # margin - this app just totals up what equipment costs, it isn't a
+    # sales quoting tool.
+    price: float = 0.0
+
     notes: str = ""
 
     @property

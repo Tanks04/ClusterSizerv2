@@ -1,0 +1,4 @@
+name,category,cost,duration_months,start_date,expiry_date,applies_to,notes
+Firewall subscription,Subscription,1200.0,12,2025-08-01,2026-08-01,Perimeter Firewall,Renews annually.
+ESXi support contract,Support Contract,4500.0,12,2025-11-01,2026-11-01,"esxi-p01, esxi-p02",Includes 24x7 hardware support.
+Backup software license,License,3000.0,36,2026-01-01,2029-01-01,Veeam,
