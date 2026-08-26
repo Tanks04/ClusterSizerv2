@@ -13,10 +13,11 @@
       "sockets": 2,
       "cores_per_socket": 24,
       "threads_per_core": 2,
-      "ram_gb": 512,
+      "ram_gb": 1024,
       "cpu_frequency": 2.0,
       "warranty_expiry": "2027-06-01",
       "ip_address": "",
+      "cluster_name": "",
       "rack_units": 2,
       "power_watts": 800.0,
       "hyperthreading_enabled": false,
@@ -29,6 +30,7 @@
       "nic_sas": 0,
       "enabled": true,
       "price": 22000.0,
+      "local_disk_raw_tb": 0.0,
       "notes": ""
     },
     {
@@ -42,10 +44,11 @@
       "sockets": 2,
       "cores_per_socket": 24,
       "threads_per_core": 2,
-      "ram_gb": 512,
+      "ram_gb": 1024,
       "cpu_frequency": 2.0,
       "warranty_expiry": "2027-06-01",
       "ip_address": "",
+      "cluster_name": "",
       "rack_units": 2,
       "power_watts": 800.0,
       "hyperthreading_enabled": false,
@@ -56,8 +59,9 @@
       "nic_100g": 0,
       "nic_fc": 0,
       "nic_sas": 0,
-      "enabled": false,
+      "enabled": true,
       "price": 22000.0,
+      "local_disk_raw_tb": 0.0,
       "notes": "Disabled to demonstrate the Disable-a-server feature - simulate a host being down without deleting its config."
     },
     {
@@ -75,6 +79,7 @@
       "cpu_frequency": 2.5,
       "warranty_expiry": "",
       "ip_address": "",
+      "cluster_name": "",
       "rack_units": 2,
       "power_watts": 850.0,
       "hyperthreading_enabled": true,
@@ -87,6 +92,7 @@
       "nic_sas": 0,
       "enabled": true,
       "price": 23500.0,
+      "local_disk_raw_tb": 0.0,
       "notes": ""
     }
   ],
@@ -100,6 +106,8 @@
       "raw_capacity_tb": 200.0,
       "usable_capacity_tb": 160.0,
       "raid_overhead_percent": 20.0,
+      "is_hci": false,
+      "hci_server_uids": [],
       "ports_1g": 0,
       "ports_10g": 0,
       "ports_25g": 0,
@@ -129,6 +137,8 @@
       "raw_capacity_tb": 100.0,
       "usable_capacity_tb": 80.0,
       "raid_overhead_percent": 20.0,
+      "is_hci": false,
+      "hci_server_uids": [],
       "ports_1g": 0,
       "ports_10g": 0,
       "ports_25g": 0,
@@ -158,6 +168,7 @@
       "dr_disk_gb": 301.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -174,6 +185,7 @@
       "dr_disk_gb": 1653.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -190,6 +202,7 @@
       "dr_disk_gb": 709.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -206,6 +219,7 @@
       "dr_disk_gb": 1440.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -222,6 +236,7 @@
       "dr_disk_gb": 3533.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -238,6 +253,7 @@
       "dr_disk_gb": 1854.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -254,6 +270,7 @@
       "dr_disk_gb": 171.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -270,6 +287,7 @@
       "dr_disk_gb": 1872.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -286,6 +304,7 @@
       "dr_disk_gb": 425.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -302,6 +321,7 @@
       "dr_disk_gb": 2328.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -318,6 +338,7 @@
       "dr_disk_gb": 202.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -334,6 +355,7 @@
       "dr_disk_gb": 361.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -350,6 +372,7 @@
       "dr_disk_gb": 2084.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -366,6 +389,7 @@
       "dr_disk_gb": 599.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -382,6 +406,7 @@
       "dr_disk_gb": 112.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -398,6 +423,7 @@
       "dr_disk_gb": 140.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -414,6 +440,7 @@
       "dr_disk_gb": 3440.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -430,6 +457,7 @@
       "dr_disk_gb": 87.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -446,6 +474,7 @@
       "dr_disk_gb": 98.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -462,6 +491,7 @@
       "dr_disk_gb": 1731.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -478,6 +508,7 @@
       "dr_disk_gb": 229.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -494,6 +525,7 @@
       "dr_disk_gb": 471.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -510,6 +542,7 @@
       "dr_disk_gb": 1980.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -526,6 +559,7 @@
       "dr_disk_gb": 111.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -542,6 +576,7 @@
       "dr_disk_gb": 110.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -558,6 +593,7 @@
       "dr_disk_gb": 308.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -574,6 +610,7 @@
       "dr_disk_gb": 491.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -590,6 +627,7 @@
       "dr_disk_gb": 84.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -606,6 +644,7 @@
       "dr_disk_gb": 84.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -622,6 +661,7 @@
       "dr_disk_gb": 118.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -638,6 +678,7 @@
       "dr_disk_gb": 770.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -654,6 +695,7 @@
       "dr_disk_gb": 92.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -670,6 +712,7 @@
       "dr_disk_gb": 539.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -686,6 +729,7 @@
       "dr_disk_gb": 203.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -702,6 +746,7 @@
       "dr_disk_gb": 214.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -718,6 +763,7 @@
       "dr_disk_gb": 426.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -734,6 +780,7 @@
       "dr_disk_gb": 160.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -750,6 +797,7 @@
       "dr_disk_gb": 1674.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -766,6 +814,7 @@
       "dr_disk_gb": 2732.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -782,6 +831,7 @@
       "dr_disk_gb": 397.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -798,6 +848,7 @@
       "dr_disk_gb": 180.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -814,6 +865,7 @@
       "dr_disk_gb": 112.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -830,6 +882,7 @@
       "dr_disk_gb": 320.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -846,6 +899,7 @@
       "dr_disk_gb": 85.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     },
     {
@@ -862,6 +916,7 @@
       "dr_disk_gb": 93.0,
       "workload_tier": "Standard Production",
       "ip_address": "",
+      "os": "",
       "notes": ""
     }
   ],
