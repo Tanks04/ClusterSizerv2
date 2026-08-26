@@ -38,9 +38,9 @@ or the tender is written**.
   RAID/EC overhead percentage is derived from those two and shown
   read-only - it's informational only and doesn't feed the sizing
   calculations - plus a connectivity port inventory
-  (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column. **HCI**
-  (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) storage - no separate
-  physical array, the disks live in the servers - gets its own checkbox:
+  (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column. 
+  **HCI** (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) storage - no 
+  separate physical array, the disks live in the servers - gets its own checkbox:
   link the contributing servers (each with a Local Disk (Raw) field) and
   Raw Capacity auto-sums from them instead of being typed in directly.
   Usable capacity still stays a manual entry, since the real raw-to-
@@ -52,7 +52,8 @@ or the tender is written**.
   gets a Workload Tier (Tier-0/Mission-Critical, Standard Production,
   Development/Test, High-Density VDI — each with a commonly-cited safe
   oversubscription ratio, e.g. Tier-0 at 1:1 up to VDI at 12-24:1) for
-  the **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
+  the 
+  **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
   (Hypervisor → Workload → Policy → Result), the reverse
   question from the rest of the app: not "do these VMs fit the servers I
   have" but "how many servers should I buy for these VMs". Reuses the
@@ -78,8 +79,8 @@ or the tender is written**.
 - **Pricing** — a single Price (EUR) on Servers/Storage/Network/Backup
   rolls straight into a total, broken down by category, no re-entry and
   no cost-vs-price/margin tracking - this app gives admins a running
-  total, it isn't a sales quoting tool. Separately, **Licenses,
-  Warranties & Maintenance** tracks renewals - what it is, what it
+  total, it isn't a sales quoting tool. Separately, 
+  **Licenses, Warranties & Maintenance** tracks renewals - what it is, what it
   costs, how long it lasts, and its expiry date - flagged Expired
   (red) or Expiring Soon (orange, within 90 days) so a renewal doesn't
   get missed. Included as its own section in the Word report.
@@ -112,7 +113,8 @@ or the tender is written**.
   profiles. Each field can pull from a DIFFERENT sheet in a multi-sheet
   workbook if needed (joined by the Name field's own column) - e.g. pull
   vCPU/RAM from one RVTools sheet and a field only present on another.
-  For RVTools specifically, **Tools → Import from RVTools...** is faster
+  For RVTools specifically, 
+  **Tools → Import from RVTools...** is faster
   for the common case - no manual mapping, reads vHost/vInfo/vSwitch
   directly and imports Servers, VMs, and (optionally) Switches together
   in one step, correctly detecting Hyperthreading, OS (config-file or
@@ -190,8 +192,6 @@ Revolut: revolut.me/@ivan50ba6
 
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
-
-Thanks, Claude. 🥰
 
 ## License
 
