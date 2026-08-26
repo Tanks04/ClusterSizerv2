@@ -1,7 +1,9 @@
-"""SiteCapacityWidget can't be instantiated without PySide6 (unavailable
-in this sandbox, as elsewhere in this project) - these tests inspect the
-source directly to guard against two real bugs found from a screenshot:
-a RAM utilization bar showing ~32.5% fill for a value labeled "65%".
+"""Real Qt tests for SiteCapacityWidget - PySide6 is now actually
+installed in this environment (it wasn't for most of this project's
+development, which relied on source-inspection/simulation tests
+instead - see git history for the earlier version of this file). Pins
+two real bugs found from a screenshot: a RAM utilization bar showing
+~32.5% fill for a value labeled "65%".
 
 Root causes, both in set_report():
 1. setValue() was called BEFORE setRange() for the CPU bar - QProgressBar
@@ -13,93 +15,107 @@ Root causes, both in set_report():
    rendered at roughly half its true fill.
 """
 
-from pathlib import Path
+import pytest
 
-_SOURCE = Path(__file__).parent.parent / "src/gui/widgets/site_capacity_widget.py"
+pytest.importorskip("PySide6")
 
+from PySide6.QtWidgets import QApplication
 
-def _source_text() -> str:
-    return _SOURCE.read_text(encoding="utf-8")
-
-
-def _line_number_of(text: str, needle: str) -> int:
-    idx = text.index(needle)
-    return text.count("\n", 0, idx)
+from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
+from src.calculations.sizing import SiteReport
+from src.calculations.thresholds import Status
 
 
-def test_cpu_bar_range_is_set_before_value():
-    text = _source_text()
-    range_line = _line_number_of(text, "self.cpu_bar.setRange(0, 400)")
-    value_line = _line_number_of(text, "self.cpu_bar.setValue(0 if report.cpu_ratio")
-    assert range_line < value_line, (
-        "cpu_bar.setRange() must run before cpu_bar.setValue() - QProgressBar "
-        "clamps the value against whatever range is current at call time."
+@pytest.fixture(scope="module", autouse=True)
+def qapp():
+    app = QApplication.instance() or QApplication([])
+    yield app
+
+
+def _report(cpu_ratio=None, ram_ratio=None, storage_ratio=None):
+    return SiteReport(
+        site="Primary", server_count=1, physical_cores=10, physical_threads=20,
+        physical_ram_gb=100, usable_storage_gb=100,
+        vm_count=1, vcpu_demand=1, ram_demand_gb=1, disk_demand_gb=1,
+        cpu_ratio=cpu_ratio, ram_ratio=ram_ratio, storage_ratio=storage_ratio,
+        cpu_status=Status.OK, ram_status=Status.OK, storage_status=Status.OK,
+        n_plus_one_ok=True, n_plus_one_check=None, ht_state="all_on",
     )
 
 
-def test_ram_bar_range_is_set_before_value():
-    text = _source_text()
-    range_line = _line_number_of(text, "self.ram_bar.setRange(0, 100)")
-    value_line = _line_number_of(text, "self.ram_bar.setValue(0 if report.ram_ratio")
-    assert range_line < value_line
+def test_ram_bar_fill_matches_its_own_label():
+    """The exact reported symptom: 65% labeled, bar looked like ~35%."""
+    widget = SiteCapacityWidget("Primary")
+    widget.set_report(_report(ram_ratio=0.65))
+
+    assert widget.ram_bar.minimum() == 0
+    assert widget.ram_bar.maximum() == 100
+    assert widget.ram_bar.value() == 65
+    assert widget.ram_bar.text() == "65%"
+
+    fill_percent = widget.ram_bar.value() / widget.ram_bar.maximum() * 100
+    assert fill_percent == 65.0
 
 
-def test_storage_bar_range_is_set_before_value():
-    text = _source_text()
-    range_line = _line_number_of(text, "self.storage_bar.setRange(0, 100)")
-    value_line = _line_number_of(text, "self.storage_bar.setValue(")
-    assert range_line < value_line
+def test_storage_bar_fill_matches_its_own_label():
+    widget = SiteCapacityWidget("Primary")
+    widget.set_report(_report(storage_ratio=0.40))
+
+    assert widget.storage_bar.maximum() == 100
+    assert widget.storage_bar.value() == 40
+    assert widget.storage_bar.value() / widget.storage_bar.maximum() * 100 == 40.0
 
 
-def test_ram_and_storage_bars_use_a_0_to_100_range_not_200():
-    """A plain percentage (0-100 is "full") must not share CPU's wider
-    0-400 range - that mismatch is exactly what made a healthy 65% look
-    like a third of the bar."""
-    text = _source_text()
-    assert "self.ram_bar.setRange(0, 100)" in text
-    assert "self.storage_bar.setRange(0, 100)" in text
-    assert "self.ram_bar.setRange(0, 200)" not in text
-    assert "self.storage_bar.setRange(0, 200)" not in text
+def test_cpu_bar_fill_is_correct_on_the_very_first_refresh():
+    """The order bug only showed up on the FIRST refresh (range still at
+    the constructor default when setValue() was called) - a fresh
+    widget's very first set_report() call is exactly that case."""
+    widget = SiteCapacityWidget("Primary")
+    widget.set_report(_report(cpu_ratio=3.0))
+
+    assert widget.cpu_bar.minimum() == 0
+    assert widget.cpu_bar.maximum() == 400
+    assert widget.cpu_bar.value() == 300
+    assert widget.cpu_bar.text() == "3.0 : 1"
+
+    fill_percent = widget.cpu_bar.value() / widget.cpu_bar.maximum() * 100
+    assert fill_percent == 75.0
 
 
-def test_progress_bar_clamping_semantics_match_qt_and_confirm_the_fix():
-    """Standalone simulation of QProgressBar's real clamping behavior
-    (setValue() clamps against whatever range is CURRENT; a later
-    setRange() does not retroactively un-clamp an already-stored value) -
-    proves both the bug and the fix mathematically without needing Qt
-    itself installed."""
+def test_cpu_bar_fill_correct_across_repeated_refreshes():
+    """The staleness bug's fix (reordering setRange/setValue) must hold
+    up across multiple refreshes with changing ratios, not just the
+    first one."""
+    widget = SiteCapacityWidget("Primary")
+    widget.set_report(_report(cpu_ratio=1.0))
+    assert widget.cpu_bar.value() == 100
 
-    class MockProgressBar:
-        def __init__(self):
-            self._min, self._max = 0, 200  # the old constructor default
-            self._value = 0
+    widget.set_report(_report(cpu_ratio=3.0))
+    assert widget.cpu_bar.value() == 300
+    assert widget.cpu_bar.value() / widget.cpu_bar.maximum() * 100 == 75.0
 
-        def setRange(self, lo, hi):
-            self._min, self._max = lo, hi
+    widget.set_report(_report(cpu_ratio=0.5))
+    assert widget.cpu_bar.value() == 50
 
-        def setValue(self, v):
-            self._value = max(self._min, min(v, self._max))
 
-        def fill_percent(self):
-            return self._value / self._max * 100 if self._max else 0
+def test_none_ratio_shows_n_a_and_zero_fill():
+    widget = SiteCapacityWidget("Primary")
+    widget.set_report(_report(cpu_ratio=None, ram_ratio=None, storage_ratio=None))
 
-    # Old buggy order: setValue() before setRange()
-    buggy_ram = MockProgressBar()
-    buggy_ram.setValue(min(round(0.65 * 100), 200))
-    assert round(buggy_ram.fill_percent(), 1) == 32.5  # confirms the reported symptom
+    assert widget.cpu_bar.text() == "n/a"
+    assert widget.cpu_bar.value() == 0
+    assert widget.ram_bar.text() == "n/a"
+    assert widget.ram_bar.value() == 0
+    assert widget.storage_bar.text() == "n/a"
+    assert widget.storage_bar.value() == 0
 
-    # New fixed order: setRange() before setValue(), and a correct 0-100 range
-    fixed_ram = MockProgressBar()
-    fixed_ram.setRange(0, 100)
-    fixed_ram.setValue(min(round(0.65 * 100), 100))
-    assert round(fixed_ram.fill_percent(), 1) == 65.0  # matches the "65%" label exactly
 
-    buggy_cpu = MockProgressBar()
-    buggy_cpu.setValue(min(round(3.0 * 100), 400))
-    buggy_cpu.setRange(0, 400)
-    assert round(buggy_cpu.fill_percent(), 1) == 50.0  # stale clamp from the old 0-200 default
+def test_ram_ratio_over_100_percent_caps_the_bar_but_shows_true_text():
+    """An unhealthy overcommit reading (>100%) should max out the bar
+    visually rather than trying to render past it, while the text still
+    shows the real number."""
+    widget = SiteCapacityWidget("Primary")
+    widget.set_report(_report(ram_ratio=1.2))
 
-    fixed_cpu = MockProgressBar()
-    fixed_cpu.setRange(0, 400)
-    fixed_cpu.setValue(min(round(3.0 * 100), 400))
-    assert round(fixed_cpu.fill_percent(), 1) == 75.0  # correct: 300/400
+    assert widget.ram_bar.value() == 100  # capped, not 120
+    assert widget.ram_bar.text() == "120%"  # text shows the true reading

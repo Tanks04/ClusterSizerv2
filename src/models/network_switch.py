@@ -1,12 +1,21 @@
 from dataclasses import dataclass
 import uuid
 
+SWITCH_TYPES = ["LAN", "SAN/FC", "Unified", "Firewall", "Load Balancer"]
+
 
 @dataclass
 class NetworkSwitch:
-    """Represents one network switch. Port inventory is by speed/media
-    (same approach as Server.nic_* fields) - simple to enter, enough for
-    the "free/used" calculation on the Network tab."""
+    """Represents one network device on the Network tab - a switch, or
+    any other rack-mounted network appliance (firewall, load balancer)
+    that shares the same shape: name/vendor/model, a port inventory by
+    speed/media (same approach as Server.nic_* fields), rack/power/price,
+    and notes. Not modeled as separate entity types since a firewall or
+    LB genuinely doesn't need different fields for capacity-planning
+    purposes here - just a different `switch_type` label. Firewall
+    subscriptions (IPS/anti-malware/URL filtering, etc.) are tracked as
+    Maintenance Items instead (Pricing tab) - use `applies_to` there to
+    name the device, e.g. "Firewall FW-01"."""
 
     uid: str
     name: str
@@ -14,7 +23,7 @@ class NetworkSwitch:
 
     vendor: str
     model: str
-    switch_type: str  # "LAN" | "SAN/FC" | "Unified"
+    switch_type: str  # one of SWITCH_TYPES
 
     ports_1g: int = 0
     ports_10g: int = 0

@@ -65,7 +65,7 @@ class NetworkPage(QWidget):
         #
 
         overview_layout = QHBoxLayout()
-        self.card_switches = SummaryWidget("Switches", "0")
+        self.card_switches = SummaryWidget("Network Devices", "0")
         self.card_connections = SummaryWidget("Connections", "0")
         self.card_primary_ports = SummaryWidget("Primary Ports Used/Free", "-")
         self.card_dr_ports = SummaryWidget("DR Ports Used/Free", "-")
@@ -98,7 +98,7 @@ class NetworkPage(QWidget):
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(QLabel("<b>Switches</b>"))
+        layout.addWidget(QLabel("<b>Switches &amp; Other Network Devices</b> (Firewalls, Load Balancers...)"))
 
         toolbar = QToolBar()
         toolbar.setMovable(False)
@@ -154,7 +154,7 @@ class NetworkPage(QWidget):
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(QLabel("<b>Connections</b> (Server ↔ Switch)"))
+        layout.addWidget(QLabel("<b>Connections</b> (Server / Storage \u2194 Network Device)"))
 
         toolbar = QToolBar()
         toolbar.setMovable(False)
@@ -255,7 +255,7 @@ class NetworkPage(QWidget):
         self.service.add_switches(copies)
 
     def _import_switches_csv(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Import Switches CSV", "", "CSV (*.csv)")
+        path, _ = QFileDialog.getOpenFileName(self, "Import Network Devices CSV", "", "CSV (*.csv)")
         if not path:
             return
         try:
@@ -267,12 +267,12 @@ class NetworkPage(QWidget):
             report_error(self, "Import Error", exc)
 
     def _export_switches_csv(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Export Switches CSV", "switches.csv", "CSV (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(self, "Export Network Devices CSV", "network_devices.csv", "CSV (*.csv)")
         if not path:
             return
         try:
             self.service.export_switches_csv(path)
-            QMessageBox.information(self, "Export", "Switches exported.")
+            QMessageBox.information(self, "Export", "Network devices exported.")
         except Exception as exc:
             report_error(self, "Export Error", exc)
 

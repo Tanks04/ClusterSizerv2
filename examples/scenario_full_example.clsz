@@ -13,7 +13,7 @@
       "sockets": 2,
       "cores_per_socket": 24,
       "threads_per_core": 2,
-      "ram_gb": 1024,
+      "ram_gb": 512,
       "cpu_frequency": 2.0,
       "warranty_expiry": "2027-06-01",
       "ip_address": "",
@@ -44,7 +44,7 @@
       "sockets": 2,
       "cores_per_socket": 24,
       "threads_per_core": 2,
-      "ram_gb": 1024,
+      "ram_gb": 512,
       "cpu_frequency": 2.0,
       "warranty_expiry": "2027-06-01",
       "ip_address": "",
@@ -59,7 +59,7 @@
       "nic_100g": 0,
       "nic_fc": 0,
       "nic_sas": 0,
-      "enabled": true,
+      "enabled": false,
       "price": 22000.0,
       "local_disk_raw_tb": 0.0,
       "notes": "Disabled to demonstrate the Disable-a-server feature - simulate a host being down without deleting its config."
@@ -996,6 +996,25 @@
       "power_watts": 150.0,
       "price": 11500.0,
       "notes": "FC fabric switch"
+    },
+    {
+      "uid": "2991c816-ead8-440d-a6e1-ff962ec3248c",
+      "name": "Perimeter Firewall",
+      "site": "Primary",
+      "vendor": "Palo Alto Networks",
+      "model": "PA-3220",
+      "switch_type": "Firewall",
+      "ports_1g": 8,
+      "ports_10g": 4,
+      "ports_25g": 0,
+      "ports_40g": 0,
+      "ports_100g": 0,
+      "ports_fc": 0,
+      "ports_sas": 0,
+      "rack_units": 1,
+      "power_watts": 250.0,
+      "price": 22000.0,
+      "notes": "Threat prevention subscription tracked as a Maintenance Item (Pricing tab)."
     }
   ],
   "connections": [

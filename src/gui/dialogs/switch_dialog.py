@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.network_switch import NetworkSwitch
+from src.models.network_switch import NetworkSwitch, SWITCH_TYPES
 
 
 class SwitchDialog(QDialog):
@@ -19,7 +19,7 @@ class SwitchDialog(QDialog):
     def __init__(self, switch: NetworkSwitch | None = None, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Network Switch")
+        self.setWindowTitle("Network Device")
         self.resize(400, 420)
 
         # See ServerDialog for why this is scrollable.
@@ -45,7 +45,7 @@ class SwitchDialog(QDialog):
         layout.addRow("Model", self.model_edit)
 
         self.type_combo = QComboBox()
-        self.type_combo.addItems(["LAN", "SAN/FC", "Unified"])
+        self.type_combo.addItems(SWITCH_TYPES)
         layout.addRow("Type", self.type_combo)
 
         self.ports_1g_spin = QSpinBox()

@@ -262,6 +262,14 @@ class StorageDialog(QDialog):
             "uncheck HCI above to type a value directly." if checked else ""
         )
         if checked:
+            if self.hci_servers_list.count() == 0:
+                # First time this dialog has shown the list (a new/"Add"
+                # Storage dialog never calls _populate_hci_server_list()
+                # otherwise - only load() does, for editing an existing
+                # HCI storage). Guarded on count() so re-toggling HCI off
+                # and back on within one session doesn't wipe out
+                # whatever was already checked.
+                self._populate_hci_server_list()
             self._recalc_hci_raw_capacity()
 
     def _populate_hci_server_list(self, checked_uids: set[str] | None = None) -> None:

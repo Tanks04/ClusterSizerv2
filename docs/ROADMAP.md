@@ -1,5 +1,47 @@
 # ROADMAP
 
+## v3.5.0 (Firewall/Load Balancer support, and PySide6 finally testable)
+
+- **Network tab now supports Firewalls and Load Balancers**, not just
+  switches. `NetworkSwitch`'s existing fields (name/vendor/model, port
+  inventory by speed, rack/power/price, notes) already generalize fine
+  to any rack-mounted network appliance, so this was a type-list
+  extension, not a new entity: new `SWITCH_TYPES` constant (`LAN`,
+  `SAN/FC`, `Unified`, `Firewall`, `Load Balancer`), matching the
+  `DESTINATION_TYPES`/`CATEGORIES` pattern already used by
+  BackupDestination/MaintenanceItem. User-facing labels updated
+  throughout the Network tab and dialog ("Network Device" instead of
+  "Switch") without touching internal class/variable names. Firewall
+  subscriptions (threat prevention, etc.) are tracked as Maintenance
+  Items instead of new fields on the device - `applies_to` names the
+  device, e.g. "Perimeter Firewall" - closing a loop that already
+  existed by coincidence: the example project has had a "Firewall
+  subscription" Maintenance Item since v3.2.0, referencing a firewall
+  that didn't actually exist as a device until now.
+- **PySide6 became actually installed in the dev sandbox for the first
+  time in this project's history.** Every prior "GUI" test in this repo
+  was source-inspection or pure-math-simulation based specifically
+  because real Qt widgets couldn't be instantiated to test against -
+  each said so directly in its own docstring. That's no longer true:
+  `requirements-dev.txt` already pulled in PySide6 (via
+  requirements.txt) and works headlessly with `QT_QPA_PLATFORM=
+  offscreen` - added that to the CI workflow's test step, since GitHub
+  Actions runners have no display server either.
+  - **Found a real bug immediately** that source-inspection could never
+    have caught: a fresh "Add Storage" dialog never populated the HCI
+    server checkbox list at all - only `load()` (the "Edit" path) did.
+    Checking "HCI" on a brand new Storage entry showed an empty list
+    with no way to select any server. Fixed: `_on_hci_toggled()` now
+    populates the list itself the first time it's shown, guarded so
+    toggling HCI off and back on within one session doesn't wipe
+    already-checked servers.
+  - Rewrote `test_site_capacity_widget.py` and
+    `test_multi_select_table.py` from source-inspection/simulation to
+    real widget instantiation - both now exercise actual QProgressBar/
+    QTableView behavior instead of a hand-written model of what Qt is
+    believed to do. Added `test_storage_dialog_hci.py` and
+    `test_switch_dialog.py`, both real-Qt. 165 tests total, up from 152.
+
 ## v3.4.0 (HCI/vSAN storage - disks live in the servers, not a separate array)
 
 The user's own real-world case: working with a vSAN cluster where there's
