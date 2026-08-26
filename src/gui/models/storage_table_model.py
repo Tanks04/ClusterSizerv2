@@ -8,12 +8,12 @@ from src.calculations.networking import storage_port_usage, format_usage, any_ov
 class StorageTableModel(QAbstractTableModel):
 
     HEADERS = [
-        "Name", "Site", "Vendor", "Model",
+        "Name", "Site", "Vendor", "Model", "Type",
         "Raw (TB)", "Usable (TB)", "Overhead %",
         "Ports (declared)", "Used/Free", "Rack (U)", "Power (W)", "Notes",
     ]
 
-    EDITABLE_COLUMNS = {4, 5}  # Raw, Usable
+    EDITABLE_COLUMNS = {5, 6}  # Raw, Usable
 
     def __init__(
         self,
@@ -64,12 +64,14 @@ class StorageTableModel(QAbstractTableModel):
             case 3:
                 return storage.model
             case 4:
-                return storage.raw_capacity_tb
+                return "HCI" if storage.is_hci else "Traditional"
             case 5:
-                return storage.usable_capacity_tb
+                return storage.raw_capacity_tb
             case 6:
-                return round(storage.raid_overhead_percent, 1)
+                return storage.usable_capacity_tb
             case 7:
+                return round(storage.raid_overhead_percent, 1)
+            case 8:
                 parts = []
                 if storage.ports_1g:
                     parts.append(f"1G:{storage.ports_1g}")
@@ -86,17 +88,17 @@ class StorageTableModel(QAbstractTableModel):
                 if storage.ports_sas:
                     parts.append(f"SAS:{storage.ports_sas}")
                 return " ".join(parts) if parts else "-"
-            case 8:
+            case 9:
                 usage = storage_port_usage(storage, self._connections_provider())
                 text = format_usage(usage)
                 return f"\u26a0 {text}" if any_over_committed(usage) else text
-            case 9:
+            case 10:
                 total_u = storage.total_rack_units
                 shelf_note = f" (+{len(storage.expansion_shelves)} shelf/shelves)" if storage.expansion_shelves else ""
                 return f"{total_u}{shelf_note}" if total_u else "-"
-            case 10:
-                return round(storage.total_power_watts, 0) if storage.total_power_watts else "-"
             case 11:
+                return round(storage.total_power_watts, 0) if storage.total_power_watts else "-"
+            case 12:
                 return storage.notes or "-"
 
         return None
@@ -111,9 +113,9 @@ class StorageTableModel(QAbstractTableModel):
 
         try:
             match index.column():
-                case 4:
-                    storage.raw_capacity_tb = max(0.0, float(value))
                 case 5:
+                    storage.raw_capacity_tb = max(0.0, float(value))
+                case 6:
                     storage.usable_capacity_tb = max(0.0, float(value))
                 case _:
                     return False

@@ -319,16 +319,18 @@ class MainWindow(QMainWindow):
 
         servers = dialog.get_servers()
         vms = dialog.get_vms()
+        switches = dialog.get_switches()
         if not servers and not vms:
             return
 
-        self.project_service.add_servers_and_vms(servers, vms)
-        QMessageBox.information(
-            self, "Import from RVTools",
-            f"Imported {len(servers)} server(s) and {len(vms)} VM(s) - "
-            "review Hyperthreading, Workload Tier, and DR Protected on the "
-            "respective tabs, RVTools doesn't reliably expose those.",
+        self.project_service.add_servers_and_vms(servers, vms, switches)
+        message = (
+            f"Imported {len(servers)} server(s) and {len(vms)} VM(s)"
+            + (f" and {len(switches)} switch(es)" if switches else "")
+            + " - review Workload Tier and DR Protected on the VMs tab, "
+            "RVTools has no equivalent for those."
         )
+        QMessageBox.information(self, "Import from RVTools", message)
 
     def _open_raid_calculator(self):
         dialog = RaidCalculatorDialog(self.project_service, parent=self)

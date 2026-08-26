@@ -38,7 +38,14 @@ or the tender is written**.
   RAID/EC overhead percentage is derived from those two and shown
   read-only - it's informational only and doesn't feed the sizing
   calculations - plus a connectivity port inventory
-  (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column.
+  (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column. **HCI**
+  (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) storage - no separate
+  physical array, the disks live in the servers - gets its own checkbox:
+  link the contributing servers (each with a Local Disk (Raw) field) and
+  Raw Capacity auto-sums from them instead of being typed in directly.
+  Usable capacity still stays a manual entry, since the real raw-to-
+  usable shrinkage depends on the storage policy (FTT/erasure coding) in
+  a way this app doesn't try to model exactly.
 - **VMs** — every VM can be flagged as *DR Protected* with its own DR
   footprint (vcpu/ram/disk) — since DR replicas are often not a 1:1 match
   with production, and the DR calculation respects that. Each VM also
@@ -106,8 +113,13 @@ or the tender is written**.
   workbook if needed (joined by the Name field's own column) - e.g. pull
   vCPU/RAM from one RVTools sheet and a field only present on another.
   For RVTools specifically, **Tools → Import from RVTools...** is faster
-  for the common case - no manual mapping, reads the vHost/vInfo sheets
-  directly and imports Servers AND VMs together in one step.
+  for the common case - no manual mapping, reads vHost/vInfo/vSwitch
+  directly and imports Servers, VMs, and (optionally) Switches together
+  in one step, correctly detecting Hyperthreading, OS (config-file or
+  VMware-Tools-reported, your choice), and Cluster name. Multi-site
+  environments living in one vCenter (two Datacenter objects) can map
+  each Datacenter to Primary or DR individually instead of one target
+  site for the whole file.
 - **Tools → RAID Calculator...** — size a RAID array (0/1/5/6/10/50/60,
   hot spares) from disk count/size/type, then optionally apply the
   result straight to a Server or Storage entry already in the project.
@@ -178,6 +190,8 @@ Revolut: revolut.me/@ivan50ba6
 
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
+
+Thanks, Claude. 🥰
 
 ## License
 

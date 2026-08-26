@@ -33,6 +33,7 @@ FIELD_LABELS = {
     "disk_gb": "Disk *",
     "powered_on": "Power state",
     "ip_address": "IP Address",
+    "os": "OS",
     "notes": "Notes",
 }
 

@@ -25,6 +25,8 @@ class Server:
     warranty_expiry: str = ""  # free format e.g. "2027-05-01", "-" if unknown
     ip_address: str = ""  # management or primary network IP, free text (not validated - IPv4/IPv6/hostname all fine)
 
+    cluster_name: str = ""  # informational tag, e.g. a VMware/Hyper-V cluster name - several servers can share one, an environment can have several clusters
+
     # Rack sizing - 0 = not entered, excluded from the Summary tab's rack
     # totals rather than counted as a real zero.
     rack_units: int = 0
@@ -59,6 +61,8 @@ class Server:
     # margin - this app just totals up what equipment costs, it isn't a
     # sales quoting tool.
     price: float = 0.0
+
+    local_disk_raw_tb: float = 0.0  # HCI/vSAN-style local disk contribution - only meaningful when an HCI Storage entity is linked to this server
 
     notes: str = ""
 

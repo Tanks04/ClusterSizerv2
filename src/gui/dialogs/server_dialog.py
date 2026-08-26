@@ -213,6 +213,10 @@ class ServerDialog(QDialog):
         self.ip_address_edit.setPlaceholderText("e.g. 10.88.1.10 (management or primary IP)")
         layout.addRow("IP Address", self.ip_address_edit)
 
+        self.cluster_name_edit = QLineEdit()
+        self.cluster_name_edit.setPlaceholderText("e.g. vSAN_HPM - informational, several servers can share one")
+        layout.addRow("Cluster Name", self.cluster_name_edit)
+
         self.rack_units_spin = QSpinBox()
         self.rack_units_spin.setRange(0, 60)
         self.rack_units_spin.setSuffix(" U")
@@ -235,6 +239,18 @@ class ServerDialog(QDialog):
         self.price_spin.setSuffix(" EUR")
         self.price_spin.setSpecialValueText("(not set)")
         layout.addRow("Price", self.price_spin)
+
+        self.local_disk_spin = QDoubleSpinBox()
+        self.local_disk_spin.setRange(0.0, 10000.0)
+        self.local_disk_spin.setDecimals(2)
+        self.local_disk_spin.setSuffix(" TB")
+        self.local_disk_spin.setSpecialValueText("(not set)")
+        self.local_disk_spin.setToolTip(
+            "For HCI clusters (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) "
+            "where the disks live in the server rather than a separate array - "
+            "link this server on an HCI Storage entry to count it there."
+        )
+        layout.addRow("Local Disk (Raw)", self.local_disk_spin)
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(60)
@@ -361,9 +377,11 @@ class ServerDialog(QDialog):
 
         self.warranty_edit.setText(server.warranty_expiry)
         self.ip_address_edit.setText(server.ip_address)
+        self.cluster_name_edit.setText(server.cluster_name)
         self.rack_units_spin.setValue(server.rack_units)
         self.power_watts_spin.setValue(server.power_watts)
         self.price_spin.setValue(server.price)
+        self.local_disk_spin.setValue(server.local_disk_raw_tb)
         self.notes_edit.setPlainText(server.notes)
 
         self.nic_1g_spin.setValue(server.nic_1g)
@@ -388,9 +406,11 @@ class ServerDialog(QDialog):
         server.cpu_frequency = self.freq_spin.value()
         server.warranty_expiry = self.warranty_edit.text()
         server.ip_address = self.ip_address_edit.text()
+        server.cluster_name = self.cluster_name_edit.text()
         server.rack_units = self.rack_units_spin.value()
         server.power_watts = self.power_watts_spin.value()
         server.price = self.price_spin.value()
+        server.local_disk_raw_tb = self.local_disk_spin.value()
         server.notes = self.notes_edit.toPlainText()
         server.nic_1g = self.nic_1g_spin.value()
         server.nic_10g = self.nic_10g_spin.value()

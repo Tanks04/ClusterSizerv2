@@ -34,6 +34,20 @@ class Storage:
 
     raid_overhead_percent: float  # informational only - how much is "eaten" going from raw -> usable
 
+    # HCI (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) - there's no
+    # separate physical array here, the disks live IN the servers, but
+    # the cluster still behaves like one shared storage pool and needs
+    # to show up on this tab like any other. When True, raw_capacity_tb
+    # is auto-summed from the linked servers' local_disk_raw_tb (set on
+    # the Storage dialog's checkbox list) instead of being typed in
+    # directly - usable_capacity_tb stays a manual entry either way,
+    # since the real raw-to-usable shrinkage depends on the storage
+    # policy (FTT/erasure coding) in a way this app doesn't try to model
+    # exactly, the same spirit as raid_overhead_percent being
+    # informational rather than authoritative for traditional arrays.
+    is_hci: bool = False
+    hci_server_uids: list[str] = field(default_factory=list)
+
     # Connectivity port inventory - same pattern as Server.nic_* and
     # NetworkSwitch.ports_*. Used on the Network tab to track free/used
     # ports for links to switches, and for direct-attach links straight

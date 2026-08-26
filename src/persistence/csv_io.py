@@ -31,15 +31,15 @@ class CsvSchemaError(ValueError):
 SERVER_FIELDS = [
     "name", "site", "vendor", "model", "cpu_vendor", "cpu_model",
     "sockets", "cores_per_socket", "threads_per_core", "hyperthreading_enabled",
-    "ram_gb", "cpu_frequency", "warranty_expiry", "ip_address",
+    "ram_gb", "cpu_frequency", "warranty_expiry", "ip_address", "cluster_name",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
-    "rack_units", "power_watts", "price",
+    "rack_units", "power_watts", "price", "local_disk_raw_tb",
     "enabled", "notes",
 ]
 
 STORAGE_FIELDS = [
     "name", "site", "vendor", "model", "raw_capacity_tb",
-    "usable_capacity_tb", "raid_overhead_percent",
+    "usable_capacity_tb", "raid_overhead_percent", "is_hci",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
     "rack_units", "power_watts", "price",
     "notes",
@@ -54,7 +54,7 @@ BACKUP_DESTINATION_FIELDS = [
 VM_FIELDS = [
     "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on",
     "dr_protected", "dr_vcpu", "dr_ram_gb", "dr_disk_gb",
-    "workload_tier", "ip_address", "notes",
+    "workload_tier", "ip_address", "os", "notes",
 ]
 
 SWITCH_FIELDS = [
@@ -132,8 +132,10 @@ def import_servers(path: str | Path) -> list[Server]:
                 cpu_frequency=float(row.get("cpu_frequency") or 2.5),
                 warranty_expiry=row.get("warranty_expiry", "") or "",
                 ip_address=row.get("ip_address", "") or "",
+                cluster_name=row.get("cluster_name", "") or "",
                 rack_units=int(float(row.get("rack_units") or 0)),
                 price=float(row.get("price") or 0),
+                local_disk_raw_tb=float(row.get("local_disk_raw_tb") or 0),
                 power_watts=float(row.get("power_watts") or 0),
                 nic_1g=int(float(row.get("nic_1g") or 0)),
                 nic_10g=int(float(row.get("nic_10g") or 0)),
@@ -182,6 +184,7 @@ def import_storages(path: str | Path) -> list[Storage]:
                 rack_units=int(float(row.get("rack_units") or 0)),
                 power_watts=float(row.get("power_watts") or 0),
                 price=float(row.get("price") or 0),
+                is_hci=_bool(row.get("is_hci"), default=False),
                 notes=row.get("notes", "") or "",
             )
         )
@@ -275,6 +278,7 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
                 dr_disk_gb=float(row.get("dr_disk_gb") or disk_gb),
                 workload_tier=workload_tier,
                 ip_address=row.get("ip_address", "") or "",
+                os=row.get("os", "") or "",
                 notes=row.get("notes", "") or "",
             )
         )

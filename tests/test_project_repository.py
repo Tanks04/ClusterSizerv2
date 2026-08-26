@@ -216,3 +216,57 @@ def test_v6_service_line_items_absent_gives_empty_maintenance_items(tmp_path):
     loaded = project_repository.load_project(path)
 
     assert loaded.project.maintenance_items == []
+
+
+def test_hci_storage_round_trip(tmp_path):
+    from src.models.server import Server
+    from src.models.storage import Storage
+
+    project = ClusterProject(name="HCI test")
+    server = Server.create_default()
+    server.name = "esxi-01"
+    server.local_disk_raw_tb = 20.0
+    project.servers.append(server)
+
+    storage = Storage.create_default()
+    storage.name = "vsan-cluster-01"
+    storage.vendor = "VMware"
+    storage.model = "vSAN"
+    storage.is_hci = True
+    storage.hci_server_uids = [server.uid]
+    project.storages.append(storage)
+
+    path = tmp_path / "hci.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.storages[0].is_hci is True
+    assert loaded.project.storages[0].hci_server_uids == [server.uid]
+    assert loaded.project.servers[0].local_disk_raw_tb == 20.0
+
+
+def test_v6_file_without_hci_fields_defaults_correctly(tmp_path):
+    """v6 files predate is_hci/hci_server_uids/local_disk_raw_tb - must
+    load fine with the new defaults (False/empty/0), not crash."""
+    from src.models.server import Server
+    from src.models.storage import Storage
+
+    project = ClusterProject(name="Pre-HCI")
+    project.servers.append(Server.create_default())
+    project.storages.append(Storage.create_default())
+    path = tmp_path / "v6e.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["servers"][0]["local_disk_raw_tb"]
+    del raw["storages"][0]["is_hci"]
+    del raw["storages"][0]["hci_server_uids"]
+    raw["schema_version"] = 6
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.servers[0].local_disk_raw_tb == 0.0
+    assert loaded.project.storages[0].is_hci is False
+    assert loaded.project.storages[0].hci_server_uids == []

@@ -43,7 +43,7 @@ def test_import_servers_maps_fields_and_converts_mib_to_gib(tmp_path):
     assert servers[0].cores_per_socket == 24
     assert servers[0].ram_gb == 512  # 524288 MiB / 1024
     assert servers[0].cpu_model == "Intel Xeon Gold 6338"
-    assert servers[0].hyperthreading_enabled is False  # deliberately conservative default
+    assert servers[0].hyperthreading_enabled is False  # fixture has no HT Available/HT Active columns - falls back to the conservative default
 
 
 def test_import_vms_maps_fields_and_converts_mib_to_gib(tmp_path):
@@ -130,3 +130,220 @@ def test_import_vms_populates_ip_address_when_present(tmp_path):
 
     assert vms[0].ip_address == "10.20.1.15"
     assert vms[1].ip_address == ""
+
+
+def test_import_servers_detects_ht_active(tmp_path):
+    """Confirmed against a real RVTools export: HT Available/HT Active
+    are reliably present and correct - a previous version of this
+    importer incorrectly assumed otherwise and always defaulted to HT
+    off with threads_per_core=1, which meant toggling the Hyperthreading
+    checkbox after import had literally no effect (1 thread/core makes
+    the HT-enabled/disabled multiplication a no-op either way)."""
+    path = tmp_path / "ht_on.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory", "HT Available", "HT Active"])
+    vhost.append(["esxi-01", 2, 10, 262144, True, True])
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path)
+
+    assert servers[0].hyperthreading_enabled is True
+    assert servers[0].threads_per_core == 2
+    assert servers[0].effective_cores == 40  # 2 sockets x 10 cores x 2 threads
+
+
+def test_import_servers_ht_available_but_not_active_keeps_thread_width(tmp_path):
+    """HT capable but disabled (e.g. in BIOS) - threads_per_core stays 2
+    (the real SMT width) even though it's currently off, so toggling
+    Hyperthreading back on in the app actually does something instead
+    of being stuck at 1 thread/core forever."""
+    path = tmp_path / "ht_off.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory", "HT Available", "HT Active"])
+    vhost.append(["esxi-01", 2, 10, 262144, True, False])
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path)
+
+    assert servers[0].hyperthreading_enabled is False
+    assert servers[0].threads_per_core == 2
+    assert servers[0].effective_cores == 20  # HT off right now: no doubling
+
+    # Confirm toggling it back on actually works (the whole point of the fix)
+    servers[0].hyperthreading_enabled = True
+    assert servers[0].effective_cores == 40
+
+
+def test_import_servers_no_ht_capability(tmp_path):
+    path = tmp_path / "no_ht.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory", "HT Available", "HT Active"])
+    vhost.append(["esxi-01", 2, 10, 262144, False, False])
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path)
+
+    assert servers[0].hyperthreading_enabled is False
+    assert servers[0].threads_per_core == 1
+    assert servers[0].effective_cores == 20
+
+
+def test_detect_datacenters_single_value(tmp_path):
+    path = tmp_path / "single_dc.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory", "Datacenter"])
+    vinfo.append(["app-01", "poweredOn", 4, 16384, "DC1"])
+    vinfo.append(["app-02", "poweredOn", 2, 8192, "DC1"])
+    wb.save(path)
+
+    dcs = rvtools_import.detect_datacenters(path)
+    assert dcs == ["DC1"]
+
+
+def test_detect_datacenters_multiple_values(tmp_path):
+    path = tmp_path / "multi_dc.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory", "Datacenter"])
+    vinfo.append(["app-01", "poweredOn", 4, 16384, "DC-Primary"])
+    vinfo.append(["app-02", "poweredOn", 2, 8192, "DC-DR"])
+    wb.save(path)
+
+    dcs = rvtools_import.detect_datacenters(path)
+    assert dcs == ["DC-DR", "DC-Primary"]  # sorted
+
+
+def test_detect_datacenters_no_column_returns_empty(tmp_path):
+    path = tmp_path / "no_dc_col.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory"])
+    vinfo.append(["app-01", "poweredOn", 4, 16384])
+    wb.save(path)
+
+    assert rvtools_import.detect_datacenters(path) == []
+
+
+def test_import_servers_picks_up_cluster_name(tmp_path):
+    path = tmp_path / "cluster.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory", "Cluster"])
+    vhost.append(["esxi-01", 2, 10, 262144, "vSAN_HPM"])
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path)
+    assert servers[0].cluster_name == "vSAN_HPM"
+
+
+def test_site_map_routes_servers_and_vms_by_datacenter(tmp_path):
+    path = tmp_path / "sites.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory", "Datacenter"])
+    vhost.append(["esxi-p01", 2, 10, 262144, "DC-Primary"])
+    vhost.append(["esxi-dr01", 2, 10, 262144, "DC-DR"])
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory", "Datacenter"])
+    vinfo.append(["app-01", "poweredOn", 4, 16384, "DC-Primary"])
+    vinfo.append(["dc-01", "poweredOn", 2, 8192, "DC-DR"])
+    wb.save(path)
+
+    site_map = {"DC-Primary": "Primary", "DC-DR": "DR"}
+    servers = rvtools_import.import_servers(path, site_map=site_map)
+    vms = rvtools_import.import_vms(path, site_map=site_map)
+
+    assert {s.name: s.site for s in servers} == {"esxi-p01": "Primary", "esxi-dr01": "DR"}
+    assert {v.name: v.site for v in vms} == {"app-01": "Primary", "dc-01": "DR"}
+
+
+def test_site_map_falls_back_to_default_site_for_unmapped_datacenter(tmp_path):
+    """An unexpected/unmapped Datacenter value must not crash - falls
+    back to the caller's default site instead."""
+    path = tmp_path / "unmapped.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory", "Datacenter"])
+    vhost.append(["esxi-01", 2, 10, 262144, "SomeOtherDC"])
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path, site="Primary", site_map={"DC-Primary": "Primary", "DC-DR": "DR"})
+    assert servers[0].site == "Primary"
+
+
+def test_os_preference_config_file_falls_back_to_tools_when_blank(tmp_path):
+    path = tmp_path / "os_fallback.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append([
+        "VM", "Powerstate", "CPUs", "Memory",
+        "OS according to the configuration file", "OS according to the VMware Tools",
+    ])
+    vinfo.append(["app-01", "poweredOn", 4, 16384, "", "Ubuntu Linux (64-bit)"])
+    wb.save(path)
+
+    vms = rvtools_import.import_vms(path, os_preference="config")
+    assert vms[0].os == "Ubuntu Linux (64-bit)"  # config was blank, fell back to tools
+
+
+def test_os_preference_prefers_the_requested_source_when_both_present(tmp_path):
+    path = tmp_path / "os_both.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append([
+        "VM", "Powerstate", "CPUs", "Memory",
+        "OS according to the configuration file", "OS according to the VMware Tools",
+    ])
+    vinfo.append(["app-01", "poweredOn", 4, 16384, "Windows Server 2012 (64-bit)", "Windows Server 2016 or later (64-bit)"])
+    wb.save(path)
+
+    vms_config = rvtools_import.import_vms(path, os_preference="config")
+    vms_tools = rvtools_import.import_vms(path, os_preference="tools")
+
+    assert vms_config[0].os == "Windows Server 2012 (64-bit)"
+    assert vms_tools[0].os == "Windows Server 2016 or later (64-bit)"
+
+
+def test_import_switches_deduplicates_by_name(tmp_path):
+    path = tmp_path / "switches.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vswitch = wb.create_sheet("vSwitch")
+    vswitch.append(["Host", "Datacenter", "Cluster", "Switch"])
+    vswitch.append(["esxi-01", "DC1", "Cluster1", "vSwitch0"])
+    vswitch.append(["esxi-02", "DC1", "Cluster1", "vSwitch0"])  # same switch, different host
+    vswitch.append(["esxi-01", "DC1", "Cluster1", "vSwitchBMC"])
+    wb.save(path)
+
+    switches = rvtools_import.import_switches(path)
+
+    assert len(switches) == 2
+    names = {sw.name for sw in switches}
+    assert names == {"vSwitch0", "vSwitchBMC"}
+
+
+def test_import_switches_missing_sheet_returns_empty(tmp_path):
+    path = tmp_path / "no_switches.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory"])
+    vinfo.append(["app-01", "poweredOn", 4, 16384])
+    wb.save(path)
+
+    assert rvtools_import.import_switches(path) == []

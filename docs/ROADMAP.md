@@ -1,5 +1,173 @@
 # ROADMAP
 
+## v3.4.0 (HCI/vSAN storage - disks live in the servers, not a separate array)
+
+The user's own real-world case: working with a vSAN cluster where there's
+no dedicated storage array at all, but it's still a real storage pool
+that needs to show up on the Storage tab.
+
+- **New: `Server.local_disk_raw_tb`** - a single simple number (not a
+  full per-disk/cache-vs-capacity-tier breakdown - deliberately scoped
+  down after discussion, to avoid a mini-RAID-calculator's worth of new
+  complexity bolted onto Server for what would often be false
+  precision anyway, given vSAN's actual raw-to-usable math depends on
+  per-VM storage policies).
+- **New: `Storage.is_hci` + `Storage.hci_server_uids`.** When HCI is
+  checked, Raw Capacity is auto-summed from whichever servers are
+  checked in a list on the Storage dialog (each showing its own Local
+  Disk (Raw) value) instead of being typed in directly - Raw Capacity
+  becomes read-only while HCI is active. Usable Capacity stays a manual
+  entry either way, same reasoning as `raid_overhead_percent` already
+  being informational rather than authoritative for traditional arrays
+  - the real shrinkage depends on the storage policy (FTT/erasure
+  coding) in a way this app doesn't try to model exactly. Manual
+  server selection (a checkbox list), not automatic "everyone at this
+  Site" grouping - confirmed directly, since the user specifically
+  wanted to choose which servers count.
+  - `src/calculations/hci_storage.py`'s `compute_hci_raw_capacity()` is
+    the actual sum - pure and testable without Qt. The Storage dialog
+    calls it live as checkboxes change, AND again right before saving
+    (not just trusting whatever's currently displayed), so the
+    persisted number can't go stale regardless of UI interaction
+    timing.
+  - `hci_server_uids` deliberately excluded from the flat CSV schema
+    (same precedent as StorageShelf) - a re-imported Servers CSV
+    generates fresh UIDs each time, so a stored cross-reference would
+    go stale immediately. Full support via `.clsz` and the GUI dialog.
+    A stale/deleted server reference is silently skipped when summing,
+    not an error.
+  - New "Type" column (Traditional/HCI) on the Storage table.
+- New dedicated example, `examples/scenario_vsan_example.clsz` - 3
+  vSAN nodes (30TB local disk each), one HCI Storage entry linking all
+  three (90TB raw, auto-summed and verified to match), 60TB usable
+  entered manually reflecting an FTT=1 mirroring policy. Kept separate
+  from the main `scenario_full_example.clsz` (which already tells a
+  coherent traditional-SAN story) rather than mixing both storage
+  styles into one project.
+- 18 new tests: 6 for `compute_hci_raw_capacity()` (full/partial
+  linking, empty selection, a stale uid skipped gracefully, no servers
+  at all, zero-contribution servers), 2 persistence tests (round-trip,
+  and v6 files predating these fields defaulting correctly) - 152
+  passed total.
+
+## v3.3.2 (Tables: long Notes/OS text was truncated with no way to see the rest)
+
+Reported specifically for the VMs tab (Notes and the new OS column),
+but the root cause was shared by every CRUD table in the app - all of
+them build on one shared view class, `MultiSelectTableView`.
+
+- **Root cause**: `_do_auto_size()` called `resizeColumnsToContents()`
+  (which correctly widens the last column, e.g. Notes/OS, to fit its
+  actual content) and then immediately called
+  `setStretchLastSection(True)` right after, which silently overrode
+  that computed width back down to whatever space was left in the
+  viewport - squeezing a long value and ellipsizing it, with no way to
+  see the rest short of opening the row's edit dialog. The Servers tab
+  happened to look fine anyway, purely because it has enough OTHER
+  columns (rack/power/pricing/etc.) that the table already overflowed
+  the viewport and picked up a horizontal scrollbar as a side effect -
+  not because it was handled any differently.
+- **Fix**: removed `setStretchLastSection` entirely (both the one at
+  construction and the one undoing the resize). A wide table now just
+  grows past the viewport and shows a horizontal scrollbar - the same
+  way a spreadsheet behaves - so any column's full content, not only
+  Notes/OS, is reachable by scrolling right instead of only by opening
+  the item. Added an explicit `setHorizontalScrollBarPolicy(
+  ScrollBarAsNeeded)` so this is a stated design choice, not an
+  implicit default.
+- 2 new tests (test_multi_select_table.py, source-inspection based
+  since the widget can't be instantiated without PySide6 in this
+  sandbox) - guard against the method being called again, and confirm
+  the scrollbar policy is explicit.
+
+## v3.3.1 (Summary tab progress bars: fill didn't match the label)
+
+Found from a screenshot: RAM utilization labeled "65%" but the blue
+fill looked like roughly a third of the bar - "kaže 65% ali pokazuje
+plavu crtu više kao da je na 35%". Two separate, confirmed bugs in
+`SiteCapacityWidget.set_report()`:
+
+- **RAM and Storage bars never had their range updated** away from the
+  constructor's default of 0-200 - a plain percentage (0-100 is "full")
+  rendered against a scale twice too wide, so a healthy 65% visually
+  filled ~32.5% of the bar. Fixed: both now use a clean 0-100 range, so
+  the fill directly matches its own label; an unhealthy >100% reading
+  still shows the true number in the text, it just visually caps the
+  bar rather than leaving a permanent mismatch.
+- **The CPU bar called `setValue()` before `setRange()`** -
+  `QProgressBar.setValue()` clamps the value against whatever range is
+  CURRENT at that exact call, and a later `setRange()` does not
+  retroactively un-clamp an already-stored value. On the first refresh
+  (range still at the constructor's 0-200 default), a 3.0:1 ratio
+  wanting to show 300/400 (75% fill) got clamped to 200 first, then the
+  range widened to 0-400 afterward, landing on a stale 200/400 = 50%
+  fill instead. Fixed by reordering every bar's calls (`setRange()`
+  first, always) as a general defensive practice, not just for CPU.
+- Verified mathematically with a standalone simulation of
+  QProgressBar's real clamping semantics (PySide6 isn't installed in
+  this sandbox, as elsewhere in this project) - confirmed the OLD code
+  produces exactly 32.5% for the reported 65% RAM case, and the NEW
+  code produces exactly 65.0%. 5 new tests
+  (test_site_capacity_widget.py): call-order regression guards for all
+  three bars (source-inspection based, since the widget itself can't
+  be instantiated here), a range-value guard, and the clamping-math
+  simulation itself.
+
+## v3.3.0 (RVTools: a real HT bug fix, OS, Cluster Name, multi-Datacenter sites, Switch import)
+
+- **Fixed a real, confirmed bug**: the dedicated RVTools importer set
+  `threads_per_core=1` for every imported server, on the mistaken
+  assumption (my own error, stated outright in the old code comment)
+  that "RVTools doesn't reliably expose Hyperthreading". It does, via
+  vHost's `HT Available`/`HT Active` columns - confirmed against the
+  user's real export (all 4 hosts: both True). With
+  threads_per_core=1, toggling the Hyperthreading checkbox after import
+  had NO effect at all (1 thread/core makes the HT-enabled/disabled
+  multiplication a no-op either way) - exactly the "uključio HT i ne
+  mrda" (turned it on, nothing moves) symptom reported. Fixed with
+  three-way handling: HT Active -> enabled + threads_per_core=2; HT
+  Available but not Active -> disabled but threads_per_core STAYS 2
+  (preserves the real SMT width so toggling it back on later actually
+  works, matching this app's own "toggle without losing configured
+  width" design intent); neither column present -> old conservative
+  fallback (1 thread/core). Verified end-to-end: the user's real file
+  now correctly shows 40 effective cores per host, not 20.
+- **New: OS field on VirtualMachine.** The RVTools importer can prefer
+  either "OS according to the configuration file" (declared at VM
+  creation, always present) or "OS according to the VMware Tools"
+  (detected live, blank if Tools isn't installed) - falls back to the
+  other automatically when the preferred one is blank for a given VM.
+  Found a real-world case in the user's own file demonstrating exactly
+  why this matters: one VM's config file says "Windows Server 2012",
+  while VMware Tools reports "Windows Server 2016 or later" for the
+  same VM - genuinely different information depending on which source
+  you trust.
+- **New: Cluster Name field on Server.** Simple informational tag
+  (e.g. "vSAN_HPM"), imported directly from vHost's "Cluster" column -
+  no user interaction needed, several servers can share one, unlike
+  Datacenter this never needs a mapping decision.
+- **New: multi-Datacenter site mapping.** RVTools has no Primary/DR
+  concept, but its "Datacenter" column sometimes distinguishes real
+  sites living in one vCenter. `detect_datacenters()` scans the file
+  first - if it finds only one value (the common case), nothing
+  changes: one target site as before. If it finds more than one, the
+  import dialog shows a mapping row per Datacenter found (each ->
+  Primary or DR), and `import_servers()`/`import_vms()`/
+  `import_switches()` all accept an optional `site_map` to route each
+  row to the right site individually, falling back to the dialog's
+  default site for any unmapped value rather than crashing.
+- **New: optional Switch import** from the vSwitch sheet - one
+  NetworkSwitch per distinct switch name found (deduplicated, since the
+  same switch typically appears once per connected host), name only -
+  port counts/speed aren't in a form this app's model can use directly,
+  flagged for manual review. Behind a checkbox in the import dialog,
+  since not everyone wants Network tab entries created automatically.
+  `ProjectService.add_servers_and_vms()` gained an optional `switches`
+  parameter so all three entity types land in one undo step.
+- 25 new tests (22 in test_rvtools_import.py covering all of the above,
+  including the three HT scenarios; CSV round-trip tests for the two
+  new model fields) - 137 passed total.
+
 ## v3.2.0 (Pricing simplified back down - it isn't a quoting tool)
 
 The user's own framing: "netko će ovo koristiti za sebe, a netko za

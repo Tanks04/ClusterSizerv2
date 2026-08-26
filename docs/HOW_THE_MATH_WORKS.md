@@ -71,6 +71,23 @@ still occupies real space on the array). "Usable" capacity is whatever
 you entered on the Storage tab - already net of RAID/erasure-coding
 overhead, which is why nothing here re-applies a RAID percentage again.
 
+For **HCI storage** (vSAN, Storage Spaces Direct, Nutanix AHV, etc. -
+checked via the Storage tab's HCI option), Raw Capacity is auto-summed
+from the linked servers' Local Disk (Raw) field instead of being typed
+in directly:
+
+```
+Raw Capacity = sum of local_disk_raw_tb across whichever servers are checked
+```
+
+Usable Capacity still has to be entered manually either way - the real
+raw-to-usable shrinkage for HCI depends on the storage policy (FTT/
+erasure coding), which varies too much to model exactly, so it's
+treated the same as `raid_overhead_percent` on a traditional array:
+informational, not authoritative. Once Usable is entered, storage
+utilization is calculated exactly the same way regardless of whether
+the storage behind it is a traditional array or an HCI cluster.
+
 ## 5. Hyperthreading - "effective cores"
 
 Each server has its own Hyperthreading Enabled toggle - this app never

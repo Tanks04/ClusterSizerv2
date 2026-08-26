@@ -1,4 +1,6 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -7,6 +9,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPlainTextEdit,
     QDoubleSpinBox,
     QPushButton,
@@ -19,16 +23,19 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.storage import Storage, StorageShelf
+from src.calculations.hci_storage import compute_hci_raw_capacity
 
 
 class StorageDialog(QDialog):
 
-    def __init__(self, storage: Storage | None = None, parent=None):
+    def __init__(self, storage: Storage | None = None, servers: list | None = None, parent=None):
         super().__init__(parent)
+
+        self._servers = servers or []
 
         self.setWindowTitle("Storage")
 
-        self.resize(440, 560)
+        self.resize(440, 620)
 
         # See ServerDialog for why this is scrollable - the form has
         # grown taller than a lot of screens can show at once, with no
@@ -57,6 +64,26 @@ class StorageDialog(QDialog):
 
         self.model_edit = QLineEdit()
         layout.addRow("Model", self.model_edit)
+
+        self.is_hci_check = QCheckBox("HCI (vSAN, Storage Spaces Direct, Nutanix AHV, etc.)")
+        self.is_hci_check.setToolTip(
+            "No separate physical array - the disks live in the servers, "
+            "but the cluster still behaves like one shared storage pool. "
+            "Check which servers contribute below; Raw Capacity is then "
+            "auto-summed from their Local Disk (Raw) field instead of "
+            "typed in directly."
+        )
+        self.is_hci_check.toggled.connect(self._on_hci_toggled)
+        layout.addRow("", self.is_hci_check)
+
+        self.hci_servers_box = QGroupBox("Linked Servers (contribute local disk to Raw Capacity)")
+        hci_servers_layout = QVBoxLayout(self.hci_servers_box)
+        self.hci_servers_list = QListWidget()
+        self.hci_servers_list.setMaximumHeight(120)
+        self.hci_servers_list.itemChanged.connect(self._recalc_hci_raw_capacity)
+        hci_servers_layout.addWidget(self.hci_servers_list)
+        self.hci_servers_box.setVisible(False)
+        outer.addWidget(self.hci_servers_box)
 
         self.raw_spin = QDoubleSpinBox()
         self.raw_spin.setDecimals(2)
@@ -227,6 +254,43 @@ class StorageDialog(QDialog):
         self.overhead_spin.setValue(overhead)
         self.overhead_spin.blockSignals(False)
 
+    def _on_hci_toggled(self, checked: bool) -> None:
+        self.hci_servers_box.setVisible(checked)
+        self.raw_spin.setReadOnly(checked)
+        self.raw_spin.setToolTip(
+            "Auto-summed from the checked servers' Local Disk (Raw) - "
+            "uncheck HCI above to type a value directly." if checked else ""
+        )
+        if checked:
+            self._recalc_hci_raw_capacity()
+
+    def _populate_hci_server_list(self, checked_uids: set[str] | None = None) -> None:
+        checked_uids = checked_uids or set()
+        self.hci_servers_list.blockSignals(True)
+        self.hci_servers_list.clear()
+        for server in self._servers:
+            label = f"{server.name} ({server.site}) - {server.local_disk_raw_tb:g} TB local disk"
+            item = QListWidgetItem(label)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked if server.uid in checked_uids else Qt.CheckState.Unchecked
+            )
+            item.setData(Qt.ItemDataRole.UserRole, server.uid)
+            self.hci_servers_list.addItem(item)
+        self.hci_servers_list.blockSignals(False)
+
+    def _recalc_hci_raw_capacity(self) -> None:
+        checked_uids = [
+            self.hci_servers_list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.hci_servers_list.count())
+            if self.hci_servers_list.item(i).checkState() == Qt.CheckState.Checked
+        ]
+        total = compute_hci_raw_capacity(self._servers, checked_uids)
+        self.raw_spin.blockSignals(True)
+        self.raw_spin.setValue(total)
+        self.raw_spin.blockSignals(False)
+        self._recalc_overhead()
+
     def _add_shelf_row(
         self, name: str = "", rack_units: int = 0, power_watts: float = 0.0, price: float = 0.0,
     ) -> None:
@@ -248,6 +312,11 @@ class StorageDialog(QDialog):
         self.site_combo.setCurrentText(storage.site)
         self.vendor_edit.setText(storage.vendor)
         self.model_edit.setText(storage.model)
+
+        self._populate_hci_server_list(set(storage.hci_server_uids))
+        self.is_hci_check.setChecked(storage.is_hci)
+        self.hci_servers_box.setVisible(storage.is_hci)
+        self.raw_spin.setReadOnly(storage.is_hci)
         self.raw_spin.setValue(storage.raw_capacity_tb)
         self.usable_spin.setValue(storage.usable_capacity_tb)
         self._recalc_overhead()
@@ -279,7 +348,18 @@ class StorageDialog(QDialog):
         storage.site = self.site_combo.currentText()
         storage.vendor = self.vendor_edit.text()
         storage.model = self.model_edit.text()
-        storage.raw_capacity_tb = self.raw_spin.value()
+
+        storage.is_hci = self.is_hci_check.isChecked()
+        checked_uids = [
+            self.hci_servers_list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.hci_servers_list.count())
+            if self.hci_servers_list.item(i).checkState() == Qt.CheckState.Checked
+        ]
+        storage.hci_server_uids = checked_uids
+        storage.raw_capacity_tb = (
+            compute_hci_raw_capacity(self._servers, checked_uids)
+            if storage.is_hci else self.raw_spin.value()
+        )
         storage.usable_capacity_tb = self.usable_spin.value()
         storage.raid_overhead_percent = self.overhead_spin.value()
 

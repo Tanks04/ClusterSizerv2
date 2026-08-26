@@ -20,6 +20,16 @@ class MultiSelectTableView(QTableView):
     a one-shot deferred resizeColumnsToContents() after populating, called
     via auto_size_columns().
 
+    Also deliberately does NOT stretch the last column to fill the
+    viewport (setStretchLastSection) - that silently overrides whatever
+    width resizeColumnsToContents() just computed for it, which mattered
+    a lot for a free-text last column like Notes/OS: a long value got
+    squeezed down to viewport width and ellipsized, with no way to see
+    the rest short of opening the row's edit dialog. Without it, a wide
+    table just grows past the viewport and picks up a horizontal
+    scrollbar (Qt's default ScrollBarAsNeeded policy, made explicit
+    below) - the same way a spreadsheet behaves.
+
     Sorting: setSortingEnabled(True) alone only shows the header arrow -
     a plain QAbstractTableModel doesn't implement sort() itself, so
     clicking a header does nothing to the row order. Call
@@ -42,9 +52,9 @@ class MultiSelectTableView(QTableView):
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.verticalHeader().setVisible(False)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         header = self.horizontalHeader()
-        header.setStretchLastSection(True)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -76,7 +86,6 @@ class MultiSelectTableView(QTableView):
 
     def _do_auto_size(self) -> None:
         self.resizeColumnsToContents()
-        self.horizontalHeader().setStretchLastSection(True)
 
     def set_custom_actions(self, actions: list[tuple[str, "Callable[[], None]"]]) -> None:
         """Extra context-menu actions specific to this page's entity type

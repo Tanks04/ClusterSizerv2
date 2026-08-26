@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 # and "disk_gb" are required for a usable import - the wizard won't let you
 # finish without them mapped to something.
 VM_TARGET_FIELDS = [
-    "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on", "ip_address", "notes",
+    "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on", "ip_address", "os", "notes",
 ]
 
 REQUIRED_VM_FIELDS = {"name", "vcpu", "ram_gb", "disk_gb"}

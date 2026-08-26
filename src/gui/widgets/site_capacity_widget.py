@@ -119,17 +119,34 @@ class SiteCapacityWidget(QFrame):
             f"{report.ram_demand_gb:.0f} GB / {report.disk_demand_gb / 1024:.1f} TB"
         )
 
+        # setRange() BEFORE setValue() everywhere below - QProgressBar
+        # clamps a value to whatever range is CURRENT at the moment
+        # setValue() is called, so calling them in the other order left
+        # the very first refresh stuck showing a stale, wrong-looking
+        # fill (e.g. a 3.0:1 CPU ratio rendering as if it were 1.5:1,
+        # because setValue(300) got clamped against the constructor's
+        # default range of 0-200 a moment before setRange(0, 400) ran).
+        self.cpu_bar.setRange(0, 400)
         self.cpu_bar.setValue(0 if report.cpu_ratio is None else min(round(report.cpu_ratio * 100), 400))
         self.cpu_bar.setFormat("n/a" if report.cpu_ratio is None else f"{report.cpu_ratio:.1f} : 1")
-        self.cpu_bar.setRange(0, 400)
         self.cpu_badge.set_status(report.cpu_status)
 
-        self.ram_bar.setValue(0 if report.ram_ratio is None else min(round(report.ram_ratio * 100), 200))
+        # RAM/Storage are plain percentages (0-100 is "full"), not a
+        # ratio like CPU that's expected to run past 100% - a 0-200
+        # range here (the _bar() constructor's default) made a healthy
+        # 65% look like a third of the bar, not two-thirds. A clean
+        # 0-100 range makes the fill match its own label directly; an
+        # unhealthy >100% reading still shows the true number in the
+        # text, just visually maxes out the bar rather than leaving a
+        # permanent, confusing text-vs-fill mismatch.
+        self.ram_bar.setRange(0, 100)
+        self.ram_bar.setValue(0 if report.ram_ratio is None else min(round(report.ram_ratio * 100), 100))
         self.ram_bar.setFormat("n/a" if report.ram_ratio is None else f"{report.ram_ratio * 100:.0f}%")
         self.ram_badge.set_status(report.ram_status)
 
+        self.storage_bar.setRange(0, 100)
         self.storage_bar.setValue(
-            0 if report.storage_ratio is None else min(round(report.storage_ratio * 100), 200)
+            0 if report.storage_ratio is None else min(round(report.storage_ratio * 100), 100)
         )
         self.storage_bar.setFormat(
             "n/a" if report.storage_ratio is None else f"{report.storage_ratio * 100:.0f}%"

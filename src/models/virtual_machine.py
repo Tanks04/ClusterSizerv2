@@ -44,6 +44,8 @@ class VirtualMachine:
 
     ip_address: str = ""  # guest OS IP, free text (not validated - IPv4/IPv6/hostname all fine)
 
+    os: str = ""  # e.g. "Ubuntu Linux (64-bit)" - free text, whatever the source system reports
+
     notes: str = ""
 
     @property
