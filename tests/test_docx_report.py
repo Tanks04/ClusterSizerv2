@@ -139,3 +139,32 @@ def test_build_docx_report_can_be_saved(tmp_path):
     document.save(output_path)
     assert output_path.exists()
     assert output_path.stat().st_size > 0
+
+
+def test_rack_sizing_shows_numbers_for_on_premise_site():
+    from src.models.server import Server
+    from src.models.cluster_project import PRIMARY
+
+    project = _build_sample_project()
+    server = Server.create_default()
+    server.site = PRIMARY
+    server.rack_units = 2
+    server.power_watts = 500.0
+    project.servers.append(server)
+
+    document = build_docx_report(project, Thresholds())
+    all_text = "\n".join(p.text for p in document.paragraphs)
+
+    assert "Rack Sizing: 2 U, 500 W" in all_text
+
+
+def test_rack_sizing_shows_cloud_for_a_cloud_site():
+    from src.models.cluster_project import CLOUD
+
+    project = _build_sample_project()
+    project.dr_deployment_model = CLOUD
+
+    document = build_docx_report(project, Thresholds())
+    all_text = "\n".join(p.text for p in document.paragraphs)
+
+    assert "Rack Sizing: Cloud (not applicable)" in all_text

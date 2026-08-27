@@ -270,3 +270,34 @@ def test_v6_file_without_hci_fields_defaults_correctly(tmp_path):
     assert loaded.project.servers[0].local_disk_raw_tb == 0.0
     assert loaded.project.storages[0].is_hci is False
     assert loaded.project.storages[0].hci_server_uids == []
+
+
+def test_deployment_model_round_trip(tmp_path):
+    project = ClusterProject(name="Hybrid deployment test")
+    project.dr_deployment_model = "Cloud"
+    path = tmp_path / "hybrid.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.primary_deployment_model == "On-Premise"
+    assert loaded.project.dr_deployment_model == "Cloud"
+
+
+def test_v6_file_without_deployment_model_defaults_to_on_premise(tmp_path):
+    """Files predating this feature have neither field at all - must
+    load fine with the On-Premise default, not crash."""
+    project = ClusterProject(name="Pre-deployment-model")
+    path = tmp_path / "v6f.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["primary_deployment_model"]
+    del raw["dr_deployment_model"]
+    raw["schema_version"] = 6
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.primary_deployment_model == "On-Premise"
+    assert loaded.project.dr_deployment_model == "On-Premise"

@@ -11,6 +11,10 @@ from src.models.maintenance_item import MaintenanceItem
 PRIMARY = "Primary"
 DR = "DR"
 
+DEPLOYMENT_MODELS = ["On-Premise", "Cloud"]
+ON_PREMISE = "On-Premise"
+CLOUD = "Cloud"
+
 
 @dataclass
 class NPlusOneCheck:
@@ -45,6 +49,13 @@ class ClusterProject:
 
     name: str = "New Project"
 
+    # Per-site, not per-project - a hybrid setup (on-prem Primary + cloud
+    # DR, i.e. DRaaS) is common enough in practice that this shouldn't be
+    # a single project-wide toggle. Defaults to On-Premise so every
+    # existing project loads completely unchanged.
+    primary_deployment_model: str = ON_PREMISE
+    dr_deployment_model: str = ON_PREMISE
+
     servers: list[Server] = field(default_factory=list)
     storages: list[Storage] = field(default_factory=list)
     vms: list[VirtualMachine] = field(default_factory=list)
@@ -52,6 +63,14 @@ class ClusterProject:
     connections: list[NetworkConnection] = field(default_factory=list)
     backup_destinations: list[BackupDestination] = field(default_factory=list)
     maintenance_items: list[MaintenanceItem] = field(default_factory=list)
+
+    def deployment_model_for(self, site: str) -> str:
+        """Looks up the right field by site name instead of the caller
+        having to branch on PRIMARY/DR itself everywhere this is needed."""
+        return self.dr_deployment_model if site == DR else self.primary_deployment_model
+
+    def is_cloud(self, site: str) -> bool:
+        return self.deployment_model_for(site) == CLOUD
 
     # ------------------------------------------------------------------
     # Filtering by site

@@ -273,6 +273,16 @@ class ProjectService(QObject):
             server.hyperthreading_enabled = enabled
         self._notify(self.servers_changed)
 
+    def set_primary_deployment_model(self, model: str) -> None:
+        self._push_undo_snapshot()
+        self._project.primary_deployment_model = model
+        self._notify()
+
+    def set_dr_deployment_model(self, model: str) -> None:
+        self._push_undo_snapshot()
+        self._project.dr_deployment_model = model
+        self._notify()
+
     def set_enabled_for_servers(self, servers: list[Server], enabled: bool) -> None:
         """Toggles Server.enabled for a selection - excludes/includes them
         from all capacity math without deleting the server's whole

@@ -178,3 +178,33 @@ def test_hyperthreading_summary_empty_project():
     assert summary.state == "no_servers"
     assert summary.on_count == 0
     assert summary.total_count == 0
+
+
+def test_default_deployment_model_is_on_premise_for_both_sites():
+    project = ClusterProject()
+    assert project.primary_deployment_model == "On-Premise"
+    assert project.dr_deployment_model == "On-Premise"
+    assert project.is_cloud("Primary") is False
+    assert project.is_cloud("DR") is False
+
+
+def test_deployment_model_for_looks_up_the_right_site():
+    from src.models.cluster_project import DR
+
+    project = ClusterProject()
+    project.dr_deployment_model = "Cloud"
+
+    assert project.deployment_model_for(PRIMARY) == "On-Premise"
+    assert project.deployment_model_for(DR) == "Cloud"
+
+
+def test_is_cloud_reflects_per_site_setting_independently():
+    """The exact scenario this exists for - DRaaS: on-prem Primary,
+    cloud DR, in the same project."""
+    from src.models.cluster_project import DR
+
+    project = ClusterProject()
+    project.dr_deployment_model = "Cloud"
+
+    assert project.is_cloud(PRIMARY) is False
+    assert project.is_cloud(DR) is True

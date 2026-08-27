@@ -248,10 +248,19 @@ class SummaryPage(QWidget):
         primary_rack = compute_rack_sizing(project, PRIMARY)
         dr_rack = compute_rack_sizing(project, DR)
 
-        self.card_primary_rack_units.set_value(f"{primary_rack.rack_units} U" if primary_rack.rack_units else "-")
-        self.card_primary_power.set_value(self._format_watts(primary_rack.power_watts))
-        self.card_dr_rack_units.set_value(f"{dr_rack.rack_units} U" if dr_rack.rack_units else "-")
-        self.card_dr_power.set_value(self._format_watts(dr_rack.power_watts))
+        if primary_rack.is_cloud:
+            self.card_primary_rack_units.set_value("Cloud")
+            self.card_primary_power.set_value("Cloud")
+        else:
+            self.card_primary_rack_units.set_value(f"{primary_rack.rack_units} U" if primary_rack.rack_units else "-")
+            self.card_primary_power.set_value(self._format_watts(primary_rack.power_watts))
+
+        if dr_rack.is_cloud:
+            self.card_dr_rack_units.set_value("Cloud")
+            self.card_dr_power.set_value("Cloud")
+        else:
+            self.card_dr_rack_units.set_value(f"{dr_rack.rack_units} U" if dr_rack.rack_units else "-")
+            self.card_dr_power.set_value(self._format_watts(dr_rack.power_watts))
 
         if dr_check.ready is None:
             self.dr_badge.set_status(Status.UNKNOWN)

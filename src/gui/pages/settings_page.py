@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.thresholds import PRESETS
+from src.models.cluster_project import DEPLOYMENT_MODELS
 from src.services.project_service import ProjectService
 
 
@@ -25,8 +26,9 @@ def _ratio_spin(value: float, suffix: str = "") -> QDoubleSpinBox:
 
 
 class SettingsPage(QWidget):
-    """Warning thresholds for oversubscription calculations. Applied
-    immediately on the Summary/VMs pages after clicking 'Apply'."""
+    """Per-site deployment model (On-Premise/Cloud), applied immediately,
+    and warning thresholds for oversubscription calculations, applied on
+    'Apply' - shown on the Summary/VMs pages."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
@@ -45,6 +47,41 @@ class SettingsPage(QWidget):
         )
         info.setWordWrap(True)
         layout.addWidget(info)
+
+        #
+        # Deployment model (per-site - hybrid setups like on-prem
+        # Primary + cloud DR/DRaaS are common)
+        #
+
+        deployment_box = QGroupBox("Deployment Model")
+        deployment_form = QFormLayout(deployment_box)
+
+        deployment_note = QLabel(
+            "Set per site, not per project - a hybrid setup (e.g. on-premise "
+            "Primary with a cloud DR/DRaaS) is common. Currently affects Rack "
+            "Sizing on the Summary page and in the Word report - a Cloud site "
+            "shows \"Cloud\" instead of trying to sum rack units/power, since "
+            "that's not a concept that applies there. Applied immediately."
+        )
+        deployment_note.setWordWrap(True)
+        deployment_note.setStyleSheet("color: #757575; font-style: italic;")
+        deployment_form.addRow(deployment_note)
+
+        self.primary_deployment_combo = QComboBox()
+        self.primary_deployment_combo.addItems(DEPLOYMENT_MODELS)
+        self.primary_deployment_combo.currentTextChanged.connect(
+            lambda text: self.service.set_primary_deployment_model(text)
+        )
+        deployment_form.addRow("Primary Site", self.primary_deployment_combo)
+
+        self.dr_deployment_combo = QComboBox()
+        self.dr_deployment_combo.addItems(DEPLOYMENT_MODELS)
+        self.dr_deployment_combo.currentTextChanged.connect(
+            lambda text: self.service.set_dr_deployment_model(text)
+        )
+        deployment_form.addRow("DR Site", self.dr_deployment_combo)
+
+        layout.addWidget(deployment_box)
 
         #
         # Recommended presets
@@ -143,6 +180,14 @@ class SettingsPage(QWidget):
         )
 
     def _load_from_service(self):
+        self.primary_deployment_combo.blockSignals(True)
+        self.primary_deployment_combo.setCurrentText(self.service.project.primary_deployment_model)
+        self.primary_deployment_combo.blockSignals(False)
+
+        self.dr_deployment_combo.blockSignals(True)
+        self.dr_deployment_combo.setCurrentText(self.service.project.dr_deployment_model)
+        self.dr_deployment_combo.blockSignals(False)
+
         t = self.service.thresholds
         self.cpu_warning_spin.setValue(t.cpu_warning_ratio)
         self.cpu_critical_spin.setValue(t.cpu_critical_ratio)

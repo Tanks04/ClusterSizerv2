@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from src.calculations.thresholds import Thresholds
-from src.models.cluster_project import ClusterProject
+from src.models.cluster_project import ClusterProject, ON_PREMISE
 from src.models.server import Server
 from src.models.storage import Storage, StorageShelf
 from src.models.virtual_machine import VirtualMachine
@@ -38,6 +38,8 @@ def save_project(
     data = {
         "schema_version": SCHEMA_VERSION,
         "name": project.name,
+        "primary_deployment_model": project.primary_deployment_model,
+        "dr_deployment_model": project.dr_deployment_model,
         "servers": [asdict(s) for s in project.servers],
         "storages": [asdict(s) for s in project.storages],
         "vms": [asdict(v) for v in project.vms],
@@ -58,6 +60,8 @@ def load_project(path: str | Path) -> LoadedProject:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
 
     project = ClusterProject(name=raw.get("name", "New Project"))
+    project.primary_deployment_model = raw.get("primary_deployment_model", ON_PREMISE)
+    project.dr_deployment_model = raw.get("dr_deployment_model", ON_PREMISE)
 
     project.servers = [_build(Server, _migrate_price(row)) for row in raw.get("servers", [])]
     project.storages = [_build_storage(row) for row in raw.get("storages", [])]

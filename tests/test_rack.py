@@ -114,3 +114,54 @@ def test_disabled_server_still_counts_toward_rack_sizing():
 
     assert result.rack_units == 2
     assert result.power_watts == 800
+
+
+def test_cloud_site_reports_is_cloud_and_zero():
+    project = ClusterProject()
+    project.dr_deployment_model = "Cloud"
+
+    result = compute_rack_sizing(project, DR)
+
+    assert result.is_cloud is True
+    assert result.rack_units == 0
+    assert result.power_watts == 0.0
+
+
+def test_cloud_site_ignores_leftover_server_rack_data():
+    """A server with real rack/power values on a site flagged Cloud must
+    not get summed - that data is meaningless there (e.g. a leftover
+    from switching a site's deployment model)."""
+    project = ClusterProject()
+    project.dr_deployment_model = "Cloud"
+    project.servers.append(_server(site=DR, rack_units=4, power_watts=1200))
+
+    result = compute_rack_sizing(project, DR)
+
+    assert result.rack_units == 0
+    assert result.power_watts == 0.0
+
+
+def test_on_premise_site_is_not_flagged_cloud():
+    project = ClusterProject()
+    project.servers.append(_server(rack_units=2, power_watts=500))
+
+    result = compute_rack_sizing(project, PRIMARY)
+
+    assert result.is_cloud is False
+    assert result.rack_units == 2
+
+
+def test_hybrid_project_primary_on_prem_dr_cloud():
+    """The exact scenario this feature exists for - DRaaS: on-premise
+    Primary with a cloud DR."""
+    project = ClusterProject()
+    project.dr_deployment_model = "Cloud"
+    project.servers.append(_server(rack_units=2, power_watts=500))  # Primary, default site
+
+    primary_result = compute_rack_sizing(project, PRIMARY)
+    dr_result = compute_rack_sizing(project, DR)
+
+    assert primary_result.is_cloud is False
+    assert primary_result.rack_units == 2
+    assert dr_result.is_cloud is True
+    assert dr_result.rack_units == 0

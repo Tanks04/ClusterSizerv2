@@ -30,6 +30,7 @@ except Exception as _exc:  # noqa: BLE001 - deliberately broad, see message belo
 from src.calculations.sizing import build_reports
 from src.calculations.thresholds import Status, Thresholds
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
+from src.calculations.rack import compute_rack_sizing
 
 
 def _docx_missing_message() -> str:
@@ -200,7 +201,7 @@ def _cluster_section(document: Document, project: ClusterProject, thresholds: Th
 
     primary, dr, dr_check = build_reports(project, thresholds)
 
-    for label, report in (("Primary Site", primary), ("DR Site", dr)):
+    for label, site, report in (("Primary Site", PRIMARY, primary), ("DR Site", DR, dr)):
         document.add_heading(label, level=2)
 
         rows = [
@@ -217,6 +218,14 @@ def _cluster_section(document: Document, project: ClusterProject, thresholds: Th
             p = document.add_paragraph()
             p.add_run(f"{name}: ").bold = True
             p.add_run(value)
+
+        rack = compute_rack_sizing(project, site)
+        p = document.add_paragraph()
+        p.add_run("Rack Sizing: ").bold = True
+        if rack.is_cloud:
+            p.add_run("Cloud (not applicable)")
+        else:
+            p.add_run(f"{rack.rack_units} U, {rack.power_watts:.0f} W" if rack.rack_units else "n/a")
 
         for metric_name, ratio, status, as_percent in (
             ("CPU oversubscription", report.cpu_ratio, report.cpu_status, False),

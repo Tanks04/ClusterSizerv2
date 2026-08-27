@@ -1,5 +1,67 @@
 # ROADMAP
 
+## v3.6.0 (Deployment Model per site - Step 1 of cloud support; CI fix)
+
+- **New: per-site Deployment Model (On-Premise / Cloud)** on
+  Settings, applied immediately (not batched with the threshold Apply
+  button). Deliberately per-SITE, not per-project - a hybrid setup
+  (on-premise Primary with a cloud DR, i.e. DRaaS) is extremely
+  common in practice, and this gets that case "for free": setting
+  both sites to the same model covers the simple case, setting them
+  differently covers the hybrid one, with no extra concept needed.
+  `ClusterProject.deployment_model_for(site)` / `.is_cloud(site)` are
+  the lookup helpers other code uses instead of branching on
+  PRIMARY/DR itself. Defaults to On-Premise for both sites, so every
+  existing project loads completely unchanged.
+- **First real effect**: Rack Sizing. Rack units/power draw is a
+  physical-hardware concept that's simply meaningless for a site
+  whose compute lives in someone else's data center -
+  `compute_rack_sizing()` now returns an `is_cloud` flag and, when
+  true, doesn't even try to sum whatever Server/Storage/Switch rows
+  might exist there (e.g. leftovers from switching a site's model
+  after the fact) - just reports zero. Both the Summary page's Rack
+  Sizing cards and the Word report now show "Cloud" instead of a
+  number for a cloud-flagged site.
+  - Along the way, found and closed an old gap: the Word report never
+    had a Rack Sizing section at all, something flagged as missing
+    back in the v3.0.0 report-gaps list and never revisited since -
+    added now, with the cloud handling built in from the start rather
+    than as an afterthought.
+- This is explicitly scoped as Step 1 only, discussed and agreed on
+  directly - broader cloud terminology changes (Server fields,
+  pricing model, tab labels) are deliberately deferred until this
+  narrow first step is validated in real use, rather than guessing at
+  a large redesign upfront. A "Project Planning" wizard idea (guided
+  Q&A to bootstrap a brand-new project) was also discussed and
+  explicitly dropped - no reliable way to recommend specific resource
+  numbers without guessing, which isn't a trade-off worth making.
+- **CI fix**: GitHub Actions started failing outright on the four
+  real-Qt test files added in v3.5.0 - `ImportError: libEGL.so.1:
+  cannot open shared object file`. `pip install PySide6` only
+  installs the Python packages; the native Qt/EGL shared libraries it
+  links against at import time (confirmed via `ldd` against the
+  actual installed PySide6 build: libEGL, libGL/libGLX/libGLdispatch,
+  libxkbcommon, libxcb, libdbus-1, libfontconfig, libX11 and a few
+  X11 support libs) come from the OS package manager, not pip, and a
+  bare `ubuntu-latest` runner doesn't have them preinstalled. Added an
+  `apt-get install` step to the workflow before the Python dependency
+  install - all 19 package names verified to actually resolve via a
+  real `apt-get install --dry-run` against archive.ubuntu.com on
+  Ubuntu 24.04 "noble" (what `ubuntu-latest` currently is), not
+  guessed. `QT_QPA_PLATFORM=offscreen` (already set for the test step
+  since v3.5.0) needs those libraries to even be importable in the
+  first place, regardless of not needing a real display.
+- main.py now carries a version comment at the very top
+  (`# ClusterSizer vX.Y.Z - see src/version.py for the single source
+  of truth`), kept in sync on every future version bump, per direct
+  request.
+- 16 new tests across deployment-model persistence, rack sizing (both
+  the pure calculation and a false-positive caught and fixed in a
+  first draft - a test that placed its server on the wrong site,
+  passing for the wrong reason), the Word report section, and two new
+  real-Qt UI test files for the Settings and Summary pages - 181
+  passed total.
+
 ## v3.5.0 (Firewall/Load Balancer support, and PySide6 finally testable)
 
 - **Network tab now supports Firewalls and Load Balancers**, not just
