@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from src.services.project_service import ProjectService
 from src.persistence.project_repository import FILE_EXTENSION
+from src.persistence import recent_files
 from src.version import VERSION as APP_VERSION
 from src.persistence.csv_io import CsvSchemaError
 
@@ -92,6 +93,11 @@ class MainWindow(QMainWindow):
         )
         save_scenario_action.triggered.connect(self._save_scenario_copy)
         file_menu.addAction(save_scenario_action)
+
+        file_menu.addSeparator()
+
+        self.recent_files_menu = file_menu.addMenu("Recent Files")
+        self.recent_files_menu.aboutToShow.connect(self._populate_recent_files_menu)
 
         file_menu.addSeparator()
 
@@ -245,8 +251,57 @@ class MainWindow(QMainWindow):
 
         try:
             self.project_service.load_project(path)
+            recent_files.add_recent_file(path)
         except Exception as exc:
             report_error(self, "Open Error", exc)
+
+    def _populate_recent_files_menu(self):
+        """Rebuilt every time the submenu is about to show (QMenu.
+        aboutToShow), rather than once at startup, so it always
+        reflects whatever was most recently opened/saved - including
+        during this same session."""
+        self.recent_files_menu.clear()
+
+        paths = recent_files.load_recent_files()
+        if not paths:
+            empty_action = QAction("(No recent files)", self)
+            empty_action.setEnabled(False)
+            self.recent_files_menu.addAction(empty_action)
+            return
+
+        for path in paths:
+            label = Path(path).name
+            action = QAction(label, self)
+            action.setToolTip(path)
+            action.triggered.connect(lambda checked=False, p=path: self._open_recent_file(p))
+            self.recent_files_menu.addAction(action)
+
+        self.recent_files_menu.addSeparator()
+        clear_action = QAction("Clear Recent Files", self)
+        clear_action.triggered.connect(self._clear_recent_files)
+        self.recent_files_menu.addAction(clear_action)
+
+    def _open_recent_file(self, path: str):
+        if not self._confirm_discard_if_dirty():
+            return
+
+        if not Path(path).exists():
+            QMessageBox.warning(
+                self, "File Not Found",
+                f"{path}\n\nThis file no longer exists at that location - "
+                "removing it from Recent Files.",
+            )
+            recent_files.remove_recent_file(path)
+            return
+
+        try:
+            self.project_service.load_project(path)
+            recent_files.add_recent_file(path)
+        except Exception as exc:
+            report_error(self, "Open Error", exc)
+
+    def _clear_recent_files(self):
+        recent_files.clear_recent_files()
 
     def _save_project(self):
         if self.project_service.current_path is None:
@@ -255,6 +310,7 @@ class MainWindow(QMainWindow):
 
         try:
             self.project_service.save_project()
+            recent_files.add_recent_file(self.project_service.current_path)
             self._update_title()
         except Exception as exc:
             report_error(self, "Save Error", exc)
@@ -274,6 +330,7 @@ class MainWindow(QMainWindow):
 
         try:
             self.project_service.save_project(path)
+            recent_files.add_recent_file(path)
             self._update_title()
         except Exception as exc:
             report_error(self, "Save Error", exc)

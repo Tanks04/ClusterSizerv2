@@ -31,6 +31,28 @@ from src.models.network_switch import NetworkSwitch
 
 MIB_PER_GIB = 1024
 
+# Real servers are built from a short, well-known list of standard RAM
+# configurations (driven by DIMM slot count x DIMM size) - a host never
+# actually has, say, 383GB installed. RVTools/vCenter's reported host
+# memory can include some overhead beyond what's physically installed
+# (confirmed on a real export: 383.7GB reported for hosts the customer
+# confirmed have 256GB of DIMMs - a ~127GB gap neither "Memory Tiering"
+# (checked: off) nor anything else in the export could explain). Round
+# UP to the nearest known configuration instead of keeping the odd
+# exact figure - the nearest at-or-above value, not nearest-either-way,
+# since a host can't have LESS installed than what vCenter measured.
+KNOWN_SERVER_RAM_GB = [
+    8, 16, 32, 64, 96, 128, 192, 256, 384, 512, 768,
+    1024, 1536, 2048, 3072, 4096, 6144, 8192,
+]
+
+
+def round_up_to_known_ram_gb(raw_gb: float) -> int:
+    for known in KNOWN_SERVER_RAM_GB:
+        if known >= raw_gb:
+            return known
+    return round(raw_gb)  # bigger than the whole known list - keep as reported rather than guess further
+
 
 class RVToolsImportError(ValueError):
     pass
@@ -191,7 +213,7 @@ def import_servers(
                 server.threads_per_core = 1
                 server.hyperthreading_enabled = False
             ram_mib = _cell(row, col_ram_mib)
-            server.ram_gb = int(float(ram_mib) / MIB_PER_GIB) if ram_mib else 0
+            server.ram_gb = round_up_to_known_ram_gb(float(ram_mib) / MIB_PER_GIB) if ram_mib else 0
             cpu_model = _cell(row, col_cpu_model)
             if cpu_model:
                 server.cpu_model = str(cpu_model)

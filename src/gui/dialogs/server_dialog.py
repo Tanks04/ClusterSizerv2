@@ -173,7 +173,7 @@ class ServerDialog(QDialog):
         self.ram_spin = QSpinBox()
 
         self.ram_spin.setRange(1, 32768)
-        self.ram_spin.setSingleStep(1024)  # common DIMM-friendly increment
+        self.ram_spin.setSingleStep(32)  # one DIMM-sized increment
 
         self.ram_spin.setSuffix(" GB")
 
@@ -243,6 +243,7 @@ class ServerDialog(QDialog):
         self.local_disk_spin = QDoubleSpinBox()
         self.local_disk_spin.setRange(0.0, 10000.0)
         self.local_disk_spin.setDecimals(2)
+        self.local_disk_spin.setSingleStep(1.0)
         self.local_disk_spin.setSuffix(" TB")
         self.local_disk_spin.setSpecialValueText("(not set)")
         self.local_disk_spin.setToolTip(

@@ -347,3 +347,54 @@ def test_import_switches_missing_sheet_returns_empty(tmp_path):
     wb.save(path)
 
     assert rvtools_import.import_switches(path) == []
+
+
+def test_round_up_to_known_ram_gb_matches_the_real_discrepancy_found():
+    """The exact case that motivated this: a real export reported
+    383.7GB for hosts confirmed to have 256GB of DIMMs installed -
+    round up to the nearest standard config (384GB) instead of keeping
+    the odd exact figure."""
+    assert rvtools_import.round_up_to_known_ram_gb(383.68) == 384
+
+
+def test_round_up_to_known_ram_gb_exact_match_stays_unchanged():
+    assert rvtools_import.round_up_to_known_ram_gb(256.0) == 256
+
+
+def test_round_up_to_known_ram_gb_rounds_a_nonstandard_value_up():
+    assert rvtools_import.round_up_to_known_ram_gb(200) == 256
+
+
+def test_round_up_to_known_ram_gb_beyond_known_list_keeps_reported_value():
+    assert rvtools_import.round_up_to_known_ram_gb(10000) == 10000
+
+
+def test_import_servers_rounds_ram_to_known_config(tmp_path):
+    path = tmp_path / "ram_round.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vhost = wb.create_sheet("vHost")
+    vhost.append(["Host", "# CPU", "Cores per CPU", "# Memory"])
+    vhost.append(["esxi-01", 2, 16, 392888])  # 383.68 GiB raw
+    wb.save(path)
+
+    servers = rvtools_import.import_servers(path)
+
+    assert servers[0].ram_gb == 384
+
+
+def test_import_vms_ram_is_not_rounded_to_known_server_configs(tmp_path):
+    """VMs aren't built from physical DIMMs - a VM can legitimately have
+    any RAM allocation, so this rounding must only apply to Server
+    imports, never VM imports."""
+    path = tmp_path / "vm_ram.xlsx"
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    vinfo = wb.create_sheet("vInfo")
+    vinfo.append(["VM", "Powerstate", "CPUs", "Memory"])
+    vinfo.append(["app-01", "poweredOn", 2, 6144])  # 6 GiB - not a "known server RAM" value
+    wb.save(path)
+
+    vms = rvtools_import.import_vms(path)
+
+    assert vms[0].ram_gb == 6  # exact, untouched

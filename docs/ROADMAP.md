@@ -1,5 +1,84 @@
 # ROADMAP
 
+## v3.7.0 (Recent Files; two real HCI dialog bugs found from live testing)
+
+- **New: Recent Files** (File menu) - remembers the last 5 opened/
+  saved project paths, most-recently-used first, persisted to
+  `~/.clustersizer/recent_files.json` (same app-data directory the
+  crash log already uses - separate from any .clsz project). Rebuilt
+  every time the submenu is about to show, so it's always current
+  within the same session too. Re-opening/re-saving a file already in
+  the list bumps it to the front rather than duplicating it. Opening
+  an entry whose file no longer exists shows a clear message and
+  removes it from the list automatically rather than leaving a dead
+  entry behind. "Clear Recent Files" included. Deliberately does NOT
+  track Save Scenario Copy As - that saves a comparison snapshot, not
+  something meant to become the active project again via a quick
+  reopen.
+- **Fixed two real bugs in the Storage dialog's HCI section**, found
+  from live use after the v3.6.1 fixes shipped:
+  - **Raw Capacity could still be nudged via the spinner arrows or
+    mouse wheel while HCI was checked**, despite being meant to be
+    fully auto-computed and locked. Root cause: `setReadOnly()` on a
+    QDoubleSpinBox only blocks keyboard typing in Qt - it does NOT
+    block the up/down step buttons or wheel scrolling. Switched to
+    `setEnabled()`, which properly blocks all real user interaction
+    (confirmed the distinction matters: calling `.stepUp()` directly
+    in Python bypasses Qt's input layer entirely either way, so that
+    alone can't tell the two apart - the real difference is in actual
+    mouse/keyboard interaction, which `setEnabled()` correctly locks).
+  - **Usable Capacity stayed stuck at its 80.0 default** (sized for a
+    traditional array, from before HCI existed) even after Raw
+    Capacity auto-summed to something much smaller from real servers
+    (e.g. 0, or 32 after adding local disk) - silently describing a
+    physically impossible usable-exceeds-raw array. Now resets to 0.0
+    the moment HCI is freshly checked, but ONLY if it's still sitting
+    at the untouched 80.0 default - never clobbers a value the user
+    (or a previously saved project) actually set, verified specifically
+    for the edit-existing-HCI-storage case where the real saved value
+    loads moments after the same toggle fires.
+- 13 new tests: 8 for Recent Files persistence, 5 for its MainWindow/
+  menu integration (missing-file handling via a mocked QMessageBox,
+  since a real one would block waiting for a click in a test), plus 4
+  for the two dialog bugs (one superseding an old test that had been
+  asserting the ineffective `isReadOnly()` check) - 208 passed total.
+
+## v3.6.1 (HCI list scrolling, RAM rounded to known configs, finer spinbox steps)
+
+- **Fixed**: the Storage dialog's HCI "Linked Servers" checklist only
+  showed ~2 servers at once with no visible way to scroll, found using
+  a real 4-server vSAN cluster - `setMaximumHeight(120)` plus the
+  default "as needed" scrollbar policy meant the scrollbar was easy to
+  miss sitting inside the dialog's own outer scroll area, forcing arrow
+  keys to reach the rest of the list. Now `setMinimumHeight(160)` (fits
+  ~7 servers without scrolling) with `ScrollBarAlwaysOn` so it's
+  discoverable once there are more than that.
+- **New: `round_up_to_known_ram_gb()`** in the RVTools importer. Found
+  investigating a real report: RVTools showed 383.7GB host memory for
+  hosts confirmed to have 256GB of physical DIMMs installed - checked
+  and ruled out vSphere Memory Tiering (explicitly `noTiering` in the
+  export) as the cause, but couldn't pin down the exact source of the
+  ~127GB gap from the export data alone. Real servers are built from a
+  short, well-known list of standard RAM configurations (128/192/256/
+  384/512/768GB, etc. - doubling/1.5x steps driven by DIMM slot count x
+  DIMM size) - a host never actually has an odd figure like 383GB
+  installed. Rounds UP to the nearest known configuration at-or-above
+  the reported value (383.7 -> 384, not down to 256), since a host
+  can't have LESS installed than what vCenter measured. Scoped to
+  Server imports only, deliberately NOT applied to VM RAM (a VM isn't
+  built from physical DIMMs and can legitimately have any RAM
+  allocation - rounding those would be wrong).
+- **Spinbox step sizes**: Server RAM now steps by 32 (one DIMM
+  increment) instead of the previous 1024, which was too coarse for
+  fine adjustment. Storage's Raw/Usable Capacity and Server's Local
+  Disk (Raw) - all TB-denominated - now step by 1.0 instead of Qt's
+  default of 1 unit at 2 decimal places (effectively 0.01), matching
+  how these fields actually get sized in practice.
+- 21 new tests: 6 for `round_up_to_known_ram_gb()` and the RVTools
+  Server/VM RAM scoping (including the exact 383.7GB real-world case),
+  1 for the HCI list scrollbar fix, 4 for the new spinbox step sizes -
+  192 passed total.
+
 ## v3.6.0 (Deployment Model per site - Step 1 of cloud support; CI fix)
 
 - **New: per-site Deployment Model (On-Premise / Cloud)** on

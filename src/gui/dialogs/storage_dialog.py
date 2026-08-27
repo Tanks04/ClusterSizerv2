@@ -79,7 +79,9 @@ class StorageDialog(QDialog):
         self.hci_servers_box = QGroupBox("Linked Servers (contribute local disk to Raw Capacity)")
         hci_servers_layout = QVBoxLayout(self.hci_servers_box)
         self.hci_servers_list = QListWidget()
-        self.hci_servers_list.setMaximumHeight(120)
+        self.hci_servers_list.setMinimumHeight(160)
+        self.hci_servers_list.setMaximumHeight(220)
+        self.hci_servers_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.hci_servers_list.itemChanged.connect(self._recalc_hci_raw_capacity)
         hci_servers_layout.addWidget(self.hci_servers_list)
         self.hci_servers_box.setVisible(False)
@@ -88,6 +90,7 @@ class StorageDialog(QDialog):
         self.raw_spin = QDoubleSpinBox()
         self.raw_spin.setDecimals(2)
         self.raw_spin.setRange(0.0, 100000.0)
+        self.raw_spin.setSingleStep(1.0)
         self.raw_spin.setSuffix(" TB")
         self.raw_spin.setValue(100.0)
         self.raw_spin.valueChanged.connect(self._recalc_overhead)
@@ -96,6 +99,7 @@ class StorageDialog(QDialog):
         self.usable_spin = QDoubleSpinBox()
         self.usable_spin.setDecimals(2)
         self.usable_spin.setRange(0.0, 100000.0)
+        self.usable_spin.setSingleStep(1.0)
         self.usable_spin.setSuffix(" TB")
         self.usable_spin.setValue(80.0)
         self.usable_spin.valueChanged.connect(self._recalc_overhead)
@@ -254,9 +258,16 @@ class StorageDialog(QDialog):
         self.overhead_spin.setValue(overhead)
         self.overhead_spin.blockSignals(False)
 
+    _UNTOUCHED_USABLE_DEFAULT = 80.0  # matches the QDoubleSpinBox's own construction-time default below
+
     def _on_hci_toggled(self, checked: bool) -> None:
         self.hci_servers_box.setVisible(checked)
-        self.raw_spin.setReadOnly(checked)
+        # setReadOnly() alone does NOT block the spinner's up/down
+        # buttons or mouse-wheel stepping in Qt - only direct keyboard
+        # typing. A user could still nudge Raw Capacity via the arrows
+        # even though it's meant to be fully auto-computed while HCI is
+        # checked. setEnabled() properly blocks all of that.
+        self.raw_spin.setEnabled(not checked)
         self.raw_spin.setToolTip(
             "Auto-summed from the checked servers' Local Disk (Raw) - "
             "uncheck HCI above to type a value directly." if checked else ""
@@ -271,6 +282,18 @@ class StorageDialog(QDialog):
                 # whatever was already checked.
                 self._populate_hci_server_list()
             self._recalc_hci_raw_capacity()
+            # The 80.0 default (a leftover from the pre-HCI days, sized
+            # for a traditional array) becomes actively misleading once
+            # Raw Capacity auto-sums to something much smaller from real
+            # servers - "80TB usable" sitting next to "0TB" or "32TB raw"
+            # looks like a real number but describes a physically
+            # impossible array. Only reset it if it's still the
+            # untouched default - never clobber a value the user already
+            # typed themselves, in this session or a previously saved one
+            # (load() sets the real saved value AFTER this fires, so an
+            # existing HCI storage being edited ends up correct either way).
+            if self.usable_spin.value() == self._UNTOUCHED_USABLE_DEFAULT:
+                self.usable_spin.setValue(0.0)
 
     def _populate_hci_server_list(self, checked_uids: set[str] | None = None) -> None:
         checked_uids = checked_uids or set()

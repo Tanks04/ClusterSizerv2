@@ -29,6 +29,17 @@ or the tender is written**.
 
 ## Features
 
+- **Deployment Model (On-Premise / Cloud), per site** — a hybrid setup
+  (on-premise Primary with a cloud DR, i.e. DRaaS) is common enough in
+  practice that this is set per site, not per project; set both the
+  same for a simple all-on-prem or all-cloud project. Set on the
+  Settings page, applied immediately. Currently affects Rack Sizing
+  (Summary page and the Word report show "Cloud" instead of trying to
+  sum rack units/power for a site where that's not a physical concept)
+  - this is a first, deliberately narrow step, not full cloud-specific
+  modeling throughout the app (see `docs/ROADMAP.md` v3.6.0 for what's
+  in scope now vs deferred). See `examples/scenario_draas_example.clsz`
+  for a worked hybrid example.
 - **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, IP
   address, NIC inventory (incl. direct-attach SAS), and a Hyperthreading
   toggle that actually affects CPU oversubscription math (HT-adjusted
@@ -132,6 +143,8 @@ or the tender is written**.
 - Multi-select everywhere (Ctrl/Shift-click, Delete, right-click → Edit/
   Copy/Delete), strictly-typed CSV import (each tab only accepts its own
   format), a "Clear All" button per tab, project save/load (`.clsz`, JSON).
+- **File → Recent Files** — the last 5 opened/saved projects, most-recent
+  first, so you don't have to browse to the same file over and over.
 
 ## Scope & Assumptions
 
