@@ -7,6 +7,7 @@ from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
+from src.models.vlan import Vlan
 
 PRIMARY = "Primary"
 DR = "DR"
@@ -56,6 +57,15 @@ class ClusterProject:
     primary_deployment_model: str = ON_PREMISE
     dr_deployment_model: str = ON_PREMISE
 
+    # How many rack units are AVAILABLE at each site - separate from
+    # compute_rack_sizing(), which only sums how many are USED by
+    # entered equipment. 0 = not entered (Rack Sizing just shows the
+    # used figure with no "of how many" context, same as before this
+    # existed). DR is very often a smaller rack than Primary in
+    # practice, hence per-site rather than one project-wide number.
+    primary_rack_capacity_u: int = 0
+    dr_rack_capacity_u: int = 0
+
     servers: list[Server] = field(default_factory=list)
     storages: list[Storage] = field(default_factory=list)
     vms: list[VirtualMachine] = field(default_factory=list)
@@ -63,6 +73,7 @@ class ClusterProject:
     connections: list[NetworkConnection] = field(default_factory=list)
     backup_destinations: list[BackupDestination] = field(default_factory=list)
     maintenance_items: list[MaintenanceItem] = field(default_factory=list)
+    vlans: list[Vlan] = field(default_factory=list)
 
     def deployment_model_for(self, site: str) -> str:
         """Looks up the right field by site name instead of the caller
@@ -71,6 +82,9 @@ class ClusterProject:
 
     def is_cloud(self, site: str) -> bool:
         return self.deployment_model_for(site) == CLOUD
+
+    def rack_capacity_u_for(self, site: str) -> int:
+        return self.dr_rack_capacity_u if site == DR else self.primary_rack_capacity_u
 
     # ------------------------------------------------------------------
     # Filtering by site

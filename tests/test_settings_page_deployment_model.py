@@ -45,3 +45,33 @@ def test_change_is_undoable():
 
     service.undo()
     assert service.project.primary_deployment_model == "On-Premise"
+
+
+def test_rack_capacity_defaults_to_zero():
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    assert page.primary_rack_capacity_spin.value() == 0
+    assert page.dr_rack_capacity_spin.value() == 0
+
+
+def test_changing_rack_capacity_applies_immediately():
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    page.primary_rack_capacity_spin.setValue(84)
+
+    assert service.project.primary_rack_capacity_u == 84
+    assert service.project.dr_rack_capacity_u == 0  # unaffected
+
+
+def test_rack_capacity_change_is_undoable():
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    page.dr_rack_capacity_spin.setValue(24)
+    assert service.project.dr_rack_capacity_u == 24
+
+    service.undo()
+
+    assert service.project.dr_rack_capacity_u == 0

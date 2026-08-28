@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import uuid
 
-DESTINATION_TYPES = ["NAS", "Disk Appliance", "Storage Array", "Offsite", "Tape / Offline"]
+DESTINATION_TYPES = ["NAS", "Disk Appliance", "Storage Array", "Offsite", "Cloud", "Tape / Offline"]
 
 
 @dataclass
@@ -28,6 +28,8 @@ class BackupDestination:
 
     # Pricing (EUR) - see Server.price for the reasoning.
     price: float = 0.0
+
+    location: str = ""  # free text - e.g. "Azure Blob Storage - West Europe", "Iron Mountain Vault Zagreb" - the Primary/DR site above doesn't capture WHICH cloud region or WHICH offsite facility
 
     notes: str = ""
 

@@ -165,3 +165,76 @@ def test_hybrid_project_primary_on_prem_dr_cloud():
     assert primary_result.rack_units == 2
     assert dr_result.is_cloud is True
     assert dr_result.rack_units == 0
+
+
+def test_rack_capacity_u_for_defaults_to_zero():
+    project = ClusterProject()
+    assert project.rack_capacity_u_for(PRIMARY) == 0
+    assert project.rack_capacity_u_for(DR) == 0
+
+
+def test_rack_capacity_u_for_looks_up_the_right_site():
+    project = ClusterProject()
+    project.primary_rack_capacity_u = 84
+    project.dr_rack_capacity_u = 24
+
+    assert project.rack_capacity_u_for(PRIMARY) == 84
+    assert project.rack_capacity_u_for(DR) == 24
+
+
+def test_capacity_u_flows_through_to_the_summary():
+    project = ClusterProject()
+    project.primary_rack_capacity_u = 84
+    project.servers.append(_server(rack_units=12))
+
+    result = compute_rack_sizing(project, PRIMARY)
+
+    assert result.capacity_u == 84
+    assert result.rack_units == 12
+
+
+def test_over_capacity_true_when_used_exceeds_capacity():
+    project = ClusterProject()
+    project.primary_rack_capacity_u = 10
+    project.servers.append(_server(rack_units=12))
+
+    result = compute_rack_sizing(project, PRIMARY)
+
+    assert result.over_capacity is True
+
+
+def test_over_capacity_false_when_within_capacity():
+    project = ClusterProject()
+    project.primary_rack_capacity_u = 84
+    project.servers.append(_server(rack_units=12))
+
+    result = compute_rack_sizing(project, PRIMARY)
+
+    assert result.over_capacity is False
+
+
+def test_over_capacity_false_when_capacity_not_entered():
+    """0/not-entered means nothing to compare against - never flagged
+    as over, no matter how much is used."""
+    project = ClusterProject()
+    project.servers.append(_server(rack_units=999))
+
+    result = compute_rack_sizing(project, PRIMARY)
+
+    assert result.capacity_u == 0
+    assert result.over_capacity is False
+
+
+def test_cloud_site_still_reports_its_capacity_u_even_though_rack_units_is_zero():
+    """Capacity is a site setting independent of whether the site is
+    cloud - useful if a site later switches from Cloud back to
+    On-Premise without losing the previously-entered capacity."""
+    project = ClusterProject()
+    project.dr_deployment_model = "Cloud"
+    project.dr_rack_capacity_u = 24
+
+    result = compute_rack_sizing(project, DR)
+
+    assert result.is_cloud is True
+    assert result.rack_units == 0
+    assert result.capacity_u == 24

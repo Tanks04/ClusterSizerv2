@@ -1,6 +1,10 @@
 {
   "schema_version": 7,
   "name": "Primary+DR with Mixed HT, Storage & Network",
+  "primary_deployment_model": "On-Premise",
+  "dr_deployment_model": "On-Premise",
+  "primary_rack_capacity_u": 42,
+  "dr_rack_capacity_u": 12,
   "servers": [
     {
       "uid": "dd14a291-9db5-471a-b0b8-0f944e2a4b01",
@@ -18,6 +22,10 @@
       "warranty_expiry": "2027-06-01",
       "ip_address": "",
       "cluster_name": "",
+      "serial_number": "SN-P01-88213",
+      "bmc_ip": "10.10.1.50",
+      "hypervisor_vendor": "VMware (ESXi / vSphere)",
+      "hypervisor_version": "8.0 U2",
       "rack_units": 2,
       "power_watts": 800.0,
       "hyperthreading_enabled": false,
@@ -49,6 +57,10 @@
       "warranty_expiry": "2027-06-01",
       "ip_address": "",
       "cluster_name": "",
+      "serial_number": "SN-P02-88214",
+      "bmc_ip": "10.10.1.51",
+      "hypervisor_vendor": "VMware (ESXi / vSphere)",
+      "hypervisor_version": "8.0 U2",
       "rack_units": 2,
       "power_watts": 800.0,
       "hyperthreading_enabled": false,
@@ -80,6 +92,10 @@
       "warranty_expiry": "",
       "ip_address": "",
       "cluster_name": "",
+      "serial_number": "SN-DR01-77102",
+      "bmc_ip": "10.20.1.50",
+      "hypervisor_vendor": "VMware (ESXi / vSphere)",
+      "hypervisor_version": "8.0 U1",
       "rack_units": 2,
       "power_watts": 850.0,
       "hyperthreading_enabled": true,
@@ -169,6 +185,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -186,6 +203,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -203,6 +221,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "12b971cb-a5bc-4a5f-a4af-43ae69373e02",
       "notes": ""
     },
     {
@@ -220,6 +239,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "12b971cb-a5bc-4a5f-a4af-43ae69373e02",
       "notes": ""
     },
     {
@@ -237,6 +257,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -254,6 +275,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "12b971cb-a5bc-4a5f-a4af-43ae69373e02",
       "notes": ""
     },
     {
@@ -271,6 +293,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -288,6 +311,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "12b971cb-a5bc-4a5f-a4af-43ae69373e02",
       "notes": ""
     },
     {
@@ -305,6 +329,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -322,6 +347,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -339,6 +365,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -356,6 +383,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -373,6 +401,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -390,6 +419,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -407,6 +437,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -424,6 +455,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -441,6 +473,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -458,6 +491,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -475,6 +509,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -492,6 +527,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -509,6 +545,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -526,6 +563,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -543,6 +581,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -560,6 +599,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -577,6 +617,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -594,6 +635,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -611,6 +653,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -628,6 +671,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -645,6 +689,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -662,6 +707,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -679,6 +725,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "12b971cb-a5bc-4a5f-a4af-43ae69373e02",
       "notes": ""
     },
     {
@@ -696,6 +743,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -713,6 +761,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -730,6 +779,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -747,6 +797,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -764,6 +815,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -781,6 +833,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -798,6 +851,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -815,6 +869,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -832,6 +887,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -849,6 +905,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
       "notes": ""
     },
     {
@@ -866,6 +923,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -883,6 +941,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "",
       "notes": ""
     },
     {
@@ -900,6 +959,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     },
     {
@@ -917,6 +977,7 @@
       "workload_tier": "Standard Production",
       "ip_address": "",
       "os": "",
+      "vlan_uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
       "notes": ""
     }
   ],
@@ -1086,6 +1147,7 @@
       "is_offsite": false,
       "is_immutable": false,
       "price": 13500.0,
+      "location": "",
       "notes": "Fast local repo - primary restore target, shortest RTO."
     },
     {
@@ -1099,19 +1161,21 @@
       "is_offsite": true,
       "is_immutable": false,
       "price": 9000.0,
+      "location": "DR Site - Server Room B",
       "notes": "Copy job target at DR site - geographic separation from Primary."
     },
     {
       "uid": "158ab389-0881-4bd0-8c6c-1210c56c9d24",
       "name": "cloud-immutable",
       "site": "DR",
-      "destination_type": "Offsite",
+      "destination_type": "Cloud",
       "backup_software": "Veeam",
       "raw_capacity_tb": 25.0,
       "dedup_ratio": 1.0,
       "is_offsite": true,
       "is_immutable": true,
       "price": 6500.0,
+      "location": "Azure Blob Storage (Immutable) - West Europe",
       "notes": "Object storage with immutability/object-lock enabled - survives even if the backup server itself is compromised."
     }
   ],
@@ -1148,6 +1212,32 @@
       "expiry_date": "2029-01-01",
       "applies_to": "Veeam",
       "notes": ""
+    }
+  ],
+  "vlans": [
+    {
+      "uid": "8a790072-9db5-49d6-9910-a9ba30970ee4",
+      "name": "DMZ",
+      "site": "Primary",
+      "network": "192.168.20.0/24",
+      "gateway": "192.168.20.1",
+      "notes": "Public-facing web tier."
+    },
+    {
+      "uid": "bdf29e27-ba0c-40cc-9c13-04cf9eaa3ab3",
+      "name": "Management",
+      "site": "Primary",
+      "network": "192.168.5.0/24",
+      "gateway": "192.168.5.1",
+      "notes": "Domain controllers and infrastructure services."
+    },
+    {
+      "uid": "12b971cb-a5bc-4a5f-a4af-43ae69373e02",
+      "name": "Backend",
+      "site": "Primary",
+      "network": "192.168.30.0/24",
+      "gateway": "192.168.30.1",
+      "notes": "Databases - not directly reachable from DMZ."
     }
   ],
   "thresholds": {

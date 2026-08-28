@@ -6,7 +6,7 @@ from src.models.virtual_machine import VirtualMachine
 
 class VMTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Protected", "IP Address", "OS", "Notes"]
+    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Protected", "IP Address", "OS", "VLAN", "Notes"]
 
     EDITABLE_COLUMNS = {2, 4, 5}  # vCPU, RAM, Disk
 
@@ -14,10 +14,12 @@ class VMTableModel(QAbstractTableModel):
         self,
         vms: Sequence[VirtualMachine] | None = None,
         on_change: Callable[[], None] | None = None,
+        vlans_provider: Callable[[], list] | None = None,
     ):
         super().__init__()
         self._vms = list(vms) if vms else []
         self._on_change = on_change
+        self._vlans_provider = vlans_provider or (lambda: [])
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self._vms)
@@ -71,6 +73,11 @@ class VMTableModel(QAbstractTableModel):
             case 9:
                 return vm.os or "-"
             case 10:
+                if not vm.vlan_uid:
+                    return "-"
+                vlan = next((v for v in self._vlans_provider() if v.uid == vm.vlan_uid), None)
+                return vlan.name if vlan else "-"
+            case 11:
                 return vm.notes or "-"
 
         return None

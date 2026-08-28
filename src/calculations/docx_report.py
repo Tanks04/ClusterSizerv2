@@ -224,8 +224,16 @@ def _cluster_section(document: Document, project: ClusterProject, thresholds: Th
         p.add_run("Rack Sizing: ").bold = True
         if rack.is_cloud:
             p.add_run("Cloud (not applicable)")
+        elif not rack.rack_units:
+            p.add_run("n/a")
+        elif rack.capacity_u:
+            units_text = f"{rack.rack_units} / {rack.capacity_u} U, {rack.power_watts:.0f} W"
+            if rack.over_capacity:
+                _add_colored_run(p, f"\u26a0 {units_text} (over capacity)", _RED, bold=True)
+            else:
+                p.add_run(units_text)
         else:
-            p.add_run(f"{rack.rack_units} U, {rack.power_watts:.0f} W" if rack.rack_units else "n/a")
+            p.add_run(f"{rack.rack_units} U, {rack.power_watts:.0f} W")
 
         for metric_name, ratio, status, as_percent in (
             ("CPU oversubscription", report.cpu_ratio, report.cpu_status, False),

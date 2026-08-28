@@ -90,6 +90,16 @@ class BackupDestinationDialog(QDialog):
         self.price_spin.setSpecialValueText("(not set)")
         layout.addRow("Price", self.price_spin)
 
+        self.location_edit = QLineEdit()
+        self.location_edit.setPlaceholderText(
+            "e.g. Azure Blob Storage - West Europe, Iron Mountain Vault Zagreb..."
+        )
+        self.location_edit.setToolTip(
+            "Where this destination actually is - Site (Primary/DR) above "
+            "doesn't capture which cloud region or which offsite facility."
+        )
+        layout.addRow("Location", self.location_edit)
+
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(70)
         layout.addRow("Notes", self.notes_edit)
@@ -116,6 +126,7 @@ class BackupDestinationDialog(QDialog):
         self.raw_spin.setValue(destination.raw_capacity_tb)
         self.dedup_spin.setValue(destination.dedup_ratio)
         self.price_spin.setValue(destination.price)
+        self.location_edit.setText(destination.location)
         self.offsite_check.setChecked(destination.is_offsite)
         self.immutable_check.setChecked(destination.is_immutable)
         self.notes_edit.setPlainText(destination.notes)
@@ -133,6 +144,7 @@ class BackupDestinationDialog(QDialog):
         destination.raw_capacity_tb = self.raw_spin.value()
         destination.dedup_ratio = self.dedup_spin.value()
         destination.price = self.price_spin.value()
+        destination.location = self.location_edit.text()
         destination.is_offsite = self.offsite_check.isChecked()
         destination.is_immutable = self.immutable_check.isChecked()
         destination.notes = self.notes_edit.toPlainText()

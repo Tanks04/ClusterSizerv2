@@ -168,3 +168,39 @@ def test_rack_sizing_shows_cloud_for_a_cloud_site():
     all_text = "\n".join(p.text for p in document.paragraphs)
 
     assert "Rack Sizing: Cloud (not applicable)" in all_text
+
+
+def test_rack_sizing_shows_used_and_capacity_when_capacity_is_set():
+    from src.models.server import Server
+    from src.models.cluster_project import PRIMARY
+
+    project = _build_sample_project()
+    server = Server.create_default()
+    server.site = PRIMARY
+    server.rack_units = 12
+    server.power_watts = 500.0
+    project.servers.append(server)
+    project.primary_rack_capacity_u = 84
+
+    document = build_docx_report(project, Thresholds())
+    all_text = "\n".join(p.text for p in document.paragraphs)
+
+    assert "12 / 84 U, 500 W" in all_text
+
+
+def test_rack_sizing_flags_over_capacity():
+    from src.models.server import Server
+    from src.models.cluster_project import PRIMARY
+
+    project = _build_sample_project()
+    server = Server.create_default()
+    server.site = PRIMARY
+    server.rack_units = 12
+    project.servers.append(server)
+    project.primary_rack_capacity_u = 10
+
+    document = build_docx_report(project, Thresholds())
+    all_text = "\n".join(p.text for p in document.paragraphs)
+
+    assert "over capacity" in all_text
+    assert "12 / 10 U" in all_text

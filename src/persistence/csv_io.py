@@ -21,6 +21,7 @@ from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
+from src.models.vlan import Vlan
 
 
 class CsvSchemaError(ValueError):
@@ -32,6 +33,7 @@ SERVER_FIELDS = [
     "name", "site", "vendor", "model", "cpu_vendor", "cpu_model",
     "sockets", "cores_per_socket", "threads_per_core", "hyperthreading_enabled",
     "ram_gb", "cpu_frequency", "warranty_expiry", "ip_address", "cluster_name",
+    "serial_number", "bmc_ip", "hypervisor_vendor", "hypervisor_version",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
     "rack_units", "power_watts", "price", "local_disk_raw_tb",
     "enabled", "notes",
@@ -48,7 +50,7 @@ STORAGE_FIELDS = [
 BACKUP_DESTINATION_FIELDS = [
     "name", "site", "destination_type", "backup_software",
     "raw_capacity_tb", "dedup_ratio", "is_offsite", "is_immutable",
-    "price", "notes",
+    "price", "location", "notes",
 ]
 
 VM_FIELDS = [
@@ -67,6 +69,10 @@ SWITCH_FIELDS = [
 MAINTENANCE_ITEM_FIELDS = [
     "name", "category", "cost", "duration_months",
     "start_date", "expiry_date", "applies_to", "notes",
+]
+
+VLAN_FIELDS = [
+    "name", "site", "network", "gateway", "notes",
 ]
 
 # server_name / switch_name / storage_name: exactly two of the three
@@ -133,6 +139,10 @@ def import_servers(path: str | Path) -> list[Server]:
                 warranty_expiry=row.get("warranty_expiry", "") or "",
                 ip_address=row.get("ip_address", "") or "",
                 cluster_name=row.get("cluster_name", "") or "",
+                serial_number=row.get("serial_number", "") or "",
+                bmc_ip=row.get("bmc_ip", "") or "",
+                hypervisor_vendor=row.get("hypervisor_vendor", "") or "",
+                hypervisor_version=row.get("hypervisor_version", "") or "",
                 rack_units=int(float(row.get("rack_units") or 0)),
                 price=float(row.get("price") or 0),
                 local_disk_raw_tb=float(row.get("local_disk_raw_tb") or 0),
@@ -212,6 +222,7 @@ def import_backup_destinations(path: str | Path) -> list[BackupDestination]:
                 is_offsite=_bool(row.get("is_offsite"), default=False),
                 is_immutable=_bool(row.get("is_immutable"), default=False),
                 price=float(row.get("price") or 0),
+                location=row.get("location", "") or "",
                 notes=row.get("notes", "") or "",
             )
         )
@@ -246,6 +257,32 @@ def import_maintenance_items(path: str | Path) -> list[MaintenanceItem]:
 def export_maintenance_items(path: str | Path, items: list[MaintenanceItem]) -> None:
     rows = [{field: getattr(i, field) for field in MAINTENANCE_ITEM_FIELDS} for i in items]
     _write_rows(path, MAINTENANCE_ITEM_FIELDS, rows)
+
+
+# ----------------------------------------------------------------------
+# VLANs
+# ----------------------------------------------------------------------
+
+def import_vlans(path: str | Path) -> list[Vlan]:
+    vlans = []
+    for row in _read_rows(path, VLAN_FIELDS, "VLAN"):
+        default = Vlan.create_default()
+        vlans.append(
+            Vlan(
+                uid=default.uid,
+                name=row.get("name", "") or "",
+                site=row.get("site") or "Primary",
+                network=row.get("network", "") or "",
+                gateway=row.get("gateway", "") or "",
+                notes=row.get("notes", "") or "",
+            )
+        )
+    return vlans
+
+
+def export_vlans(path: str | Path, vlans: list[Vlan]) -> None:
+    rows = [{field: getattr(v, field) for field in VLAN_FIELDS} for v in vlans]
+    _write_rows(path, VLAN_FIELDS, rows)
 
 
 # ----------------------------------------------------------------------

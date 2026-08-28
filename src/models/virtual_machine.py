@@ -46,6 +46,8 @@ class VirtualMachine:
 
     os: str = ""  # e.g. "Ubuntu Linux (64-bit)" - free text, whatever the source system reports
 
+    vlan_uid: str = ""  # optional reference to a Vlan.uid - independent of ip_address, never required together
+
     notes: str = ""
 
     @property

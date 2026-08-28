@@ -21,8 +21,10 @@ from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAUL
 
 class VMDialog(QDialog):
 
-    def __init__(self, vm: VirtualMachine | None = None, parent=None):
+    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, parent=None):
         super().__init__(parent)
+
+        self._vlans = vlans or []
 
         self.setWindowTitle("Virtual Machine")
 
@@ -98,6 +100,18 @@ class VMDialog(QDialog):
         self.os_edit = QLineEdit()
         self.os_edit.setPlaceholderText("e.g. Ubuntu Linux (64-bit)")
         layout.addRow("OS", self.os_edit)
+
+        self.vlan_combo = QComboBox()
+        self.vlan_combo.addItem("(none)", userData="")
+        for vlan in self._vlans:
+            label = f"{vlan.name} ({vlan.network})" if vlan.network else vlan.name
+            self.vlan_combo.addItem(label, userData=vlan.uid)
+        self.vlan_combo.setToolTip(
+            "Which network segment this VM belongs to - independent of IP "
+            "Address above, doesn't need one entered to assign a VLAN. "
+            "Manage the list of VLANs on the Network tab."
+        )
+        layout.addRow("VLAN", self.vlan_combo)
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(60)
@@ -194,6 +208,8 @@ class VMDialog(QDialog):
         self.powered_check.setChecked(vm.powered_on)
         self.ip_address_edit.setText(vm.ip_address)
         self.os_edit.setText(vm.os)
+        vlan_index = self.vlan_combo.findData(vm.vlan_uid)
+        self.vlan_combo.setCurrentIndex(vlan_index if vlan_index >= 0 else 0)
         self.notes_edit.setPlainText(vm.notes)
 
         self.workload_combo.setCurrentText(vm.workload_tier)
@@ -221,6 +237,7 @@ class VMDialog(QDialog):
         vm.powered_on = self.powered_check.isChecked()
         vm.ip_address = self.ip_address_edit.text()
         vm.os = self.os_edit.text()
+        vm.vlan_uid = self.vlan_combo.currentData() or ""
         vm.notes = self.notes_edit.toPlainText()
         vm.workload_tier = self.workload_combo.currentText()
 

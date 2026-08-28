@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.server import Server
+from src.models.server import Server, HYPERVISOR_VENDORS
 
 
 class ServerDialog(QDialog):
@@ -217,6 +217,22 @@ class ServerDialog(QDialog):
         self.cluster_name_edit.setPlaceholderText("e.g. vSAN_HPM - informational, several servers can share one")
         layout.addRow("Cluster Name", self.cluster_name_edit)
 
+        self.serial_number_edit = QLineEdit()
+        self.serial_number_edit.setPlaceholderText("Asset/service tag - for support tickets and RMA tracking")
+        layout.addRow("Serial Number", self.serial_number_edit)
+
+        self.bmc_ip_edit = QLineEdit()
+        self.bmc_ip_edit.setPlaceholderText("e.g. 10.10.99.10 (iLO/iDRAC/BMC - separate from the main IP above)")
+        layout.addRow("BMC/Management IP", self.bmc_ip_edit)
+
+        self.hypervisor_vendor_combo = QComboBox()
+        self.hypervisor_vendor_combo.addItems(HYPERVISOR_VENDORS)
+        layout.addRow("Hypervisor", self.hypervisor_vendor_combo)
+
+        self.hypervisor_version_edit = QLineEdit()
+        self.hypervisor_version_edit.setPlaceholderText("e.g. 8.0 U2, 2022...")
+        layout.addRow("Hypervisor Version", self.hypervisor_version_edit)
+
         self.rack_units_spin = QSpinBox()
         self.rack_units_spin.setRange(0, 60)
         self.rack_units_spin.setSuffix(" U")
@@ -379,6 +395,11 @@ class ServerDialog(QDialog):
         self.warranty_edit.setText(server.warranty_expiry)
         self.ip_address_edit.setText(server.ip_address)
         self.cluster_name_edit.setText(server.cluster_name)
+        self.serial_number_edit.setText(server.serial_number)
+        self.bmc_ip_edit.setText(server.bmc_ip)
+        hv_index = self.hypervisor_vendor_combo.findText(server.hypervisor_vendor)
+        self.hypervisor_vendor_combo.setCurrentIndex(hv_index if hv_index >= 0 else 0)
+        self.hypervisor_version_edit.setText(server.hypervisor_version)
         self.rack_units_spin.setValue(server.rack_units)
         self.power_watts_spin.setValue(server.power_watts)
         self.price_spin.setValue(server.price)
@@ -408,6 +429,10 @@ class ServerDialog(QDialog):
         server.warranty_expiry = self.warranty_edit.text()
         server.ip_address = self.ip_address_edit.text()
         server.cluster_name = self.cluster_name_edit.text()
+        server.serial_number = self.serial_number_edit.text()
+        server.bmc_ip = self.bmc_ip_edit.text()
+        server.hypervisor_vendor = self.hypervisor_vendor_combo.currentText()
+        server.hypervisor_version = self.hypervisor_version_edit.text()
         server.rack_units = self.rack_units_spin.value()
         server.power_watts = self.power_watts_spin.value()
         server.price = self.price_spin.value()

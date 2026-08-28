@@ -9,6 +9,7 @@ from src.models.server import Server
 from src.models.storage import Storage
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
+from src.models.vlan import Vlan
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
@@ -283,6 +284,16 @@ class ProjectService(QObject):
         self._project.dr_deployment_model = model
         self._notify()
 
+    def set_primary_rack_capacity_u(self, capacity: int) -> None:
+        self._push_undo_snapshot()
+        self._project.primary_rack_capacity_u = capacity
+        self._notify()
+
+    def set_dr_rack_capacity_u(self, capacity: int) -> None:
+        self._push_undo_snapshot()
+        self._project.dr_rack_capacity_u = capacity
+        self._notify()
+
     def set_enabled_for_servers(self, servers: list[Server], enabled: bool) -> None:
         """Toggles Server.enabled for a selection - excludes/includes them
         from all capacity math without deleting the server's whole
@@ -439,6 +450,53 @@ class ProjectService(QObject):
 
     def export_maintenance_items_csv(self, path: str | Path) -> None:
         csv_io.export_maintenance_items(path, self._project.maintenance_items)
+
+    # ------------------------------------------------------------------
+    # VLANs
+    # ------------------------------------------------------------------
+
+    def add_vlan(self, vlan: Vlan) -> None:
+        self._push_undo_snapshot()
+        self._project.vlans.append(vlan)
+        self._notify(self.network_changed)
+
+    def update_vlan(self, index: int, vlan: Vlan) -> None:
+        self._push_undo_snapshot()
+        self._project.vlans[index] = vlan
+        self._notify(self.network_changed)
+
+    def remove_vlans(self, vlans: list[Vlan]) -> None:
+        """Also clears vlan_uid on any VM that referenced one of the
+        removed VLANs - a VM shouldn't silently keep pointing at a
+        deleted VLAN's uid."""
+        self._push_undo_snapshot()
+        removed_uids = {v.uid for v in vlans}
+        self._project.vlans = [v for v in self._project.vlans if v.uid not in removed_uids]
+        for vm in self._project.vms:
+            if vm.vlan_uid in removed_uids:
+                vm.vlan_uid = ""
+        self.network_changed.emit()
+        self.vms_changed.emit()
+        self._notify()
+
+    def clear_vlans(self) -> None:
+        self._push_undo_snapshot()
+        self._project.vlans = []
+        for vm in self._project.vms:
+            vm.vlan_uid = ""
+        self.network_changed.emit()
+        self.vms_changed.emit()
+        self._notify()
+
+    def import_vlans_csv(self, path: str | Path) -> int:
+        new_vlans = csv_io.import_vlans(path)
+        self._push_undo_snapshot()
+        self._project.vlans.extend(new_vlans)
+        self._notify(self.network_changed)
+        return len(new_vlans)
+
+    def export_vlans_csv(self, path: str | Path) -> None:
+        csv_io.export_vlans(path, self._project.vlans)
 
     def import_storages_csv(self, path: str | Path) -> int:
         new_storages = csv_io.import_storages(path)

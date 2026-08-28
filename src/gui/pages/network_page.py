@@ -21,8 +21,10 @@ from src.models.cluster_project import PRIMARY, DR
 
 from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.gui.dialogs.connection_dialog import ConnectionDialog
+from src.gui.dialogs.vlan_dialog import VlanDialog
 from src.gui.models.switch_table_model import SwitchTableModel
 from src.gui.models.connection_table_model import ConnectionTableModel
+from src.gui.models.vlan_table_model import VlanTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
@@ -45,12 +47,16 @@ class NetworkPage(QWidget):
             switches_provider=lambda: self.service.project.switches,
             storages_provider=lambda: self.service.project.storages,
         )
+        self.vlan_model = VlanTableModel(
+            vms_provider=lambda: self.service.project.vms,
+        )
 
         self._create_ui()
 
         self.service.network_changed.connect(self.refresh)
         self.service.servers_changed.connect(self.refresh)
         self.service.storages_changed.connect(self.refresh)
+        self.service.vms_changed.connect(self.refresh)
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -91,7 +97,8 @@ class NetworkPage(QWidget):
 
         splitter.addWidget(self._build_switches_section())
         splitter.addWidget(self._build_connections_section())
-        splitter.setSizes([300, 300])
+        splitter.addWidget(self._build_vlans_section())
+        splitter.setSizes([300, 300, 250])
 
     def _build_switches_section(self) -> QWidget:
         section = QWidget()
@@ -202,6 +209,64 @@ class NetworkPage(QWidget):
         self.connection_table.copy_requested.connect(self._duplicate_connections)
 
         layout.addWidget(self.connection_table)
+
+        return section
+
+    def _build_vlans_section(self) -> QWidget:
+        section = QWidget()
+        layout = QVBoxLayout(section)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addWidget(QLabel(
+            "<b>VLANs</b> (network segments - assign VMs to one on the VMs tab)"
+        ))
+
+        toolbar = QToolBar()
+        toolbar.setMovable(False)
+
+        add_action = QAction("➕ Add", self)
+        add_action.triggered.connect(self._add_vlan)
+        toolbar.addAction(add_action)
+
+        edit_action = QAction("✏ Edit", self)
+        edit_action.triggered.connect(self._edit_vlan)
+        toolbar.addAction(edit_action)
+
+        delete_action = QAction("🗑 Delete", self)
+        delete_action.triggered.connect(self._delete_vlans)
+        toolbar.addAction(delete_action)
+
+        toolbar.addSeparator()
+
+        duplicate_action = QAction("📄 Duplicate", self)
+        duplicate_action.triggered.connect(self._duplicate_vlans)
+        toolbar.addAction(duplicate_action)
+
+        toolbar.addSeparator()
+
+        import_action = QAction("📥 Import CSV", self)
+        import_action.triggered.connect(self._import_vlans_csv)
+        toolbar.addAction(import_action)
+
+        export_action = QAction("📤 Export CSV", self)
+        export_action.triggered.connect(self._export_vlans_csv)
+        toolbar.addAction(export_action)
+
+        toolbar.addSeparator()
+
+        clear_action = QAction("🧹 Clear All", self)
+        clear_action.triggered.connect(self._clear_vlans)
+        toolbar.addAction(clear_action)
+
+        layout.addWidget(toolbar)
+
+        self.vlan_table = MultiSelectTableView()
+        self.vlan_table.set_source_model(self.vlan_model)
+        self.vlan_table.edit_requested.connect(self._edit_vlan)
+        self.vlan_table.delete_requested.connect(self._delete_vlans)
+        self.vlan_table.copy_requested.connect(self._duplicate_vlans)
+
+        layout.addWidget(self.vlan_table)
 
         return section
 
@@ -380,6 +445,86 @@ class NetworkPage(QWidget):
             self.service.clear_connections()
 
     # ------------------------------------------------------------------
+    # VLANs - actions
+    # ------------------------------------------------------------------
+
+    def _selected_vlans(self) -> list:
+        return [self.vlan_model.vlan_at(row) for row in self.vlan_table.selected_rows()]
+
+    def _add_vlan(self):
+        dialog = VlanDialog(parent=self)
+        if dialog.exec():
+            self.service.add_vlan(dialog.get_vlan())
+
+    def _edit_vlan(self):
+        rows = self.vlan_table.selected_rows()
+        if len(rows) != 1:
+            QMessageBox.information(self, "Edit", "Select exactly one VLAN in the table.")
+            return
+        row = rows[0]
+        vlan = self.vlan_model.vlan_at(row)
+        dialog = VlanDialog(vlan, parent=self)
+        if dialog.exec():
+            self.service.update_vlan(row, dialog.get_vlan())
+
+    def _delete_vlans(self):
+        vlans = self._selected_vlans()
+        if not vlans:
+            QMessageBox.information(self, "Delete", "Select at least one VLAN in the table.")
+            return
+        confirm = QMessageBox.question(
+            self, "Delete",
+            f"Delete {len(vlans)} VLAN(s)? Any VM assigned to one of them will be "
+            "unassigned (not deleted). You can undo with Ctrl+Z.",
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.service.remove_vlans(vlans)
+
+    def _duplicate_vlans(self):
+        vlans = self._selected_vlans()
+        if not vlans:
+            QMessageBox.information(self, "Copy", "Select at least one VLAN in the table.")
+            return
+        for vlan in vlans:
+            new_vlan = copy.deepcopy(vlan)
+            new_vlan.uid = str(uuid.uuid4())
+            new_vlan.name = f"{new_vlan.name} (copy)" if new_vlan.name else new_vlan.name
+            self.service.add_vlan(new_vlan)
+
+    def _import_vlans_csv(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Import VLANs CSV", "", "CSV (*.csv)")
+        if not path:
+            return
+        try:
+            count = self.service.import_vlans_csv(path)
+            QMessageBox.information(self, "Import", f"Imported {count} VLAN(s).")
+        except CsvSchemaError as exc:
+            QMessageBox.warning(self, "Wrong file", str(exc))
+        except Exception as exc:
+            report_error(self, "Import Error", exc)
+
+    def _export_vlans_csv(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Export VLANs CSV", "vlans.csv", "CSV (*.csv)")
+        if not path:
+            return
+        try:
+            self.service.export_vlans_csv(path)
+            QMessageBox.information(self, "Export", "VLANs exported.")
+        except Exception as exc:
+            report_error(self, "Export Error", exc)
+
+    def _clear_vlans(self):
+        if not self.service.project.vlans:
+            return
+        confirm = QMessageBox.question(
+            self, "Clear All",
+            f"Delete ALL {len(self.service.project.vlans)} VLAN(s)? Any VM assigned to "
+            "one of them will be unassigned (not deleted). You can undo with Ctrl+Z.",
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.service.clear_vlans()
+
+    # ------------------------------------------------------------------
     # Refresh
     # ------------------------------------------------------------------
 
@@ -388,8 +533,10 @@ class NetworkPage(QWidget):
 
         self.switch_model.set_switches(project.switches)
         self.connection_model.set_connections(project.connections)
+        self.vlan_model.set_vlans(project.vlans)
         self.switch_table.auto_size_columns()
         self.connection_table.auto_size_columns()
+        self.vlan_table.auto_size_columns()
 
         self.card_switches.set_value(len(project.switches))
         self.card_connections.set_value(len(project.connections))

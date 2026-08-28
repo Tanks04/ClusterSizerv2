@@ -49,3 +49,46 @@ def test_both_sites_on_premise_shows_numbers_on_both():
 
     assert page.card_primary_rack_units.value_label.text() == "1 U"
     assert page.card_dr_rack_units.value_label.text() == "-"  # no DR servers, but still a number-style display
+
+
+def test_rack_units_shown_without_capacity_is_used_only():
+    service = ProjectService()
+    server = Server.create_default()
+    server.site = "Primary"
+    server.rack_units = 12
+    service.add_server(server)
+
+    page = SummaryPage(service)
+    page.refresh()
+
+    assert page.card_primary_rack_units.value_label.text() == "12 U"
+
+
+def test_rack_units_shown_within_capacity():
+    service = ProjectService()
+    server = Server.create_default()
+    server.site = "Primary"
+    server.rack_units = 12
+    service.add_server(server)
+    service.set_primary_rack_capacity_u(84)
+
+    page = SummaryPage(service)
+    page.refresh()
+
+    assert page.card_primary_rack_units.value_label.text() == "12 / 84 U"
+
+
+def test_rack_units_shown_over_capacity_has_warning_marker():
+    service = ProjectService()
+    server = Server.create_default()
+    server.site = "Primary"
+    server.rack_units = 12
+    service.add_server(server)
+    service.set_primary_rack_capacity_u(10)
+
+    page = SummaryPage(service)
+    page.refresh()
+
+    text = page.card_primary_rack_units.value_label.text()
+    assert "12 / 10 U" in text
+    assert "\u26a0" in text

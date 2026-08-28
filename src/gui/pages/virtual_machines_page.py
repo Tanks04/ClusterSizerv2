@@ -35,7 +35,10 @@ class VirtualMachinesPage(QWidget):
         super().__init__()
 
         self.service = service
-        self.model = VMTableModel(on_change=self.service.touch_vms)
+        self.model = VMTableModel(
+            on_change=self.service.touch_vms,
+            vlans_provider=lambda: self.service.project.vlans,
+        )
 
         self._create_ui()
 
@@ -201,7 +204,7 @@ class VirtualMachinesPage(QWidget):
         return [self.model.vm_at(row) for row in self.table.selected_rows()]
 
     def _add_vm(self):
-        dialog = VMDialog(parent=self)
+        dialog = VMDialog(vlans=self.service.project.vlans, parent=self)
         if dialog.exec():
             self.service.add_vm(dialog.get_vm())
 
@@ -213,7 +216,7 @@ class VirtualMachinesPage(QWidget):
 
         row = rows[0]
         vm = self.model.vm_at(row)
-        dialog = VMDialog(vm, parent=self)
+        dialog = VMDialog(vm, vlans=self.service.project.vlans, parent=self)
         if dialog.exec():
             self.service.update_vm(row, dialog.get_vm())
 

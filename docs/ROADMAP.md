@@ -1,5 +1,140 @@
 # ROADMAP
 
+## v3.10.0 (Server inventory fields, Backup Cloud/Location, Rack Capacity)
+
+From a direct equipment-inventory review - "have we covered what an
+admin actually needs to track?" - across Servers, Backup, and rack
+planning. A fourth item from the same review (supporting more than two
+sites - some banks run 3+ DCs) was deliberately deferred: "Primary"/
+"DR" are hardcoded throughout nearly every layer of the app (every
+dropdown, every calculation signature, the Summary page's fixed
+two-card layout, the whole DR Readiness/failover direction), so genuine
+N-site support is a foundational redesign, not a field addition - it
+needs its own dedicated discussion, not to be bundled in here.
+
+- **Server gains four inventory fields**: Serial Number (asset/service
+  tag, for support tickets and RMA), BMC/Management IP (out-of-band
+  iLO/iDRAC/BMC address, separate from the main OS-facing IP - ties in
+  naturally with the VLAN work from v3.9.0, since this is exactly the
+  kind of thing that lives on its own management VLAN), and Hypervisor
+  vendor + version. `HYPERVISOR_VENDORS` deliberately mirrors the
+  Settings page's oversubscription preset labels (VMware/Hyper-V/
+  Proxmox/Nutanix/Citrix) for consistency, but is kept as its own
+  separate list rather than imported from `thresholds.py` - one drives
+  ratios, the other is just descriptive inventory, and they shouldn't
+  be coupled to each other. An unrecognized/legacy hypervisor_vendor
+  value (e.g. from an older save, or a discontinued option) falls back
+  to the blank entry rather than crashing the dialog.
+- **Backup Destination gains a "Cloud" destination type** and a new
+  free-text `location` field (e.g. "Azure Blob Storage - West Europe",
+  "Iron Mountain Vault Zagreb"). Deliberately free text rather than a
+  fixed enum, per direct request - Site (Primary/DR) doesn't capture
+  which cloud region or which specific offsite facility, and there's
+  no reasonable fixed list of every provider/facility a customer might
+  use. Recurring cloud storage cost is tracked via Maintenance Items
+  (same pattern already used for the DRaaS subscription example) -
+  Backup Destination itself keeps its single one-time `price` field
+  rather than gaining a second pricing model.
+- **New: Rack Capacity, per site** (Settings page, applied immediately -
+  same UI pattern as Deployment Model). Separate from Rack Sizing,
+  which only totals what's been *entered* on Servers/Storage/Switches -
+  this is how much is *available*. `RackSizingSummary` gained
+  `capacity_u` and an `over_capacity` property (only meaningful once
+  capacity is actually entered - 0/not-entered never counts as "over",
+  regardless of how much is used). Summary page and the Word report
+  both show "12 / 84 U" once capacity is set, with a red "\u26a0 ...
+  (over capacity)" warning when equipment exceeds it - DR intentionally
+  supports its own smaller number, since a DR rack is very often
+  physically smaller than Primary in practice.
+- Updated `scenario_full_example.clsz` with realistic values throughout
+  rather than a separate example file: serial numbers/BMC IPs/
+  hypervisor details on all three servers, fixed a naming mismatch that
+  predates this feature (a destination literally named
+  "cloud-immutable" was typed as "Offsite" before "Cloud" existed as an
+  option - corrected, plus added a location), and set Primary/DR rack
+  capacity (42U/12U - DR deliberately smaller, matching the point that
+  prompted this feature).
+- 34 new tests across the model/persistence/CSV layer and five real-Qt
+  GUI test files (ServerDialog, BackupDestinationDialog, SettingsPage,
+  SummaryPage, the Word report) - 294 passed total.
+
+## v3.9.0 (VLANs - network segments; Summary tab scroll fix)
+
+- **New: VLANs.** Closes the long-open "RVTools Folder" question from
+  much earlier - RVTools' Cluster is the whole virtual environment
+  (already captured as `Server.cluster_name`), but within that
+  environment VMs can be split into network segments (RVTools'
+  vNetwork sheet's "Network" column, i.e. the portgroup/VLAN a VM
+  connects to). Modeled as `Vlan` (name, site, network e.g.
+  "192.168.10.0/24", gateway, notes) - a project-level, site-scoped
+  list, deliberately NOT owned by a specific NetworkSwitch, since a
+  real VLAN is a logical construct that commonly trunks across several
+  physical switches rather than belonging to just one (confirmed
+  directly rather than assumed, given the user's own phrasing could
+  have been read either way). Managed on the Network tab, in a third
+  section alongside Switches and Connections.
+  - **VMs get an optional VLAN dropdown**, deliberately independent of
+    IP Address - assigning a VM to a VLAN never requires also entering
+    an IP, per direct request. Multiple VMs can share one VLAN. A
+    VM's `vlan_uid` pointing at a since-deleted VLAN falls back to
+    "(none)"/"-" everywhere rather than crashing.
+  - Deleting a VLAN (or Clear All) clears `vlan_uid` on every VM that
+    referenced it - the VM itself is never deleted, just unassigned -
+    and is fully undoable in one step along with the VLAN removal
+    itself.
+  - VLAN table's VM-count column is live (counts matching `vlan_uid`
+    across the project's VMs on every refresh) - not a stored/stale
+    number that could drift from the real assignments.
+  - `vlan_uid` deliberately excluded from the VM CSV schema (same
+    precedent as StorageShelf/hci_server_uids) - a re-imported VLANs
+    CSV generates fresh UIDs, so a stored cross-reference would go
+    stale immediately. Full support via `.clsz` and the GUI. RVTools
+    import still doesn't set this automatically - stays a manual
+    assignment, per direct request.
+  - Added a representative 3-VLAN scenario (DMZ/Management/Backend) to
+    `scenario_full_example.clsz`, assigned to the existing web-*/dc-*/
+    db-* VMs by name pattern, rather than inventing a whole new example
+    file for this.
+- **Fixed**: SummaryPage had no scroll area at all - found while
+  double-checking the brand new Attention Needed panel (v3.8.0) could
+  grow past a typical window's height with no way to reach the rest of
+  the page, the same class of problem already fixed on the entity
+  dialogs earlier. Wrapped the page content in a QScrollArea the same
+  way; verified with a 20-item Attention list stress test.
+- 36 new tests across the model/persistence/CSV layer, ProjectService
+  CRUD (including the cascade-clear-on-delete behavior and its undo),
+  and five real-Qt GUI test files (VlanDialog, VlanTableModel,
+  VMDialog's dropdown, VMTableModel's column, NetworkPage's
+  integration) - 264 passed total.
+
+## v3.8.0 (Attention Needed panel - Summary tab)
+
+- **New: "Attention Needed" panel** at the bottom of the Summary tab.
+  Pulls together every existing "is something wrong" status already
+  computed elsewhere in the app - CPU/RAM/Storage oversubscription,
+  N+1, DR Readiness, backup 3-2-1-1 compliance, Maintenance Item
+  expiry - into one severity-sorted list (Critical before Warning), so
+  a periodic project review doesn't require clicking through 4-5
+  different tabs to see if anything needs attention. Shows a plain
+  "No issues found" when everything's fine. Deliberately adds no new
+  calculations of its own (`src/calculations/attention.py` only
+  selects and formats what sizing.py/backup.py/pricing.py already
+  compute) and skips the backup-compliance check entirely for a
+  project with no VMs yet, so a brand new project doesn't get nagged
+  about having no backup destinations before there's anything to back
+  up. Refreshes live via the existing `service.changed` signal, same
+  as the rest of the Summary tab.
+  - Testing this against the project's own long-running example
+    surfaced a genuine, pre-existing finding: `scenario_full_example.
+    clsz` has drifted to 200% RAM oversubscription on Primary (1026GB
+    demand vs 512GB physical) somewhere across this project's many
+    revisions - exactly the kind of thing this panel exists to catch
+    without having to go looking for it.
+- 18 new tests: 12 for the pure aggregation logic (empty/healthy
+  projects, each status source flagged correctly, the no-VMs backup
+  guard, severity sorting), 4 for the panel widget itself, 2 for its
+  live-refresh wiring into SummaryPage - 226 passed total.
+
 ## v3.7.0 (Recent Files; two real HCI dialog bugs found from live testing)
 
 - **New: Recent Files** (File menu) - remembers the last 5 opened/

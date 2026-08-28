@@ -43,14 +43,15 @@ or the tender is written**.
 - **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, IP
   address, NIC inventory (incl. direct-attach SAS), and a Hyperthreading
   toggle that actually affects CPU oversubscription math (HT-adjusted
-  per server, not a flat multiplier). Batch-add N identical servers at
-  once. Inline editing directly in the table.
+  per server, not a flat multiplier). Also tracks Serial Number, BMC/
+  Management IP, and Hypervisor vendor + version for real equipment
+  inventory purposes. Batch-add N identical servers at once. Inline
+  editing directly in the table.
 - **Storage** — Primary/DR, you enter both raw and usable capacity; the
   RAID/EC overhead percentage is derived from those two and shown
   read-only - it's informational only and doesn't feed the sizing
   calculations - plus a connectivity port inventory
-  (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column. 
-  **HCI**
+  (1G/10G/25G/40G/100G/FC/SAS) with a live free/used column. **HCI**
   (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) storage - no separate
   physical array, the disks live in the servers - gets its own checkbox:
   link the contributing servers (each with a Local Disk (Raw) field) and
@@ -64,8 +65,7 @@ or the tender is written**.
   gets a Workload Tier (Tier-0/Mission-Critical, Standard Production,
   Development/Test, High-Density VDI — each with a commonly-cited safe
   oversubscription ratio, e.g. Tier-0 at 1:1 up to VDI at 12-24:1) for
-  the 
-  **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
+  the **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
   (Hypervisor → Workload → Policy → Result), the reverse
   question from the rest of the app: not "do these VMs fit the servers I
   have" but "how many servers should I buy for these VMs". Reuses the
@@ -81,19 +81,24 @@ or the tender is written**.
   port inventory by speed: 1G/10G/25G/40G/100G/FC/SAS) and connections
   between any two of {Server, Switch, Storage} - including direct-attach
   storage links with no switch in between (e.g. FC/SAS HBAs wired
-  straight to an array) - with a free/used overview by speed. Fully
-  optional.
+  straight to an array) - with a free/used overview by speed. **VLANs**
+  (name, network e.g. "192.168.10.0/24", gateway) are a separate,
+  site-scoped list here too - not owned by a specific switch, since a
+  real VLAN commonly trunks across several. VMs get an optional VLAN
+  assignment, independent of IP Address (no IP needed to assign one).
+  Fully optional.
 - **Backup** — a list of backup destinations (local repo, offsite,
-  immutable/offline, etc. - most real setups have several), each with a
-  type, backup software, dedup ratio, and Offsite/Immutable flags. Shows
-  a live 3-2-1-1 compliance badge (3 copies of data, 2 different media
-  types, 1 offsite, +1 immutable/offline) with an exact list of what's
-  missing, not just pass/fail.
+  cloud, immutable/offline, etc. - most real setups have several), each
+  with a type, backup software, dedup ratio, Offsite/Immutable flags,
+  and a free-text Location (e.g. "Azure Blob Storage - West Europe") -
+  since Site (Primary/DR) alone doesn't say which cloud region or which
+  offsite facility. Shows a live 3-2-1-1 compliance badge (3 copies of
+  data, 2 different media types, 1 offsite, +1 immutable/offline) with
+  an exact list of what's missing, not just pass/fail.
 - **Pricing** — a single Price (EUR) on Servers/Storage/Network/Backup
   rolls straight into a total, broken down by category, no re-entry and
   no cost-vs-price/margin tracking - this app gives admins a running
-  total, it isn't a sales quoting tool. Separately, 
-  **Licenses,
+  total, it isn't a sales quoting tool. Separately, **Licenses,
   Warranties & Maintenance** tracks renewals - what it is, what it
   costs, how long it lasts, and its expiry date - flagged Expired
   (red) or Expiring Soon (orange, within 90 days) so a renewal doesn't
@@ -108,10 +113,15 @@ or the tender is written**.
   site that looks healthy can reveal it'd go CRITICAL under a real
   failover. "Show Rack Sizing" reveals total Rack Units and Power
   Consumption per site, aggregated from whatever's been entered on
-  Servers/Storage/Switches.
+  Servers/Storage/Switches. An **Attention Needed** panel at the bottom
+  pulls every Warning/Critical status from across the whole app -
+  oversubscription, N+1, DR Readiness, backup 3-2-1-1 compliance,
+  Maintenance Item expiry - into one list, so a periodic review doesn't
+  need a click-through of every tab.
 - **Settings** — recommended oversubscription presets by hypervisor
   vendor (VMware, Hyper-V, Proxmox/KVM, Citrix Hypervisor), or set your
-  own thresholds manually.
+  own thresholds manually. Also where Deployment Model (On-Premise/
+  Cloud) and Rack Capacity are set, per site, applied immediately.
 - **Reports** — readable text report, a structured Word (.docx) report
   (Servers → Storage → Network → Cluster config → VMs, each with a
   summary plus the full per-device listing - editable afterward, add a
@@ -207,6 +217,8 @@ Revolut: revolut.me/@ivan50ba6
 
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
+
+Thanks, Claude. 🥰
 
 ## License
 

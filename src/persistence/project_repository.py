@@ -13,6 +13,7 @@ from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
+from src.models.vlan import Vlan
 
 FILE_EXTENSION = ".clsz"
 SCHEMA_VERSION = 7
@@ -40,6 +41,8 @@ def save_project(
         "name": project.name,
         "primary_deployment_model": project.primary_deployment_model,
         "dr_deployment_model": project.dr_deployment_model,
+        "primary_rack_capacity_u": project.primary_rack_capacity_u,
+        "dr_rack_capacity_u": project.dr_rack_capacity_u,
         "servers": [asdict(s) for s in project.servers],
         "storages": [asdict(s) for s in project.storages],
         "vms": [asdict(v) for v in project.vms],
@@ -47,6 +50,7 @@ def save_project(
         "connections": [asdict(c) for c in project.connections],
         "backup_destinations": [asdict(d) for d in project.backup_destinations],
         "maintenance_items": [asdict(i) for i in project.maintenance_items],
+        "vlans": [asdict(v) for v in project.vlans],
         "thresholds": asdict(thresholds if thresholds is not None else Thresholds()),
     }
 
@@ -62,6 +66,8 @@ def load_project(path: str | Path) -> LoadedProject:
     project = ClusterProject(name=raw.get("name", "New Project"))
     project.primary_deployment_model = raw.get("primary_deployment_model", ON_PREMISE)
     project.dr_deployment_model = raw.get("dr_deployment_model", ON_PREMISE)
+    project.primary_rack_capacity_u = raw.get("primary_rack_capacity_u", 0)
+    project.dr_rack_capacity_u = raw.get("dr_rack_capacity_u", 0)
 
     project.servers = [_build(Server, _migrate_price(row)) for row in raw.get("servers", [])]
     project.storages = [_build_storage(row) for row in raw.get("storages", [])]
@@ -74,6 +80,7 @@ def load_project(path: str | Path) -> LoadedProject:
     project.maintenance_items = [
         _build(MaintenanceItem, row) for row in raw.get("maintenance_items", [])
     ]
+    project.vlans = [_build(Vlan, row) for row in raw.get("vlans", [])]
 
     # Absent for files saved before schema v3 - fall back to defaults
     # rather than failing, same tolerance _build() already gives every

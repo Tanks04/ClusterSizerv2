@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -82,6 +83,46 @@ class SettingsPage(QWidget):
         deployment_form.addRow("DR Site", self.dr_deployment_combo)
 
         layout.addWidget(deployment_box)
+
+        #
+        # Rack Capacity (per site) - how many U are AVAILABLE, separate
+        # from Rack Sizing's "how many U are USED by entered equipment"
+        #
+
+        rack_capacity_box = QGroupBox("Rack Capacity")
+        rack_capacity_form = QFormLayout(rack_capacity_box)
+
+        rack_capacity_note = QLabel(
+            "How many rack units are available at each site - separate from "
+            "Rack Sizing, which only totals what's been entered on Servers/"
+            "Storage/Switches. 0 = not entered (Rack Sizing just shows the "
+            "used figure with no \"of how many\" context). DR is often a "
+            "smaller rack than Primary in practice, hence per site. Applied "
+            "immediately."
+        )
+        rack_capacity_note.setWordWrap(True)
+        rack_capacity_note.setStyleSheet("color: #757575; font-style: italic;")
+        rack_capacity_form.addRow(rack_capacity_note)
+
+        self.primary_rack_capacity_spin = QSpinBox()
+        self.primary_rack_capacity_spin.setRange(0, 1000)
+        self.primary_rack_capacity_spin.setSuffix(" U")
+        self.primary_rack_capacity_spin.setSpecialValueText("(not set)")
+        self.primary_rack_capacity_spin.valueChanged.connect(
+            lambda value: self.service.set_primary_rack_capacity_u(value)
+        )
+        rack_capacity_form.addRow("Primary Site", self.primary_rack_capacity_spin)
+
+        self.dr_rack_capacity_spin = QSpinBox()
+        self.dr_rack_capacity_spin.setRange(0, 1000)
+        self.dr_rack_capacity_spin.setSuffix(" U")
+        self.dr_rack_capacity_spin.setSpecialValueText("(not set)")
+        self.dr_rack_capacity_spin.valueChanged.connect(
+            lambda value: self.service.set_dr_rack_capacity_u(value)
+        )
+        rack_capacity_form.addRow("DR Site", self.dr_rack_capacity_spin)
+
+        layout.addWidget(rack_capacity_box)
 
         #
         # Recommended presets
@@ -187,6 +228,14 @@ class SettingsPage(QWidget):
         self.dr_deployment_combo.blockSignals(True)
         self.dr_deployment_combo.setCurrentText(self.service.project.dr_deployment_model)
         self.dr_deployment_combo.blockSignals(False)
+
+        self.primary_rack_capacity_spin.blockSignals(True)
+        self.primary_rack_capacity_spin.setValue(self.service.project.primary_rack_capacity_u)
+        self.primary_rack_capacity_spin.blockSignals(False)
+
+        self.dr_rack_capacity_spin.blockSignals(True)
+        self.dr_rack_capacity_spin.setValue(self.service.project.dr_rack_capacity_u)
+        self.dr_rack_capacity_spin.blockSignals(False)
 
         t = self.service.thresholds
         self.cpu_warning_spin.setValue(t.cpu_warning_ratio)

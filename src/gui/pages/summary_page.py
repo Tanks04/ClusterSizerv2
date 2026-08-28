@@ -1,13 +1,17 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+)
 
 from src.calculations.sizing import build_reports, build_dr_failover_report
 from src.calculations.rack import compute_rack_sizing
+from src.calculations.attention import compute_attention_items
 from src.services.project_service import ProjectService
 
 from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 from src.gui.widgets.status_badge import StatusBadge
 from src.gui.widgets.summary_widget import SummaryWidget
+from src.gui.widgets.attention_panel import AttentionPanel
 
 
 class SummaryPage(QWidget):
@@ -29,7 +33,18 @@ class SummaryPage(QWidget):
         self.refresh()
 
     def _create_ui(self):
-        layout = QVBoxLayout(self)
+        # The page can grow taller than the window once there's a real
+        # Attention Needed list (or just enough project data generally) -
+        # same fix already applied to the entity dialogs for the same
+        # reason: without this, content past the bottom of the window is
+        # simply unreachable, no scrollbar, no way to resize around it.
+        outer_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(scroll_area)
 
         #
         # Compact top-line cards (formerly the Dashboard tab)
@@ -178,6 +193,15 @@ class SummaryPage(QWidget):
         self.dr_detail_label.setWordWrap(True)
         layout.addWidget(self.dr_detail_label)
 
+        #
+        # Attention Needed - everything else on this page (and a couple
+        # of things from other tabs: Backup compliance, Maintenance
+        # expiry) that's Warning/Critical, in one place.
+        #
+
+        self.attention_panel = AttentionPanel()
+        layout.addWidget(self.attention_panel)
+
         layout.addStretch()
 
     def _on_dr_failover_toggle(self, checked: bool):
@@ -196,6 +220,15 @@ class SummaryPage(QWidget):
         if watts >= 1000:
             return f"{watts / 1000:.2f} kW"
         return f"{watts:.0f} W"
+
+    @staticmethod
+    def _format_rack_units(rack) -> str:
+        if not rack.rack_units:
+            return "-"
+        if not rack.capacity_u:
+            return f"{rack.rack_units} U"
+        marker = "\u26a0 " if rack.over_capacity else ""
+        return f"{marker}{rack.rack_units} / {rack.capacity_u} U"
 
     def refresh(self):
         from src.calculations.thresholds import Status
@@ -252,14 +285,14 @@ class SummaryPage(QWidget):
             self.card_primary_rack_units.set_value("Cloud")
             self.card_primary_power.set_value("Cloud")
         else:
-            self.card_primary_rack_units.set_value(f"{primary_rack.rack_units} U" if primary_rack.rack_units else "-")
+            self.card_primary_rack_units.set_value(self._format_rack_units(primary_rack))
             self.card_primary_power.set_value(self._format_watts(primary_rack.power_watts))
 
         if dr_rack.is_cloud:
             self.card_dr_rack_units.set_value("Cloud")
             self.card_dr_power.set_value("Cloud")
         else:
-            self.card_dr_rack_units.set_value(f"{dr_rack.rack_units} U" if dr_rack.rack_units else "-")
+            self.card_dr_rack_units.set_value(self._format_rack_units(dr_rack))
             self.card_dr_power.set_value(self._format_watts(dr_rack.power_watts))
 
         if dr_check.ready is None:
@@ -293,3 +326,5 @@ class SummaryPage(QWidget):
                 f"{dr_check.failover_ram_demand_gb:.0f} GB / "
                 f"{dr_check.failover_disk_demand_gb / 1024:.1f} TB)."
             )
+
+        self.attention_panel.set_items(compute_attention_items(project, thresholds))
