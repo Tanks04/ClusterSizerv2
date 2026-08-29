@@ -1,5 +1,40 @@
 # ROADMAP
 
+## v4.1.0 (Three new example projects, exercising v4.0.0's multi-site features)
+
+- **`scenario_stretched_vsan_3site_example.clsz`** - vSAN stretched
+  across 3 sites (4 HCI hosts each), a 100G DWDM full-mesh backbone
+  (3 pairwise NetworkConnections between each site's core switch), and
+  3 independent Fortinet firewalls in an active-active-active mesh
+  (documented in each firewall's notes, since ClusterSizer doesn't
+  model firewall-to-firewall replication protocols directly - real
+  workloads run at all 3 sites, with 2 of them explicitly failover-
+  assigned to both other sites.
+- **`scenario_hyperv_core_dr_example.clsz`** - a 3-host Hyper-V Primary
+  (2x24 cores/512GB each, 20 VMs sized across all 4 DR Categories) with
+  a deliberately smaller 2-host DR that only receives the 5 Core /
+  Mission-Critical VMs via Failover Assignments - everything else
+  (Important/Standard/Non-Essential) stays Primary-only. Commvault
+  backs up to a Primary NAS, replicated to DR as an immutable Auxiliary
+  Copy - verified 3-2-1-1 compliant.
+- **`scenario_hyperv_azure_dr_example.clsz`** - the same Primary layout
+  and same 5 Core VMs as the previous example, but DR is a Cloud site
+  (Azure) instead of physical hardware - no servers there at all,
+  matching how every other Cloud-flagged site in this app behaves
+  (Rack Sizing shows "Cloud", and failover readiness correctly reports
+  "not applicable" rather than a false Critical, since there's no
+  physical capacity to check against elasticity). Backup adds a Cloud-
+  type destination (immutable Azure Blob copy) alongside the same
+  on-prem Commvault/NAS setup, with its recurring monthly cost tracked
+  as a Maintenance Item - same pattern as the DRaaS example from
+  v3.5.0, rather than inventing a second pricing model on Backup
+  Destination itself.
+- All three verified through the full pipeline (Summary, Word report,
+  backup compliance, rack sizing) before saving - no new test files,
+  since these are example DATA, not code, but every save was validated
+  against the real calculation/report functions rather than trusted
+  blind.
+
 ## v4.0.0 (Multi-site support - configurable sites, per-site failover assignments)
 
 The big one deferred from v3.10.0's equipment-inventory review: some

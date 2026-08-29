@@ -1,4 +1,4 @@
-# ClusterSizer v4.0.0 - see src/version.py for the single source of truth
+# ClusterSizer v4.1.0 - see src/version.py for the single source of truth
 import faulthandler
 import sys
 import traceback
