@@ -40,7 +40,8 @@ or the tender is written**.
   modeling throughout the app (see `docs/ROADMAP.md` v3.6.0 for what's
   in scope now vs deferred). See `examples/scenario_draas_example.clsz`
   for a worked hybrid example.
-- **Servers** — site (Primary/DR), sockets/cores/threads/RAM/GHz, IP
+- **Servers** — site (configurable list, not just Primary/DR - see
+  Settings), sockets/cores/threads/RAM/GHz, IP
   address, NIC inventory (incl. direct-attach SAS), and a Hyperthreading
   toggle that actually affects CPU oversubscription math (HT-adjusted
   per server, not a flat multiplier). Also tracks Serial Number, BMC/
@@ -59,13 +60,20 @@ or the tender is written**.
   Usable capacity still stays a manual entry, since the real raw-to-
   usable shrinkage depends on the storage policy (FTT/erasure coding) in
   a way this app doesn't try to model exactly.
-- **VMs** — every VM can be flagged as *DR Protected* with its own DR
-  footprint (vcpu/ram/disk) — since DR replicas are often not a 1:1 match
-  with production, and the DR calculation respects that. Each VM also
-  gets a Workload Tier (Tier-0/Mission-Critical, Standard Production,
-  Development/Test, High-Density VDI — each with a commonly-cited safe
-  oversubscription ratio, e.g. Tier-0 at 1:1 up to VDI at 12-24:1) for
-  the **Cluster Preparation** wizard — a proper Next/Next/Finish wizard
+- **VMs** — a **Failover Assignments** table (own section, same pattern
+  as Switches/Connections/VLANs on the Network tab) lets any VM be
+  assigned to fail over to any site, with its own footprint (vCPU/RAM/
+  disk) per target - since a DR replica is often not a 1:1 match with
+  production, and the same VM can need a different footprint on a
+  second, budget DR site than a full-size one. A target-site-aware bulk
+  toggle (checkbox + site combo + Apply Selected/All) speeds up
+  assigning many VMs at once. Each VM also gets an optional, purely
+  informational **DR Category** (Core/Mission-Critical, Important,
+  Standard, Non-Essential, or your own label) and a Workload Tier
+  (Tier-0/Mission-Critical, Standard Production, Development/Test,
+  High-Density VDI — each with a commonly-cited safe oversubscription
+  ratio, e.g. Tier-0 at 1:1 up to VDI at 12-24:1) for the **Cluster
+  Preparation** wizard — a proper Next/Next/Finish wizard
   (Hypervisor → Workload → Policy → Result), the reverse
   question from the rest of the app: not "do these VMs fit the servers I
   have" but "how many servers should I buy for these VMs". Reuses the
@@ -120,8 +128,11 @@ or the tender is written**.
   need a click-through of every tab.
 - **Settings** — recommended oversubscription presets by hypervisor
   vendor (VMware, Hyper-V, Proxmox/KVM, Citrix Hypervisor), or set your
-  own thresholds manually. Also where Deployment Model (On-Premise/
-  Cloud) and Rack Capacity are set, per site, applied immediately.
+  own thresholds manually. Also where **Sites** are managed (add/remove
+  beyond the default Primary/DR pair - Primary can't be removed, nor
+  can a site still in use elsewhere), and where Deployment Model
+  (On-Premise/Cloud) and Rack Capacity are set, per site, applied
+  immediately.
 - **Reports** — readable text report, a structured Word (.docx) report
   (Servers → Storage → Network → Cluster config → VMs, each with a
   summary plus the full per-device listing - editable afterward, add a

@@ -16,7 +16,7 @@ from src.models.network_switch import NetworkSwitch, SWITCH_TYPES
 
 class SwitchDialog(QDialog):
 
-    def __init__(self, switch: NetworkSwitch | None = None, parent=None):
+    def __init__(self, switch: NetworkSwitch | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self.setWindowTitle("Network Device")
@@ -35,7 +35,7 @@ class SwitchDialog(QDialog):
         layout.addRow("Name", self.name_edit)
 
         self.site_combo = QComboBox()
-        self.site_combo.addItems(["Primary", "DR"])
+        self.site_combo.addItems(sites or ["Primary", "DR"])
         layout.addRow("Site", self.site_combo)
 
         self.vendor_edit = QLineEdit()

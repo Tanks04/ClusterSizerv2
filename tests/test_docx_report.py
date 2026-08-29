@@ -162,7 +162,7 @@ def test_rack_sizing_shows_cloud_for_a_cloud_site():
     from src.models.cluster_project import CLOUD
 
     project = _build_sample_project()
-    project.dr_deployment_model = CLOUD
+    project.set_deployment_model(DR, CLOUD)
 
     document = build_docx_report(project, Thresholds())
     all_text = "\n".join(p.text for p in document.paragraphs)
@@ -180,7 +180,7 @@ def test_rack_sizing_shows_used_and_capacity_when_capacity_is_set():
     server.rack_units = 12
     server.power_watts = 500.0
     project.servers.append(server)
-    project.primary_rack_capacity_u = 84
+    project.set_rack_capacity_u(PRIMARY, 84)
 
     document = build_docx_report(project, Thresholds())
     all_text = "\n".join(p.text for p in document.paragraphs)
@@ -197,7 +197,7 @@ def test_rack_sizing_flags_over_capacity():
     server.site = PRIMARY
     server.rack_units = 12
     project.servers.append(server)
-    project.primary_rack_capacity_u = 10
+    project.set_rack_capacity_u(PRIMARY, 10)
 
     document = build_docx_report(project, Thresholds())
     all_text = "\n".join(p.text for p in document.paragraphs)

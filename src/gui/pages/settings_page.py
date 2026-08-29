@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -12,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.thresholds import PRESETS
-from src.models.cluster_project import DEPLOYMENT_MODELS
+from src.models.cluster_project import DEPLOYMENT_MODELS, PRIMARY
 from src.services.project_service import ProjectService
 
 
@@ -50,47 +52,65 @@ class SettingsPage(QWidget):
         layout.addWidget(info)
 
         #
-        # Deployment model (per-site - hybrid setups like on-prem
-        # Primary + cloud DR/DRaaS are common)
+        # Sites - add/remove beyond the default Primary/DR pair. Primary
+        # can never be removed (see ProjectService.remove_site) - too
+        # much of the rest of the app assumes it always exists.
         #
 
-        deployment_box = QGroupBox("Deployment Model")
-        deployment_form = QFormLayout(deployment_box)
+        sites_box = QGroupBox("Sites")
+        sites_layout = QVBoxLayout(sites_box)
+
+        sites_note = QLabel(
+            "Primary and DR always exist by default - add more if you have "
+            "additional sites (a second DR, a cloud site, etc.). Primary "
+            "can't be removed. A site still referenced by any Server/"
+            "Storage/VM/Switch/Backup Destination/VLAN/Failover Assignment "
+            "can't be removed either - reassign or delete those first."
+        )
+        sites_note.setWordWrap(True)
+        sites_note.setStyleSheet("color: #757575; font-style: italic;")
+        sites_layout.addWidget(sites_note)
+
+        add_site_row = QHBoxLayout()
+        self.new_site_edit = QLineEdit()
+        self.new_site_edit.setPlaceholderText("e.g. DR2, Cloud Site...")
+        add_site_row.addWidget(self.new_site_edit)
+        add_site_button = QPushButton("Add Site")
+        add_site_button.clicked.connect(self._add_site)
+        add_site_row.addWidget(add_site_button)
+        sites_layout.addLayout(add_site_row)
+
+        layout.addWidget(sites_box)
+
+        #
+        # Deployment model (per-site - hybrid setups like on-prem
+        # Primary + cloud DR/DRaaS are common). Rebuilt dynamically
+        # whenever the site list changes - not a fixed Primary/DR pair.
+        #
+
+        self.deployment_box = QGroupBox("Deployment Model")
+        self.deployment_form = QFormLayout(self.deployment_box)
 
         deployment_note = QLabel(
-            "Set per site, not per project - a hybrid setup (e.g. on-premise "
-            "Primary with a cloud DR/DRaaS) is common. Currently affects Rack "
-            "Sizing on the Summary page and in the Word report - a Cloud site "
-            "shows \"Cloud\" instead of trying to sum rack units/power, since "
+            "Set per site - a hybrid setup (e.g. on-premise Primary with a "
+            "cloud DR/DRaaS) is common. Currently affects Rack Sizing on "
+            "the Summary page and in the Word report - a Cloud site shows "
+            "\"Cloud\" instead of trying to sum rack units/power, since "
             "that's not a concept that applies there. Applied immediately."
         )
         deployment_note.setWordWrap(True)
         deployment_note.setStyleSheet("color: #757575; font-style: italic;")
-        deployment_form.addRow(deployment_note)
+        self.deployment_form.addRow(deployment_note)
 
-        self.primary_deployment_combo = QComboBox()
-        self.primary_deployment_combo.addItems(DEPLOYMENT_MODELS)
-        self.primary_deployment_combo.currentTextChanged.connect(
-            lambda text: self.service.set_primary_deployment_model(text)
-        )
-        deployment_form.addRow("Primary Site", self.primary_deployment_combo)
-
-        self.dr_deployment_combo = QComboBox()
-        self.dr_deployment_combo.addItems(DEPLOYMENT_MODELS)
-        self.dr_deployment_combo.currentTextChanged.connect(
-            lambda text: self.service.set_dr_deployment_model(text)
-        )
-        deployment_form.addRow("DR Site", self.dr_deployment_combo)
-
-        layout.addWidget(deployment_box)
+        layout.addWidget(self.deployment_box)
 
         #
         # Rack Capacity (per site) - how many U are AVAILABLE, separate
         # from Rack Sizing's "how many U are USED by entered equipment"
         #
 
-        rack_capacity_box = QGroupBox("Rack Capacity")
-        rack_capacity_form = QFormLayout(rack_capacity_box)
+        self.rack_capacity_box = QGroupBox("Rack Capacity")
+        self.rack_capacity_form = QFormLayout(self.rack_capacity_box)
 
         rack_capacity_note = QLabel(
             "How many rack units are available at each site - separate from "
@@ -102,27 +122,13 @@ class SettingsPage(QWidget):
         )
         rack_capacity_note.setWordWrap(True)
         rack_capacity_note.setStyleSheet("color: #757575; font-style: italic;")
-        rack_capacity_form.addRow(rack_capacity_note)
+        self.rack_capacity_form.addRow(rack_capacity_note)
 
-        self.primary_rack_capacity_spin = QSpinBox()
-        self.primary_rack_capacity_spin.setRange(0, 1000)
-        self.primary_rack_capacity_spin.setSuffix(" U")
-        self.primary_rack_capacity_spin.setSpecialValueText("(not set)")
-        self.primary_rack_capacity_spin.valueChanged.connect(
-            lambda value: self.service.set_primary_rack_capacity_u(value)
-        )
-        rack_capacity_form.addRow("Primary Site", self.primary_rack_capacity_spin)
+        layout.addWidget(self.rack_capacity_box)
 
-        self.dr_rack_capacity_spin = QSpinBox()
-        self.dr_rack_capacity_spin.setRange(0, 1000)
-        self.dr_rack_capacity_spin.setSuffix(" U")
-        self.dr_rack_capacity_spin.setSpecialValueText("(not set)")
-        self.dr_rack_capacity_spin.valueChanged.connect(
-            lambda value: self.service.set_dr_rack_capacity_u(value)
-        )
-        rack_capacity_form.addRow("DR Site", self.dr_rack_capacity_spin)
-
-        layout.addWidget(rack_capacity_box)
+        self.site_names_shown: list[str] = []
+        self.deployment_combos: dict[str, QComboBox] = {}
+        self.rack_capacity_spins: dict[str, QSpinBox] = {}
 
         #
         # Recommended presets
@@ -200,6 +206,95 @@ class SettingsPage(QWidget):
 
         layout.addStretch()
 
+    def _add_site(self):
+        name = self.new_site_edit.text().strip()
+        if not name:
+            return
+        if name in self.service.project.site_names:
+            QMessageBox.information(self, "Add Site", f'"{name}" already exists.')
+            return
+        self.service.add_site(name)
+        self.new_site_edit.clear()
+        self._rebuild_site_rows()
+
+    def _remove_site(self, name: str):
+        confirm = QMessageBox.question(
+            self, "Remove Site", f'Remove "{name}"? You can undo with Ctrl+Z.',
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.service.remove_site(name)
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Cannot Remove Site", str(exc))
+            return
+        self._rebuild_site_rows()
+
+    def _rebuild_site_rows(self):
+        """Rebuilt whenever the site list itself changes (add/remove) -
+        not on every load, since QFormLayout has no cheap way to just
+        update existing rows' labels in place when the underlying site
+        set changes shape."""
+        site_names = self.service.project.site_names
+        if site_names == self.site_names_shown:
+            self._load_site_values()
+            return
+
+        while self.deployment_form.rowCount() > 1:  # keep row 0 (the note)
+            self.deployment_form.removeRow(1)
+        while self.rack_capacity_form.rowCount() > 1:
+            self.rack_capacity_form.removeRow(1)
+        self.deployment_combos.clear()
+        self.rack_capacity_spins.clear()
+
+        for site in site_names:
+            combo = QComboBox()
+            combo.addItems(DEPLOYMENT_MODELS)
+            combo.currentTextChanged.connect(
+                lambda text, s=site: self.service.set_deployment_model(s, text)
+            )
+            self.deployment_combos[site] = combo
+            self.deployment_form.addRow(self._site_row_label(site), combo)
+
+            spin = QSpinBox()
+            spin.setRange(0, 1000)
+            spin.setSuffix(" U")
+            spin.setSpecialValueText("(not set)")
+            spin.valueChanged.connect(
+                lambda value, s=site: self.service.set_rack_capacity_u(s, value)
+            )
+            self.rack_capacity_spins[site] = spin
+            self.rack_capacity_form.addRow(self._site_row_label(site), spin)
+
+        self.site_names_shown = list(site_names)
+        self._load_site_values()
+
+    def _site_row_label(self, site: str) -> QWidget:
+        """Site name + a Remove button for anything but Primary, so
+        removing a site doesn't require leaving this page."""
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(QLabel(site))
+        if site != PRIMARY:
+            remove_button = QPushButton("\u2715")
+            remove_button.setFixedWidth(24)
+            remove_button.setToolTip(f'Remove "{site}"')
+            remove_button.clicked.connect(lambda: self._remove_site(site))
+            row_layout.addWidget(remove_button)
+        row_layout.addStretch()
+        return row
+
+    def _load_site_values(self):
+        for site, combo in self.deployment_combos.items():
+            combo.blockSignals(True)
+            combo.setCurrentText(self.service.project.deployment_model_for(site))
+            combo.blockSignals(False)
+        for site, spin in self.rack_capacity_spins.items():
+            spin.blockSignals(True)
+            spin.setValue(self.service.project.rack_capacity_u_for(site))
+            spin.blockSignals(False)
+
     def _selected_preset(self):
         key = self.preset_combo.currentData()
         return next((p for p in PRESETS if p.key == key), PRESETS[0])
@@ -221,21 +316,7 @@ class SettingsPage(QWidget):
         )
 
     def _load_from_service(self):
-        self.primary_deployment_combo.blockSignals(True)
-        self.primary_deployment_combo.setCurrentText(self.service.project.primary_deployment_model)
-        self.primary_deployment_combo.blockSignals(False)
-
-        self.dr_deployment_combo.blockSignals(True)
-        self.dr_deployment_combo.setCurrentText(self.service.project.dr_deployment_model)
-        self.dr_deployment_combo.blockSignals(False)
-
-        self.primary_rack_capacity_spin.blockSignals(True)
-        self.primary_rack_capacity_spin.setValue(self.service.project.primary_rack_capacity_u)
-        self.primary_rack_capacity_spin.blockSignals(False)
-
-        self.dr_rack_capacity_spin.blockSignals(True)
-        self.dr_rack_capacity_spin.setValue(self.service.project.dr_rack_capacity_u)
-        self.dr_rack_capacity_spin.blockSignals(False)
+        self._rebuild_site_rows()
 
         t = self.service.thresholds
         self.cpu_warning_spin.setValue(t.cpu_warning_ratio)

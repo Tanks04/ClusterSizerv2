@@ -25,7 +25,7 @@ def test_vlan_column_shows_assigned_vlan_name():
     vm.vlan_uid = vlan.uid
 
     model = VMTableModel([vm], vlans_provider=lambda: [vlan])
-    index = model.index(0, 10)  # VLAN column
+    index = model.index(0, 11)  # VLAN column
 
     assert model.data(index, Qt.ItemDataRole.DisplayRole) == "DMZ"
 
@@ -34,7 +34,7 @@ def test_vlan_column_shows_dash_when_unassigned():
     vm = VirtualMachine.create_default()
 
     model = VMTableModel([vm], vlans_provider=lambda: [])
-    index = model.index(0, 10)
+    index = model.index(0, 11)
 
     assert model.data(index, Qt.ItemDataRole.DisplayRole) == "-"
 
@@ -46,6 +46,6 @@ def test_vlan_column_shows_dash_for_a_stale_reference():
     vm.vlan_uid = "deleted-uid"
 
     model = VMTableModel([vm], vlans_provider=lambda: [])
-    index = model.index(0, 10)
+    index = model.index(0, 11)
 
     assert model.data(index, Qt.ItemDataRole.DisplayRole) == "-"

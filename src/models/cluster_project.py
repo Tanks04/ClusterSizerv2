@@ -8,6 +8,7 @@ from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
+from src.models.failover_assignment import FailoverAssignment
 
 PRIMARY = "Primary"
 DR = "DR"
@@ -50,21 +51,20 @@ class ClusterProject:
 
     name: str = "New Project"
 
-    # Per-site, not per-project - a hybrid setup (on-prem Primary + cloud
-    # DR, i.e. DRaaS) is common enough in practice that this shouldn't be
-    # a single project-wide toggle. Defaults to On-Premise so every
-    # existing project loads completely unchanged.
-    primary_deployment_model: str = ON_PREMISE
-    dr_deployment_model: str = ON_PREMISE
+    # The actual list of sites this project tracks - starts as the
+    # familiar Primary/DR pair so every existing project loads
+    # completely unchanged, but isn't limited to exactly two. PRIMARY
+    # is always assumed present throughout the app (it's the "main"
+    # site everything else is sized against) - see remove_site().
+    site_names: list[str] = field(default_factory=lambda: [PRIMARY, DR])
 
-    # How many rack units are AVAILABLE at each site - separate from
-    # compute_rack_sizing(), which only sums how many are USED by
-    # entered equipment. 0 = not entered (Rack Sizing just shows the
-    # used figure with no "of how many" context, same as before this
-    # existed). DR is very often a smaller rack than Primary in
-    # practice, hence per-site rather than one project-wide number.
-    primary_rack_capacity_u: int = 0
-    dr_rack_capacity_u: int = 0
+    # Per-site settings, keyed by site name - a dict instead of two
+    # hardcoded fields (the earlier primary_X/dr_X shape) specifically
+    # so this scales to however many sites are in site_names. A site
+    # with no entry here defaults to On-Premise / 0 (not entered) -
+    # same effective defaults as before this was a dict.
+    site_deployment_models: dict[str, str] = field(default_factory=dict)
+    site_rack_capacity_u: dict[str, int] = field(default_factory=dict)
 
     servers: list[Server] = field(default_factory=list)
     storages: list[Storage] = field(default_factory=list)
@@ -74,17 +74,41 @@ class ClusterProject:
     backup_destinations: list[BackupDestination] = field(default_factory=list)
     maintenance_items: list[MaintenanceItem] = field(default_factory=list)
     vlans: list[Vlan] = field(default_factory=list)
+    failover_assignments: list[FailoverAssignment] = field(default_factory=list)
+
+    def add_site(self, name: str) -> None:
+        name = name.strip()
+        if name and name not in self.site_names:
+            self.site_names.append(name)
+
+    def remove_site(self, name: str) -> None:
+        """Removing PRIMARY is refused outright - too much of the rest
+        of the app (capacity math, reports, the Summary layout) assumes
+        it always exists as "the main site" to size everything against.
+        Whether entities still reference `name` is a ProjectService-level
+        concern (same policy as VLAN deletion elsewhere), not this
+        model method's - this just removes it from the list and its
+        own per-site settings."""
+        if name == PRIMARY:
+            raise ValueError("Cannot remove the Primary site")
+        self.site_names = [s for s in self.site_names if s != name]
+        self.site_deployment_models.pop(name, None)
+        self.site_rack_capacity_u.pop(name, None)
 
     def deployment_model_for(self, site: str) -> str:
-        """Looks up the right field by site name instead of the caller
-        having to branch on PRIMARY/DR itself everywhere this is needed."""
-        return self.dr_deployment_model if site == DR else self.primary_deployment_model
+        return self.site_deployment_models.get(site, ON_PREMISE)
+
+    def set_deployment_model(self, site: str, model: str) -> None:
+        self.site_deployment_models[site] = model
 
     def is_cloud(self, site: str) -> bool:
         return self.deployment_model_for(site) == CLOUD
 
     def rack_capacity_u_for(self, site: str) -> int:
-        return self.dr_rack_capacity_u if site == DR else self.primary_rack_capacity_u
+        return self.site_rack_capacity_u.get(site, 0)
+
+    def set_rack_capacity_u(self, site: str, capacity: int) -> None:
+        self.site_rack_capacity_u[site] = capacity
 
     # ------------------------------------------------------------------
     # Filtering by site
@@ -291,68 +315,88 @@ class ClusterProject:
         return check.ok if check is not None else None
 
     # ------------------------------------------------------------------
-    # DR failover demand - "what DR would have to carry if the Primary
-    # site went down completely". This is NOT the same as vm_vcpu_demand(DR):
-    # that's VMs already running on DR today, while this is VMs that would
-    # NEWLY arrive on DR (only the ones with dr_protected=True), at their
-    # DR footprint (which may be smaller than the Primary footprint), PLUS
-    # whatever is already physically running on DR.
+    # Failover demand - "what site X would have to carry if it started
+    # receiving its assigned failover VMs on top of what it already
+    # runs". Generalized across any number of sites via
+    # FailoverAssignment (not just a fixed Primary->DR relationship) -
+    # each assignment is one VM's footprint on ONE target site, since
+    # the same VM can need a different footprint on different targets
+    # (e.g. smaller on a budget DR site than a full second DR).
     #
-    # CPU/RAM only count PRIMARY VMs that are dr_protected AND currently
-    # powered on (a powered-off VM isn't consuming CPU/RAM anywhere right
-    # now, so it wouldn't need reserving on DR either). Disk is NOT
-    # filtered by power state, same reasoning as vm_disk_demand_gb: a
-    # replicated disk still occupies space on the DR target even while
-    # the source VM is powered off.
+    # CPU/RAM only count an assignment if its VM is currently powered
+    # on (a powered-off VM isn't consuming CPU/RAM anywhere right now,
+    # so it wouldn't need reserving on a failover target either). Disk
+    # is NOT filtered by power state, same reasoning as
+    # vm_disk_demand_gb: replicated disk still occupies space on the
+    # target even while the source VM is powered off.
     # ------------------------------------------------------------------
 
-    def dr_failover_vcpu_demand(self) -> int:
-        protected = sum(
-            v.effective_dr_vcpu for v in self.vms_at(PRIMARY)
-            if v.dr_protected and v.powered_on
-        )
-        return protected + self.vm_vcpu_demand(DR)
+    def failover_assignments_for(self, site: str) -> list["FailoverAssignment"]:
+        """Assignments targeting this site - excludes any whose VM
+        already physically lives AT this site (not a "failover" if
+        it's already there) or whose VM no longer exists (orphaned;
+        ProjectService cleans these up when a VM is deleted, but this
+        stays defensive regardless)."""
+        vm_by_uid = {v.uid: v for v in self.vms}
+        result = []
+        for a in self.failover_assignments:
+            if a.target_site != site:
+                continue
+            vm = vm_by_uid.get(a.vm_uid)
+            if vm is None or vm.site == site:
+                continue
+            result.append(a)
+        return result
 
-    def dr_failover_ram_demand_gb(self) -> float:
-        protected = sum(
-            v.effective_dr_ram_gb for v in self.vms_at(PRIMARY)
-            if v.dr_protected and v.powered_on
-        )
-        return protected + self.vm_ram_demand_gb(DR)
+    def failover_vcpu_demand(self, site: str) -> int:
+        vm_by_uid = {v.uid: v for v in self.vms}
+        total = self.vm_vcpu_demand(site)
+        for a in self.failover_assignments_for(site):
+            if vm_by_uid[a.vm_uid].powered_on:
+                total += a.vcpu
+        return total
 
-    def dr_failover_disk_demand_gb(self) -> float:
-        protected = sum(
-            v.effective_dr_disk_gb for v in self.vms_at(PRIMARY) if v.dr_protected
-        )
-        return protected + self.vm_disk_demand_gb(DR)
+    def failover_ram_demand_gb(self, site: str) -> float:
+        vm_by_uid = {v.uid: v for v in self.vms}
+        total = self.vm_ram_demand_gb(site)
+        for a in self.failover_assignments_for(site):
+            if vm_by_uid[a.vm_uid].powered_on:
+                total += a.ram_gb
+        return total
 
-    def dr_protected_vm_count(self) -> int:
-        return sum(1 for v in self.vms_at(PRIMARY) if v.dr_protected)
+    def failover_disk_demand_gb(self, site: str) -> float:
+        total = self.vm_disk_demand_gb(site)
+        for a in self.failover_assignments_for(site):
+            total += a.disk_gb
+        return total
+
+    def failover_assigned_vm_count(self, site: str) -> int:
+        return len(self.failover_assignments_for(site))
 
     # ------------------------------------------------------------------
-    # DR readiness: can the DR site take on all dr_protected VMs (at their
-    # DR footprint) plus whatever is already running on DR?
+    # Failover readiness: can this site take on everything assigned to
+    # it (plus whatever it already runs)?
     # ------------------------------------------------------------------
 
-    def dr_cpu_ok(self) -> bool | None:
-        if not self.servers_at(DR):
+    def failover_cpu_ok(self, site: str) -> bool | None:
+        if not self.servers_at(site):
             return None
-        return self.physical_cores(DR) >= self.dr_failover_vcpu_demand()
+        return self.physical_cores(site) >= self.failover_vcpu_demand(site)
 
-    def dr_ram_ok(self) -> bool | None:
-        if not self.servers_at(DR):
+    def failover_ram_ok(self, site: str) -> bool | None:
+        if not self.servers_at(site):
             return None
-        return self.physical_ram_gb(DR) >= self.dr_failover_ram_demand_gb()
+        return self.physical_ram_gb(site) >= self.failover_ram_demand_gb(site)
 
-    def dr_storage_ok(self) -> bool | None:
-        if not self.storages_at(DR):
+    def failover_storage_ok(self, site: str) -> bool | None:
+        if not self.storages_at(site):
             return None
-        return self.usable_storage_gb(DR) >= self.dr_failover_disk_demand_gb()
+        return self.usable_storage_gb(site) >= self.failover_disk_demand_gb(site)
 
-    def dr_ready(self) -> bool | None:
-        """None if the DR site has no resources defined at all (no point
+    def failover_ready(self, site: str) -> bool | None:
+        """None if the site has no resources defined at all (no point
         evaluating readiness)."""
-        checks = [self.dr_cpu_ok(), self.dr_ram_ok(), self.dr_storage_ok()]
+        checks = [self.failover_cpu_ok(site), self.failover_ram_ok(site), self.failover_storage_ok(site)]
         if all(c is None for c in checks):
             return None
         return all(c is not False for c in checks)

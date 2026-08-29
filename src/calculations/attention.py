@@ -15,7 +15,7 @@ turns them into one flat, severity-sorted list of short messages.
 from dataclasses import dataclass
 
 from src.calculations.thresholds import Status, Thresholds
-from src.calculations.sizing import build_reports
+from src.calculations.sizing import build_reports, build_failover_report
 from src.calculations.backup import compute_compliance
 from src.calculations.pricing import compute_maintenance_status
 from src.models.cluster_project import ClusterProject
@@ -32,9 +32,10 @@ class AttentionItem:
 def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> list[AttentionItem]:
     items: list[AttentionItem] = []
 
-    primary_report, dr_report, dr_check = build_reports(project, thresholds)
+    reports = build_reports(project, thresholds)
 
-    for report in (primary_report, dr_report):
+    for site in project.site_names:
+        report = reports[site]
         if report.cpu_status in (Status.WARNING, Status.CRITICAL):
             ratio_text = f"{report.cpu_ratio:.1f}:1" if report.cpu_ratio is not None else "n/a"
             items.append(AttentionItem(
@@ -66,11 +67,12 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
                 f"{report.site}: would NOT survive losing 1 host (short {detail})",
             ))
 
-    if dr_check.ready is False:
-        items.append(AttentionItem(
-            Status.CRITICAL,
-            "DR Readiness: DR site does not have enough capacity for full failover",
-        ))
+        failover = build_failover_report(project, site)
+        if failover.ready is False:
+            items.append(AttentionItem(
+                Status.CRITICAL,
+                f"{site}: does not have enough capacity for its assigned failover VMs",
+            ))
 
     # Skip nagging about backup compliance for a project with no VMs yet
     # (nothing to back up) - avoids noise on a brand new, still-empty project.

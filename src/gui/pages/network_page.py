@@ -278,7 +278,7 @@ class NetworkPage(QWidget):
         return [self.switch_model.switch_at(row) for row in self.switch_table.selected_rows()]
 
     def _add_switch(self):
-        dialog = SwitchDialog(parent=self)
+        dialog = SwitchDialog(sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_switch(dialog.get_switch())
 
@@ -289,7 +289,7 @@ class NetworkPage(QWidget):
             return
         row = rows[0]
         switch = self.switch_model.switch_at(row)
-        dialog = SwitchDialog(switch, parent=self)
+        dialog = SwitchDialog(switch, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_switch(row, dialog.get_switch())
 
@@ -452,7 +452,7 @@ class NetworkPage(QWidget):
         return [self.vlan_model.vlan_at(row) for row in self.vlan_table.selected_rows()]
 
     def _add_vlan(self):
-        dialog = VlanDialog(parent=self)
+        dialog = VlanDialog(sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_vlan(dialog.get_vlan())
 
@@ -463,7 +463,7 @@ class NetworkPage(QWidget):
             return
         row = rows[0]
         vlan = self.vlan_model.vlan_at(row)
-        dialog = VlanDialog(vlan, parent=self)
+        dialog = VlanDialog(vlan, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_vlan(row, dialog.get_vlan())
 

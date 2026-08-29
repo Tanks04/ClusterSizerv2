@@ -55,8 +55,7 @@ BACKUP_DESTINATION_FIELDS = [
 
 VM_FIELDS = [
     "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on",
-    "dr_protected", "dr_vcpu", "dr_ram_gb", "dr_disk_gb",
-    "workload_tier", "ip_address", "os", "notes",
+    "workload_tier", "dr_category", "ip_address", "os", "notes",
 ]
 
 SWITCH_FIELDS = [
@@ -296,7 +295,6 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
         vcpu = int(float(row.get("vcpu") or 2))
         ram_gb = float(row.get("ram_gb") or 8)
         disk_gb = float(row.get("disk_gb") or 100)
-        dr_protected = _bool(row.get("dr_protected"), default=False)
         workload_tier = row.get("workload_tier") or DEFAULT_WORKLOAD_TIER
         if workload_tier not in WORKLOAD_TIER_NAMES:
             workload_tier = DEFAULT_WORKLOAD_TIER
@@ -309,11 +307,8 @@ def import_vms(path: str | Path) -> list[VirtualMachine]:
                 ram_gb=ram_gb,
                 disk_gb=disk_gb,
                 powered_on=_bool(row.get("powered_on"), default=True),
-                dr_protected=dr_protected,
-                dr_vcpu=int(float(row.get("dr_vcpu") or vcpu)),
-                dr_ram_gb=float(row.get("dr_ram_gb") or ram_gb),
-                dr_disk_gb=float(row.get("dr_disk_gb") or disk_gb),
                 workload_tier=workload_tier,
+                dr_category=row.get("dr_category", "") or "",
                 ip_address=row.get("ip_address", "") or "",
                 os=row.get("os", "") or "",
                 notes=row.get("notes", "") or "",

@@ -124,7 +124,7 @@ class BackupPage(QWidget):
         return [self.model.destination_at(row) for row in self.table.selected_rows()]
 
     def _add_destination(self):
-        dialog = BackupDestinationDialog(parent=self)
+        dialog = BackupDestinationDialog(sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_backup_destination(dialog.get_destination())
 
@@ -136,7 +136,7 @@ class BackupPage(QWidget):
 
         row = rows[0]
         destination = self.model.destination_at(row)
-        dialog = BackupDestinationDialog(destination, parent=self)
+        dialog = BackupDestinationDialog(destination, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_backup_destination(row, dialog.get_destination())
 

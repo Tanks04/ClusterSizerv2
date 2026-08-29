@@ -27,7 +27,7 @@ except Exception as _exc:  # noqa: BLE001 - deliberately broad, see message belo
     RGBColor = None
     _docx_import_error = _exc
 
-from src.calculations.sizing import build_reports
+from src.calculations.sizing import build_reports, build_failover_report
 from src.calculations.thresholds import Status, Thresholds
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.calculations.rack import compute_rack_sizing
@@ -199,10 +199,11 @@ def _network_section(document: Document, project: ClusterProject) -> None:
 def _cluster_section(document: Document, project: ClusterProject, thresholds: Thresholds) -> None:
     document.add_heading("Cluster", level=1)
 
-    primary, dr, dr_check = build_reports(project, thresholds)
+    reports = build_reports(project, thresholds)
 
-    for label, site, report in (("Primary Site", PRIMARY, primary), ("DR Site", DR, dr)):
-        document.add_heading(label, level=2)
+    for site in project.site_names:
+        report = reports[site]
+        document.add_heading(f"{site} Site", level=2)
 
         rows = [
             ("Servers", str(report.server_count)),
@@ -264,22 +265,21 @@ def _cluster_section(document: Document, project: ClusterProject, thresholds: Th
                 detail = document.add_paragraph()
                 _add_colored_run(detail, f"Would need {' and '.join(shortfalls)} to survive losing a host.", _ORANGE)
 
-    document.add_heading("DR Readiness (failover Primary \u2192 DR)", level=2)
-    dr_rows = [
-        ("DR-protected VMs", str(dr_check.protected_vm_count)),
-        ("Failover vCPU demand", str(dr_check.failover_vcpu_demand)),
-        ("Failover RAM demand", f"{dr_check.failover_ram_demand_gb:.0f} GB"),
-        ("Failover disk demand", f"{dr_check.failover_disk_demand_gb / 1024:.1f} TB"),
-    ]
-    for name, value in dr_rows:
+        failover = build_failover_report(project, site)
         p = document.add_paragraph()
-        p.add_run(f"{name}: ").bold = True
-        p.add_run(value)
-    p = document.add_paragraph()
-    p.add_run("DR Ready: ").bold = True
-    ready_text = _yn(dr_check.ready)
-    ready_color = _GREEN if dr_check.ready else (_RED if dr_check.ready is False else _GRAY)
-    _add_colored_run(p, ready_text, ready_color, bold=True)
+        p.add_run("Failover Readiness (VMs assigned here): ").bold = True
+        assigned_text = f"{failover.assigned_vm_count} VM(s) assigned"
+        p.add_run(f"{assigned_text} - ")
+        ready_text = _yn(failover.ready)
+        ready_color = _GREEN if failover.ready else (_RED if failover.ready is False else _GRAY)
+        _add_colored_run(p, ready_text, ready_color, bold=True)
+        if failover.assigned_vm_count:
+            detail = document.add_paragraph()
+            detail.add_run(
+                f"Failover vCPU demand: {failover.failover_vcpu_demand}  \u00b7  "
+                f"RAM demand: {failover.failover_ram_demand_gb:.0f} GB  \u00b7  "
+                f"Disk demand: {failover.failover_disk_demand_gb / 1024:.1f} TB"
+            ).italic = True
 
     document.add_heading("Assumptions", level=2)
     assumptions = document.add_paragraph()
@@ -293,14 +293,19 @@ def _cluster_section(document: Document, project: ClusterProject, thresholds: Th
 def _vms_section(document: Document, project: ClusterProject) -> None:
     document.add_heading("Virtual Machines", level=1)
 
+    assignments_by_vm: dict[str, list[str]] = {}
+    for a in project.failover_assignments:
+        assignments_by_vm.setdefault(a.vm_uid, []).append(a.target_site)
+
     rows = []
     for vm in project.vms:
+        failover_sites = ", ".join(assignments_by_vm.get(vm.uid, [])) or "-"
         rows.append([
             vm.name, vm.site, str(vm.vcpu), f"{vm.ram_gb:.0f} GB", f"{vm.disk_gb:.0f} GB",
-            vm.workload_tier, "Yes" if vm.dr_protected else "No",
+            vm.workload_tier, failover_sites,
             "On" if vm.powered_on else "Off",
         ])
-    _add_table(document, ["Name", "Site", "vCPU", "RAM", "Disk", "Workload Tier", "DR Protected", "Power"], rows)
+    _add_table(document, ["Name", "Site", "vCPU", "RAM", "Disk", "Workload Tier", "Failover Sites", "Power"], rows)
 
 
 def _eur(amount: float) -> str:

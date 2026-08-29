@@ -5,7 +5,9 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from src.calculations.thresholds import Thresholds
-from src.models.cluster_project import ClusterProject, ON_PREMISE
+from src.models.cluster_project import ClusterProject, ON_PREMISE, PRIMARY, DR
+from src.models.failover_assignment import FailoverAssignment
+import uuid
 from src.models.server import Server
 from src.models.storage import Storage, StorageShelf
 from src.models.virtual_machine import VirtualMachine
@@ -16,7 +18,7 @@ from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
 
 FILE_EXTENSION = ".clsz"
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 @dataclass
@@ -39,10 +41,9 @@ def save_project(
     data = {
         "schema_version": SCHEMA_VERSION,
         "name": project.name,
-        "primary_deployment_model": project.primary_deployment_model,
-        "dr_deployment_model": project.dr_deployment_model,
-        "primary_rack_capacity_u": project.primary_rack_capacity_u,
-        "dr_rack_capacity_u": project.dr_rack_capacity_u,
+        "site_names": project.site_names,
+        "site_deployment_models": project.site_deployment_models,
+        "site_rack_capacity_u": project.site_rack_capacity_u,
         "servers": [asdict(s) for s in project.servers],
         "storages": [asdict(s) for s in project.storages],
         "vms": [asdict(v) for v in project.vms],
@@ -51,6 +52,7 @@ def save_project(
         "backup_destinations": [asdict(d) for d in project.backup_destinations],
         "maintenance_items": [asdict(i) for i in project.maintenance_items],
         "vlans": [asdict(v) for v in project.vlans],
+        "failover_assignments": [asdict(a) for a in project.failover_assignments],
         "thresholds": asdict(thresholds if thresholds is not None else Thresholds()),
     }
 
@@ -64,14 +66,34 @@ def load_project(path: str | Path) -> LoadedProject:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
 
     project = ClusterProject(name=raw.get("name", "New Project"))
-    project.primary_deployment_model = raw.get("primary_deployment_model", ON_PREMISE)
-    project.dr_deployment_model = raw.get("dr_deployment_model", ON_PREMISE)
-    project.primary_rack_capacity_u = raw.get("primary_rack_capacity_u", 0)
-    project.dr_rack_capacity_u = raw.get("dr_rack_capacity_u", 0)
+
+    project.site_names = raw.get("site_names", [PRIMARY, DR])
+
+    if "site_deployment_models" in raw:
+        project.site_deployment_models = raw["site_deployment_models"]
+    else:
+        # Pre-v8 file: primary_deployment_model/dr_deployment_model were
+        # two separate fields instead of a dict keyed by site name.
+        project.site_deployment_models = {}
+        if "primary_deployment_model" in raw:
+            project.site_deployment_models[PRIMARY] = raw["primary_deployment_model"]
+        if "dr_deployment_model" in raw:
+            project.site_deployment_models[DR] = raw["dr_deployment_model"]
+
+    if "site_rack_capacity_u" in raw:
+        project.site_rack_capacity_u = raw["site_rack_capacity_u"]
+    else:
+        # Pre-v8 file: same two-field-to-dict migration as above.
+        project.site_rack_capacity_u = {}
+        if "primary_rack_capacity_u" in raw:
+            project.site_rack_capacity_u[PRIMARY] = raw["primary_rack_capacity_u"]
+        if "dr_rack_capacity_u" in raw:
+            project.site_rack_capacity_u[DR] = raw["dr_rack_capacity_u"]
 
     project.servers = [_build(Server, _migrate_price(row)) for row in raw.get("servers", [])]
     project.storages = [_build_storage(row) for row in raw.get("storages", [])]
-    project.vms = [_build(VirtualMachine, row) for row in raw.get("vms", [])]
+    vm_rows = raw.get("vms", [])
+    project.vms = [_build(VirtualMachine, row) for row in vm_rows]
     project.switches = [_build(NetworkSwitch, _migrate_price(row)) for row in raw.get("switches", [])]
     project.connections = [_build(NetworkConnection, row) for row in raw.get("connections", [])]
     project.backup_destinations = [
@@ -81,6 +103,13 @@ def load_project(path: str | Path) -> LoadedProject:
         _build(MaintenanceItem, row) for row in raw.get("maintenance_items", [])
     ]
     project.vlans = [_build(Vlan, row) for row in raw.get("vlans", [])]
+
+    if "failover_assignments" in raw:
+        project.failover_assignments = [
+            _build(FailoverAssignment, row) for row in raw["failover_assignments"]
+        ]
+    else:
+        project.failover_assignments = _migrate_dr_protected_to_failover_assignments(vm_rows)
 
     # Absent for files saved before schema v3 - fall back to defaults
     # rather than failing, same tolerance _build() already gives every
@@ -100,6 +129,35 @@ def _build(cls, row: dict):
     known = {f.name for f in fields(cls)}
     filtered = {k: v for k, v in row.items() if k in known}
     return cls(**filtered)
+
+
+def _migrate_dr_protected_to_failover_assignments(vm_rows: list[dict]) -> list[FailoverAssignment]:
+    """v7 and earlier files stored a single DR footprint directly on each
+    VM (dr_protected/dr_vcpu/dr_ram_gb/dr_disk_gb) - v8 replaced this
+    with a standalone FailoverAssignment list, supporting several target
+    sites per VM with a different footprint on each (a bank's VM might
+    fail over to both DR and DR2 with different sizing on each). Every
+    old dr_protected=True VM becomes exactly one FailoverAssignment,
+    targeting DR - the only failover target that existed before this."""
+    assignments = []
+    for row in vm_rows:
+        if not row.get("dr_protected"):
+            continue
+        vm_uid = row.get("uid")
+        if not vm_uid:
+            continue
+        vcpu = row.get("vcpu", 2)
+        ram_gb = row.get("ram_gb", 8)
+        disk_gb = row.get("disk_gb", 100)
+        assignments.append(FailoverAssignment(
+            uid=str(uuid.uuid4()),
+            vm_uid=vm_uid,
+            target_site=DR,
+            vcpu=int(row.get("dr_vcpu") or vcpu),
+            ram_gb=float(row.get("dr_ram_gb") or ram_gb),
+            disk_gb=float(row.get("dr_disk_gb") or disk_gb),
+        ))
+    return assignments
 
 
 def _migrate_price(row: dict) -> dict:

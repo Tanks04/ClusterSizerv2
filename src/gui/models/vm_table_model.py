@@ -6,7 +6,7 @@ from src.models.virtual_machine import VirtualMachine
 
 class VMTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Protected", "IP Address", "OS", "VLAN", "Notes"]
+    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Category", "Failover Sites", "IP Address", "OS", "VLAN", "Notes"]
 
     EDITABLE_COLUMNS = {2, 4, 5}  # vCPU, RAM, Disk
 
@@ -15,11 +15,13 @@ class VMTableModel(QAbstractTableModel):
         vms: Sequence[VirtualMachine] | None = None,
         on_change: Callable[[], None] | None = None,
         vlans_provider: Callable[[], list] | None = None,
+        failover_assignments_provider: Callable[[], list] | None = None,
     ):
         super().__init__()
         self._vms = list(vms) if vms else []
         self._on_change = on_change
         self._vlans_provider = vlans_provider or (lambda: [])
+        self._failover_assignments_provider = failover_assignments_provider or (lambda: [])
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self._vms)
@@ -65,19 +67,23 @@ class VMTableModel(QAbstractTableModel):
             case 6:
                 return "On" if vm.powered_on else "Off"
             case 7:
-                if vm.dr_protected:
-                    return f"✓ {vm.dr_vcpu}vCPU/{vm.dr_ram_gb:.0f}GB/{vm.dr_disk_gb:.0f}GB"
-                return "-"
+                return vm.dr_category or "-"
             case 8:
-                return vm.ip_address or "-"
+                sites = [
+                    a.target_site for a in self._failover_assignments_provider()
+                    if a.vm_uid == vm.uid
+                ]
+                return ", ".join(sites) if sites else "-"
             case 9:
-                return vm.os or "-"
+                return vm.ip_address or "-"
             case 10:
+                return vm.os or "-"
+            case 11:
                 if not vm.vlan_uid:
                     return "-"
                 vlan = next((v for v in self._vlans_provider() if v.uid == vm.vlan_uid), None)
                 return vlan.name if vlan else "-"
-            case 11:
+            case 12:
                 return vm.notes or "-"
 
         return None

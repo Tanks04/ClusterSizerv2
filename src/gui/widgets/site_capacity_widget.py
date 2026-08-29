@@ -7,7 +7,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from src.calculations.sizing import SiteReport
+from src.calculations.sizing import SiteReport, FailoverReport
+from src.calculations.thresholds import Status
 from src.gui.widgets.status_badge import StatusBadge
 
 
@@ -106,6 +107,13 @@ class SiteCapacityWidget(QFrame):
         grid.addWidget(self.n1_detail_label, row, 0, 1, 3)
         row += 1
 
+        grid.addWidget(QLabel("VMs Assigned (Failover):"), row, 0)
+        self.failover_count_label = QLabel("-")
+        grid.addWidget(self.failover_count_label, row, 1)
+        self.failover_badge = StatusBadge()
+        grid.addWidget(self.failover_badge, row, 2)
+        row += 1
+
     def set_report(self, report: SiteReport) -> None:
         self.servers_label.setText(
             f"{report.server_count} servers / {report.physical_cores} cores "
@@ -181,6 +189,20 @@ class SiteCapacityWidget(QFrame):
                 "oversubscription warning threshold (Settings)."
             )
             self._set_n1_detail(report.n_plus_one_check)
+
+    def set_failover_report(self, failover: FailoverReport) -> None:
+        """Deliberately minimal - just the count and a status badge, no
+        extra detail text, per direct request: Summary should show
+        "VMs on this site: N" plus whether it's OK, not a data dump -
+        the full numbers (vCPU/RAM/disk demand) live in the Word report
+        and, going forward, the Failover Assignments table on the VMs tab."""
+        self.failover_count_label.setText(str(failover.assigned_vm_count))
+        if failover.ready is None:
+            self.failover_badge.set_status(Status.UNKNOWN)
+        elif failover.ready:
+            self.failover_badge.set_status(Status.OK)
+        else:
+            self.failover_badge.set_status(Status.CRITICAL)
 
     def _set_n1_detail(self, check) -> None:
         """States WHICH resource is short and by how much, instead of

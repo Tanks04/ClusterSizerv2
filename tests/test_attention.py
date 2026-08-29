@@ -11,6 +11,7 @@ from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
+from src.models.failover_assignment import FailoverAssignment
 from src.calculations.thresholds import Thresholds, Status
 from src.calculations.attention import compute_attention_items
 
@@ -88,16 +89,21 @@ def test_dr_not_ready_is_flagged_as_critical():
     project.servers.append(_server(site=PRIMARY, sockets=2, cores_per_socket=8, ram_gb=256))
     project.servers.append(_server(site=DR, sockets=1, cores_per_socket=2, ram_gb=16))  # tiny DR
     vm = _vm(site=PRIMARY, vcpu=4, ram_gb=64, disk_gb=50)
-    vm.dr_protected = True
-    vm.dr_vcpu = 4
-    vm.dr_ram_gb = 64
-    vm.dr_disk_gb = 50
     project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = 4
+    assignment.ram_gb = 64
+    assignment.disk_gb = 50
+    project.failover_assignments.append(assignment)
 
     items = compute_attention_items(project, Thresholds())
 
     assert any(
-        "DR Readiness" in i.message and i.severity == Status.CRITICAL for i in items
+        "does not have enough capacity for its assigned failover VMs" in i.message
+        and i.severity == Status.CRITICAL
+        for i in items
     )
 
 

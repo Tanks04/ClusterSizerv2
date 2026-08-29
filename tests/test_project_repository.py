@@ -3,6 +3,8 @@ import json
 from src.calculations.thresholds import Thresholds
 from src.models.cluster_project import ClusterProject
 from src.models.backup_destination import BackupDestination
+from src.models.virtual_machine import VirtualMachine
+from src.models.failover_assignment import FailoverAssignment
 from src.persistence import project_repository
 
 
@@ -274,30 +276,124 @@ def test_v6_file_without_hci_fields_defaults_correctly(tmp_path):
 
 def test_deployment_model_round_trip(tmp_path):
     project = ClusterProject(name="Hybrid deployment test")
-    project.dr_deployment_model = "Cloud"
+    project.set_deployment_model("DR", "Cloud")
     path = tmp_path / "hybrid.clsz"
     project_repository.save_project(project, path, Thresholds())
 
     loaded = project_repository.load_project(path)
 
-    assert loaded.project.primary_deployment_model == "On-Premise"
-    assert loaded.project.dr_deployment_model == "Cloud"
+    assert loaded.project.deployment_model_for("Primary") == "On-Premise"
+    assert loaded.project.deployment_model_for("DR") == "Cloud"
 
 
 def test_v6_file_without_deployment_model_defaults_to_on_premise(tmp_path):
-    """Files predating this feature have neither field at all - must
-    load fine with the On-Premise default, not crash."""
+    """Files predating this feature have neither the old two-field
+    format nor the new dict field at all - must load fine with the
+    On-Premise default, not crash."""
     project = ClusterProject(name="Pre-deployment-model")
     path = tmp_path / "v6f.clsz"
     project_repository.save_project(project, path, Thresholds())
 
     raw = json.loads(path.read_text(encoding="utf-8"))
-    del raw["primary_deployment_model"]
-    del raw["dr_deployment_model"]
+    del raw["site_deployment_models"]
     raw["schema_version"] = 6
     path.write_text(json.dumps(raw), encoding="utf-8")
 
     loaded = project_repository.load_project(path)
 
-    assert loaded.project.primary_deployment_model == "On-Premise"
-    assert loaded.project.dr_deployment_model == "On-Premise"
+    assert loaded.project.deployment_model_for("Primary") == "On-Premise"
+    assert loaded.project.deployment_model_for("DR") == "On-Premise"
+
+
+def test_v7_dr_protected_vm_migrates_to_failover_assignment(tmp_path):
+    """v7 and earlier stored a single DR footprint directly on the VM
+    (dr_protected/dr_vcpu/dr_ram_gb/dr_disk_gb) - v8 replaced this with
+    a standalone FailoverAssignment. An old file's dr_protected=True VM
+    must become one FailoverAssignment targeting DR, not silently lose
+    its DR footprint data."""
+    project = ClusterProject(name="Pre-failover-assignment")
+    path = tmp_path / "v7.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["schema_version"] = 7
+    raw["vms"] = [
+        {
+            "uid": "vm-001", "name": "erp-db01", "site": "Primary",
+            "vcpu": 4, "ram_gb": 16.0, "disk_gb": 200.0, "powered_on": True,
+            "dr_protected": True, "dr_vcpu": 2, "dr_ram_gb": 8.0, "dr_disk_gb": 200.0,
+            "workload_tier": "General Purpose", "ip_address": "", "os": "", "notes": "",
+        },
+        {
+            "uid": "vm-002", "name": "not-protected", "site": "Primary",
+            "vcpu": 2, "ram_gb": 8.0, "disk_gb": 50.0, "powered_on": True,
+            "dr_protected": False,
+            "workload_tier": "General Purpose", "ip_address": "", "os": "", "notes": "",
+        },
+    ]
+    del raw["failover_assignments"]
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert len(loaded.project.failover_assignments) == 1
+    migrated = loaded.project.failover_assignments[0]
+    assert migrated.vm_uid == "vm-001"
+    assert migrated.target_site == "DR"
+    assert migrated.vcpu == 2
+    assert migrated.ram_gb == 8.0
+    assert migrated.disk_gb == 200.0
+
+    # The VM itself loads cleanly despite the old dr_protected/dr_vcpu
+    # keys no longer being real fields.
+    vm = next(v for v in loaded.project.vms if v.uid == "vm-001")
+    assert vm.dr_category == ""
+
+
+def test_v8_file_with_failover_assignments_loads_them_directly(tmp_path):
+    """Once a file already has the new format, no migration should
+    run - the assignments load as-is."""
+    project = ClusterProject(name="Already v8")
+    vm = VirtualMachine.create_default()
+    project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = "DR2"
+    assignment.vcpu = 4
+    project.failover_assignments.append(assignment)
+    project.add_site("DR2")
+
+    path = tmp_path / "v8.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    loaded = project_repository.load_project(path)
+
+    assert len(loaded.project.failover_assignments) == 1
+    assert loaded.project.failover_assignments[0].target_site == "DR2"
+    assert loaded.project.failover_assignments[0].vcpu == 4
+
+
+def test_site_names_round_trip_with_custom_sites(tmp_path):
+    project = ClusterProject(name="Multi-site")
+    project.add_site("DR2")
+    project.add_site("Cloud Backup")
+    path = tmp_path / "multisite.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.site_names == ["Primary", "DR", "DR2", "Cloud Backup"]
+
+
+def test_old_file_without_site_names_defaults_to_primary_dr(tmp_path):
+    project = ClusterProject(name="Pre-multisite")
+    path = tmp_path / "old.clsz"
+    project_repository.save_project(project, path, Thresholds())
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["site_names"]
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.site_names == ["Primary", "DR"]

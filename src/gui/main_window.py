@@ -370,7 +370,7 @@ class MainWindow(QMainWindow):
             self.project_service.touch()
 
     def _import_rvtools(self):
-        dialog = RVToolsImportDialog(parent=self)
+        dialog = RVToolsImportDialog(sites=self.project_service.project.site_names, parent=self)
         if not dialog.exec():
             return
 

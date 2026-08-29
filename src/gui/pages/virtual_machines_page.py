@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -23,7 +24,9 @@ from src.models.workload_tier import WORKLOAD_TIER_NAMES
 from src.gui.dialogs.vm_dialog import VMDialog
 from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
+from src.gui.dialogs.failover_assignment_dialog import FailoverAssignmentDialog
 from src.gui.models.vm_table_model import VMTableModel
+from src.gui.models.failover_assignment_table_model import FailoverAssignmentTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
@@ -38,6 +41,10 @@ class VirtualMachinesPage(QWidget):
         self.model = VMTableModel(
             on_change=self.service.touch_vms,
             vlans_provider=lambda: self.service.project.vlans,
+            failover_assignments_provider=lambda: self.service.project.failover_assignments,
+        )
+        self.failover_model = FailoverAssignmentTableModel(
+            vms_provider=lambda: self.service.project.vms,
         )
 
         self._create_ui()
@@ -133,18 +140,28 @@ class VirtualMachinesPage(QWidget):
 
         bulk_row.addSpacing(16)
 
-        self.bulk_dr_check = QCheckBox("DR Protected")
-        bulk_row.addWidget(self.bulk_dr_check)
+        bulk_row.addWidget(QLabel("Failover to:"))
+        self.bulk_failover_site_combo = QComboBox()
+        bulk_row.addWidget(self.bulk_failover_site_combo)
 
-        bulk_dr_selected_button = QPushButton("Apply (Selected)")
-        bulk_dr_selected_button.setToolTip("Sets DR Protected on the SELECTED VM(s) only - one undo step. Same as right-click \u2192 Mark/Un-mark DR Protected on the table.")
-        bulk_dr_selected_button.clicked.connect(self._set_dr_protected_for_selected_from_checkbox)
-        bulk_row.addWidget(bulk_dr_selected_button)
+        self.bulk_failover_check = QCheckBox("Assigned")
+        bulk_row.addWidget(self.bulk_failover_check)
 
-        bulk_dr_all_button = QPushButton("Apply (All)")
-        bulk_dr_all_button.setToolTip("Sets DR Protected on EVERY VM at once - one undo step.")
-        bulk_dr_all_button.clicked.connect(self._set_all_dr_protected)
-        bulk_row.addWidget(bulk_dr_all_button)
+        bulk_failover_selected_button = QPushButton("Apply (Selected)")
+        bulk_failover_selected_button.setToolTip(
+            "Creates/removes a Failover Assignment to the chosen site for the "
+            "SELECTED VM(s) only - one undo step. Manage individual footprint "
+            "numbers (vCPU/RAM/disk per site) in the Failover Assignments table below."
+        )
+        bulk_failover_selected_button.clicked.connect(self._set_failover_for_selected_from_checkbox)
+        bulk_row.addWidget(bulk_failover_selected_button)
+
+        bulk_failover_all_button = QPushButton("Apply (All)")
+        bulk_failover_all_button.setToolTip(
+            "Creates/removes a Failover Assignment to the chosen site for EVERY VM at once - one undo step."
+        )
+        bulk_failover_all_button.clicked.connect(self._set_failover_for_all_from_checkbox)
+        bulk_row.addWidget(bulk_failover_all_button)
 
         bulk_row.addStretch()
         main_layout.addLayout(bulk_row)
@@ -153,7 +170,6 @@ class VirtualMachinesPage(QWidget):
         site_row.addWidget(QLabel("Bulk move (Site \u2260 DR Protected - this actually relocates the VM):"))
 
         self.bulk_site_combo = QComboBox()
-        self.bulk_site_combo.addItems(["Primary", "DR"])
         site_row.addWidget(self.bulk_site_combo)
 
         bulk_site_selected_button = QPushButton("Set Site (Selected)")
@@ -174,12 +190,7 @@ class VirtualMachinesPage(QWidget):
         self.table.edit_requested.connect(self._edit_vm)
         self.table.delete_requested.connect(self._delete_selected)
         self.table.copy_requested.connect(self._duplicate_selected)
-        self.table.set_custom_actions([
-            ("\U0001f6e1 Mark DR Protected", lambda: self._set_dr_protected_for_selected(True)),
-            ("Un-mark DR Protected", lambda: self._set_dr_protected_for_selected(False)),
-            ("\U0001f4cd Move to Primary", lambda: self._set_site_for_selected("Primary")),
-            ("\U0001f4cd Move to DR", lambda: self._set_site_for_selected("DR")),
-        ])
+        self.table.set_custom_actions([])  # populated dynamically in refresh() - site list can change
 
         main_layout.addWidget(self.table)
 
@@ -190,21 +201,63 @@ class VirtualMachinesPage(QWidget):
         self.card_ram = SummaryWidget("RAM Demand (Powered On)", "0 GB")
         self.card_cpu_ratio = SummaryWidget("CPU Oversub.", "-")
         self.card_vm_storage = SummaryWidget("VM Storage", "0 GB")
-        self.card_dr_protected = SummaryWidget("DR Protected", "0")
+        self.card_failover_assigned = SummaryWidget("Failover Assigned", "0")
 
         for card in (
             self.card_vms, self.card_vcpu, self.card_ram,
-            self.card_vm_storage, self.card_cpu_ratio, self.card_dr_protected,
+            self.card_vm_storage, self.card_cpu_ratio, self.card_failover_assigned,
         ):
             summary_layout.addWidget(card)
 
         main_layout.addLayout(summary_layout)
 
+        #
+        # Failover Assignments - standalone list (VM -> target site,
+        # own vCPU/RAM/disk footprint per row) - see FailoverAssignment's
+        # docstring for why this isn't a field on the VM itself. One VM
+        # can appear in several rows here, once per target site.
+        #
+
+        failover_box = QGroupBox("Failover Assignments")
+        failover_layout = QVBoxLayout(failover_box)
+
+        failover_toolbar = QToolBar()
+        failover_toolbar.setMovable(False)
+
+        add_failover_action = QAction("➕ Add", self)
+        add_failover_action.triggered.connect(self._add_failover_assignment)
+        failover_toolbar.addAction(add_failover_action)
+
+        edit_failover_action = QAction("✏ Edit", self)
+        edit_failover_action.triggered.connect(self._edit_failover_assignment)
+        failover_toolbar.addAction(edit_failover_action)
+
+        delete_failover_action = QAction("🗑 Delete", self)
+        delete_failover_action.triggered.connect(self._delete_failover_assignments)
+        failover_toolbar.addAction(delete_failover_action)
+
+        failover_toolbar.addSeparator()
+
+        clear_failover_action = QAction("🧹 Clear All", self)
+        clear_failover_action.triggered.connect(self._clear_failover_assignments)
+        failover_toolbar.addAction(clear_failover_action)
+
+        failover_layout.addWidget(failover_toolbar)
+
+        self.failover_table = MultiSelectTableView()
+        self.failover_table.set_source_model(self.failover_model)
+        self.failover_table.edit_requested.connect(self._edit_failover_assignment)
+        self.failover_table.delete_requested.connect(self._delete_failover_assignments)
+
+        failover_layout.addWidget(self.failover_table)
+
+        main_layout.addWidget(failover_box)
+
     def _selected_vms(self) -> list:
         return [self.model.vm_at(row) for row in self.table.selected_rows()]
 
     def _add_vm(self):
-        dialog = VMDialog(vlans=self.service.project.vlans, parent=self)
+        dialog = VMDialog(vlans=self.service.project.vlans, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_vm(dialog.get_vm())
 
@@ -216,7 +269,7 @@ class VirtualMachinesPage(QWidget):
 
         row = rows[0]
         vm = self.model.vm_at(row)
-        dialog = VMDialog(vm, vlans=self.service.project.vlans, parent=self)
+        dialog = VMDialog(vm, vlans=self.service.project.vlans, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_vm(row, dialog.get_vm())
 
@@ -265,7 +318,7 @@ class VirtualMachinesPage(QWidget):
         if not path:
             return
 
-        dialog = ImportWizardDialog(Path(path), parent=self)
+        dialog = ImportWizardDialog(Path(path), sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             vms = dialog.get_imported_vms()
             if vms:
@@ -331,10 +384,13 @@ class VirtualMachinesPage(QWidget):
         tier = self.bulk_tier_combo.currentText()
         self.service.set_all_vms_workload_tier(tier)
 
-    def _set_all_dr_protected(self):
+    def _set_failover_for_all_from_checkbox(self):
         if not self.service.project.vms:
             return
-        self.service.set_all_vms_dr_protected(self.bulk_dr_check.isChecked())
+        site = self.bulk_failover_site_combo.currentText()
+        if not site:
+            return
+        self.service.set_failover_assignment_for_all_vms(site, self.bulk_failover_check.isChecked())
 
     def _set_workload_tier_for_selected(self):
         vms = self._selected_vms()
@@ -344,25 +400,22 @@ class VirtualMachinesPage(QWidget):
         tier = self.bulk_tier_combo.currentText()
         self.service.set_workload_tier_for_vms(vms, tier)
 
-    def _set_dr_protected_for_selected_from_checkbox(self):
+    def _set_failover_for_selected_from_checkbox(self):
         vms = self._selected_vms()
         if not vms:
-            QMessageBox.information(self, "DR Protected", "Select at least one VM in the table.")
+            QMessageBox.information(self, "Failover Assignment", "Select at least one VM in the table.")
             return
-        self._set_dr_protected_for_selected(self.bulk_dr_check.isChecked(), vms=vms)
-
-    def _set_dr_protected_for_selected(self, protected: bool, vms: list | None = None):
-        if vms is None:
-            vms = self._selected_vms()
-        if not vms:
+        site = self.bulk_failover_site_combo.currentText()
+        if not site:
             return
-        verb = "DR Protected" if protected else "NOT DR Protected"
+        assigned = self.bulk_failover_check.isChecked()
+        verb = f"assigned to fail over to {site}" if assigned else f"un-assigned from {site}"
         reply = QMessageBox.question(
-            self, "DR Protected",
-            f"Mark {len(vms)} selected VM(s) as {verb}?",
+            self, "Failover Assignment",
+            f"{len(vms)} selected VM(s) will be {verb}. Continue?",
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.service.set_dr_protected_for_vms(vms, protected)
+            self.service.set_failover_assignment_for_vms(vms, site, assigned)
 
     def _set_all_vms_site(self):
         if not self.service.project.vms:
@@ -424,10 +477,10 @@ class VirtualMachinesPage(QWidget):
 
         self.card_vms.set_value(len(project.vms))
         self.card_vcpu.set_value(
-            project.vm_vcpu_demand("Primary") + project.vm_vcpu_demand("DR")
+            sum(project.vm_vcpu_demand(site) for site in project.site_names)
         )
         self.card_ram.set_value(
-            f"{project.vm_ram_demand_gb('Primary') + project.vm_ram_demand_gb('DR'):.0f} GB"
+            f"{sum(project.vm_ram_demand_gb(site) for site in project.site_names):.0f} GB"
         )
 
         cpu_ratio = project.cpu_oversubscription_ratio("Primary")
@@ -435,11 +488,95 @@ class VirtualMachinesPage(QWidget):
         self.card_cpu_ratio.set_value(
             f"{cpu_ratio:.1f} : 1" if cpu_ratio is not None else "-"
         )
-        total_vm_storage_gb = project.vm_disk_demand_gb("Primary") + project.vm_disk_demand_gb("DR")
+        total_vm_storage_gb = sum(project.vm_disk_demand_gb(site) for site in project.site_names)
         if total_vm_storage_gb >= 1024:
             self.card_vm_storage.set_value(f"{total_vm_storage_gb / 1024:.1f} TB")
         else:
             self.card_vm_storage.set_value(f"{total_vm_storage_gb:.0f} GB")
-        self.card_dr_protected.set_value(project.dr_protected_vm_count())
+
+        assigned_vm_uids = {a.vm_uid for a in project.failover_assignments}
+        self.card_failover_assigned.set_value(len(assigned_vm_uids))
+
+        self.failover_model.set_assignments(project.failover_assignments)
+        self.failover_table.auto_size_columns()
+
+        self._refresh_site_combos(project.site_names)
+        self._refresh_custom_actions(project.site_names)
 
         self.cluster_prep_action.setEnabled(len(project.vms) > 0)
+
+    def _refresh_site_combos(self, site_names: list[str]) -> None:
+        """The dropdowns are rebuilt only when the site list itself has
+        changed, preserving the current selection where possible -
+        rebuilding on every refresh would reset the user's choice mid-task."""
+        for combo in (self.bulk_site_combo, self.bulk_failover_site_combo):
+            current = combo.currentText()
+            existing = [combo.itemText(i) for i in range(combo.count())]
+            if existing == site_names:
+                continue
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems(site_names)
+            if current in site_names:
+                combo.setCurrentText(current)
+            combo.blockSignals(False)
+
+    def _refresh_custom_actions(self, site_names: list[str]) -> None:
+        actions = [
+            (f"\U0001f4cd Move to {site}", lambda checked=False, s=site: self._set_site_for_selected(s))
+            for site in site_names
+        ]
+        self.table.set_custom_actions(actions)
+
+    # ------------------------------------------------------------------
+    # Failover Assignments - actions
+    # ------------------------------------------------------------------
+
+    def _selected_failover_assignments(self) -> list:
+        return [self.failover_model.assignment_at(row) for row in self.failover_table.selected_rows()]
+
+    def _add_failover_assignment(self):
+        if not self.service.project.vms:
+            QMessageBox.information(self, "Add", "Add at least one VM first.")
+            return
+        dialog = FailoverAssignmentDialog(
+            vms=self.service.project.vms, sites=self.service.project.site_names, parent=self,
+        )
+        if dialog.exec():
+            self.service.add_failover_assignment(dialog.get_assignment())
+
+    def _edit_failover_assignment(self):
+        rows = self.failover_table.selected_rows()
+        if len(rows) != 1:
+            QMessageBox.information(self, "Edit", "Select exactly one assignment in the table.")
+            return
+        row = rows[0]
+        assignment = self.failover_model.assignment_at(row)
+        dialog = FailoverAssignmentDialog(
+            assignment, vms=self.service.project.vms, sites=self.service.project.site_names, parent=self,
+        )
+        if dialog.exec():
+            self.service.update_failover_assignment(row, dialog.get_assignment())
+
+    def _delete_failover_assignments(self):
+        assignments = self._selected_failover_assignments()
+        if not assignments:
+            QMessageBox.information(self, "Delete", "Select at least one assignment in the table.")
+            return
+        confirm = QMessageBox.question(
+            self, "Delete",
+            f"Delete {len(assignments)} failover assignment(s)? You can undo with Ctrl+Z.",
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.service.remove_failover_assignments(assignments)
+
+    def _clear_failover_assignments(self):
+        if not self.service.project.failover_assignments:
+            return
+        confirm = QMessageBox.question(
+            self, "Clear All",
+            f"Delete ALL {len(self.service.project.failover_assignments)} failover "
+            "assignment(s)? You can undo with Ctrl+Z.",
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.service.clear_failover_assignments()

@@ -36,13 +36,13 @@ class SiteReport:
 
 
 @dataclass
-class DRReport:
+class FailoverReport:
     cpu_ok: bool | None
     ram_ok: bool | None
     storage_ok: bool | None
     ready: bool | None
 
-    protected_vm_count: int
+    assigned_vm_count: int
     failover_vcpu_demand: int
     failover_ram_demand_gb: float
     failover_disk_demand_gb: float
@@ -77,35 +77,36 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
     )
 
 
-def build_dr_report(project: ClusterProject) -> DRReport:
-    return DRReport(
-        cpu_ok=project.dr_cpu_ok(),
-        ram_ok=project.dr_ram_ok(),
-        storage_ok=project.dr_storage_ok(),
-        ready=project.dr_ready(),
-        protected_vm_count=project.dr_protected_vm_count(),
-        failover_vcpu_demand=project.dr_failover_vcpu_demand(),
-        failover_ram_demand_gb=project.dr_failover_ram_demand_gb(),
-        failover_disk_demand_gb=project.dr_failover_disk_demand_gb(),
+def build_failover_report(project: ClusterProject, site: str) -> FailoverReport:
+    """Generic per-site version - works for any site in project.site_names,
+    not just a fixed "DR"."""
+    return FailoverReport(
+        cpu_ok=project.failover_cpu_ok(site),
+        ram_ok=project.failover_ram_ok(site),
+        storage_ok=project.failover_storage_ok(site),
+        ready=project.failover_ready(site),
+        assigned_vm_count=project.failover_assigned_vm_count(site),
+        failover_vcpu_demand=project.failover_vcpu_demand(site),
+        failover_ram_demand_gb=project.failover_ram_demand_gb(site),
+        failover_disk_demand_gb=project.failover_disk_demand_gb(site),
     )
 
 
-def build_dr_failover_report(project: ClusterProject, thresholds: Thresholds) -> SiteReport:
-    """Same shape as build_site_report(DR), but demand is the FAILOVER
-    scenario - DR's own baseline VMs PLUS every DR-protected Primary VM's
-    DR footprint (project.dr_failover_*_demand(), which already combines
-    both) - "what would DR need to carry if the disaster plan were
-    activated right now", not what's actually running there today.
-    Physical capacity (servers/cores/RAM/storage) is DR's real hardware,
-    unchanged - only the demand side of each ratio flips to the failover
-    scenario, reusing the exact same OK/Warning/Critical status system
-    as every other capacity check in the app, so "would DR survive
-    activating the DR plan" reads the same way "is Primary healthy"
-    already does."""
-    site = DR
-    vcpu_demand = project.dr_failover_vcpu_demand()
-    ram_demand_gb = project.dr_failover_ram_demand_gb()
-    disk_demand_gb = project.dr_failover_disk_demand_gb()
+def build_failover_scenario_report(project: ClusterProject, site: str, thresholds: Thresholds) -> SiteReport:
+    """Same shape as build_site_report(site), but demand is the FAILOVER
+    scenario - this site's own baseline VMs PLUS every VM assigned to
+    fail over here (project.failover_*_demand(), which already combines
+    both) - "what would this site need to carry if its failover
+    assignments were activated right now", not what's actually running
+    there today. Physical capacity (servers/cores/RAM/storage) is this
+    site's real hardware, unchanged - only the demand side of each
+    ratio flips to the failover scenario, reusing the exact same OK/
+    Warning/Critical status system as every other capacity check in the
+    app, so "would this site survive activating its failover plan"
+    reads the same way "is this site healthy today" already does."""
+    vcpu_demand = project.failover_vcpu_demand(site)
+    ram_demand_gb = project.failover_ram_demand_gb(site)
+    disk_demand_gb = project.failover_disk_demand_gb(site)
 
     physical_cores = project.physical_cores(site)
     physical_ram_gb = project.physical_ram_gb(site)
@@ -124,7 +125,7 @@ def build_dr_failover_report(project: ClusterProject, thresholds: Thresholds) ->
         physical_threads=project.physical_threads(site),
         physical_ram_gb=physical_ram_gb,
         usable_storage_gb=usable_storage_gb,
-        vm_count=project.dr_protected_vm_count() + len(project.vms_at(site)),
+        vm_count=project.failover_assigned_vm_count(site) + len(project.vms_at(site)),
         vcpu_demand=vcpu_demand,
         ram_demand_gb=ram_demand_gb,
         disk_demand_gb=disk_demand_gb,
@@ -140,10 +141,8 @@ def build_dr_failover_report(project: ClusterProject, thresholds: Thresholds) ->
     )
 
 
-def build_reports(
-    project: ClusterProject, thresholds: Thresholds
-) -> tuple[SiteReport, SiteReport, DRReport]:
-    primary = build_site_report(project, PRIMARY, thresholds)
-    dr = build_site_report(project, DR, thresholds)
-    dr_report = build_dr_report(project)
-    return primary, dr, dr_report
+def build_reports(project: ClusterProject, thresholds: Thresholds) -> dict[str, SiteReport]:
+    """One SiteReport per site in project.site_names - was a fixed
+    (primary, dr, dr_report) 3-tuple before N-site support; callers now
+    look up whichever sites they need by name."""
+    return {site: build_site_report(project, site, thresholds) for site in project.site_names}

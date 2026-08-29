@@ -3,13 +3,12 @@ from PySide6.QtWidgets import (
     QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
-from src.calculations.sizing import build_reports, build_dr_failover_report
+from src.calculations.sizing import build_reports, build_failover_scenario_report, build_failover_report
 from src.calculations.rack import compute_rack_sizing
 from src.calculations.attention import compute_attention_items
 from src.services.project_service import ProjectService
 
 from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
-from src.gui.widgets.status_badge import StatusBadge
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.attention_panel import AttentionPanel
 
@@ -18,14 +17,17 @@ class SummaryPage(QWidget):
     """Combined overview: a compact top-line card row (formerly its own
     Dashboard tab - merged in here since it's the same "quick glance at
     the whole project" purpose as the detailed view below it, just one
-    tab instead of two) followed by the deep-dive Primary vs DR breakdown,
-    oversubscription, and DR readiness. This is the page that answers
-    "do I have enough resources?"."""
+    tab instead of two) followed by a per-site deep-dive (capacity,
+    demand, oversubscription, N+1, and failover-assignment readiness),
+    one card per site in the project - not a fixed Primary/DR pair.
+    This is the page that answers "do I have enough resources?"."""
 
     def __init__(self, service: ProjectService):
         super().__init__()
 
         self.service = service
+        self.site_cards: dict[str, SiteCapacityWidget] = {}
+        self.rack_cards: dict[str, tuple[SummaryWidget, SummaryWidget]] = {}
 
         self._create_ui()
 
@@ -69,19 +71,20 @@ class SummaryPage(QWidget):
         self.card_ram = SummaryWidget("RAM (Total)", "0 GB", compact=True)
         self.card_storage = SummaryWidget("Usable Storage (Total)", "0 TB", compact=True)
         self.card_vms = SummaryWidget("VMs (Total)", "0", compact=True)
-        self.card_primary_servers = SummaryWidget("Primary Servers", "0", compact=True)
-        self.card_dr_servers = SummaryWidget("DR Servers", "0", compact=True)
-        self.card_dr_ready = SummaryWidget("DR Ready", "-", compact=True)
+        self.card_sites = SummaryWidget("Sites", "0", compact=True)
 
         top_cards = [
-            self.card_servers, self.card_cores, self.card_ram, self.card_storage,
-            self.card_vms, self.card_primary_servers, self.card_dr_servers, self.card_dr_ready,
+            self.card_servers, self.card_cores, self.card_ram,
+            self.card_storage, self.card_vms, self.card_sites,
         ]
         for i, card in enumerate(top_cards):
             top_grid.addWidget(card, i // 4, i % 4)
 
         #
-        # Deep-dive: Primary vs DR
+        # Deep-dive: one card per site (was a fixed Primary/DR pair) -
+        # laid out 2 per row, so Primary/DR still land side by side as
+        # before, with any additional sites forming further rows below
+        # in the same size/style, rather than a special case.
         #
 
         summary_header = QHBoxLayout()
@@ -95,43 +98,37 @@ class SummaryPage(QWidget):
 
         summary_header.addStretch()
 
-        self.dr_failover_toggle_button = QPushButton("Preview DR Failover")
-        self.dr_failover_toggle_button.setCheckable(True)
-        self.dr_failover_toggle_button.setToolTip(
-            "Shows what the DR card WOULD look like if every DR-protected VM "
-            "were activated there right now (e.g. a Veeam/backup-driven DR "
-            "plan) - same physical DR hardware, but demand includes the "
-            "failover load, not just what's actually running on DR today."
+        self.failover_preview_toggle_button = QPushButton("Preview Failover")
+        self.failover_preview_toggle_button.setCheckable(True)
+        self.failover_preview_toggle_button.setToolTip(
+            "Shows what EVERY site's card would look like if its assigned "
+            "failover VMs were activated there right now - same physical "
+            "hardware per site, but demand includes the failover load, not "
+            "just what's actually running there today."
         )
-        self.dr_failover_toggle_button.toggled.connect(self._on_dr_failover_toggle)
-        summary_header.addWidget(self.dr_failover_toggle_button)
+        self.failover_preview_toggle_button.toggled.connect(self._on_failover_preview_toggle)
+        summary_header.addWidget(self.failover_preview_toggle_button)
 
         layout.addLayout(summary_header)
 
-        sites_layout = QHBoxLayout()
+        self.sites_grid = QGridLayout()
+        layout.addLayout(self.sites_grid)
 
-        self.primary_card = SiteCapacityWidget("Primary")
-        self.dr_card = SiteCapacityWidget("DR")
-
-        sites_layout.addWidget(self.primary_card)
-        sites_layout.addWidget(self.dr_card)
-
-        layout.addLayout(sites_layout)
-
-        self.dr_failover_note_label = QLabel(
-            "\u26a0 Showing the DR FAILOVER scenario - live DR load + every DR-protected VM's footprint, "
-            "not what's actually running on DR right now."
+        self.failover_preview_note_label = QLabel(
+            "\u26a0 Showing the FAILOVER scenario for every site - live load + "
+            "assigned failover VMs' footprint, not what's actually running today."
         )
-        self.dr_failover_note_label.setStyleSheet("color: #ed6c02; font-weight: bold;")
-        self.dr_failover_note_label.setWordWrap(True)
-        self.dr_failover_note_label.setVisible(False)
-        layout.addWidget(self.dr_failover_note_label)
+        self.failover_preview_note_label.setStyleSheet("color: #ed6c02; font-weight: bold;")
+        self.failover_preview_note_label.setWordWrap(True)
+        self.failover_preview_note_label.setVisible(False)
+        layout.addWidget(self.failover_preview_note_label)
 
         #
         # Rack sizing - optional, only meaningful once someone has
         # entered Rack Size/Power on at least some equipment. Hidden by
         # default behind a toggle since a project with none of that
-        # filled in would just show a row of dashes.
+        # filled in would just show a row of dashes. One pair of cards
+        # per site, same 2-per-row layout as the site cards above.
         #
 
         rack_header = QHBoxLayout()
@@ -153,45 +150,10 @@ class SummaryPage(QWidget):
         layout.addLayout(rack_header)
 
         self.rack_cards_widget = QWidget()
-        rack_grid = QGridLayout(self.rack_cards_widget)
-
-        self.card_primary_rack_units = SummaryWidget("Primary Rack Units", "-", compact=True)
-        self.card_primary_power = SummaryWidget("Primary Power (W)", "-", compact=True)
-        self.card_dr_rack_units = SummaryWidget("DR Rack Units", "-", compact=True)
-        self.card_dr_power = SummaryWidget("DR Power (W)", "-", compact=True)
-
-        rack_cards = [
-            self.card_primary_rack_units, self.card_primary_power,
-            self.card_dr_rack_units, self.card_dr_power,
-        ]
-        for i, card in enumerate(rack_cards):
-            rack_grid.addWidget(card, 0, i)
+        self.rack_grid = QGridLayout(self.rack_cards_widget)
 
         self.rack_cards_widget.setVisible(False)
         layout.addWidget(self.rack_cards_widget)
-
-        #
-        # DR readiness
-        #
-
-        dr_layout = QHBoxLayout()
-
-        dr_title = QLabel("DR Readiness (full failover Primary \u2192 DR):")
-        dr_title_font = dr_title.font()
-        dr_title_font.setBold(True)
-        dr_title.setFont(dr_title_font)
-        dr_layout.addWidget(dr_title)
-
-        self.dr_badge = StatusBadge()
-        dr_layout.addWidget(self.dr_badge)
-
-        dr_layout.addStretch()
-
-        layout.addLayout(dr_layout)
-
-        self.dr_detail_label = QLabel("-")
-        self.dr_detail_label.setWordWrap(True)
-        layout.addWidget(self.dr_detail_label)
 
         #
         # Attention Needed - everything else on this page (and a couple
@@ -204,9 +166,9 @@ class SummaryPage(QWidget):
 
         layout.addStretch()
 
-    def _on_dr_failover_toggle(self, checked: bool):
-        self.dr_failover_toggle_button.setText("Show Current DR" if checked else "Preview DR Failover")
-        self.dr_failover_note_label.setVisible(checked)
+    def _on_failover_preview_toggle(self, checked: bool):
+        self.failover_preview_toggle_button.setText("Show Current Load" if checked else "Preview Failover")
+        self.failover_preview_note_label.setVisible(checked)
         self.refresh()
 
     def _on_rack_toggle(self, checked: bool):
@@ -230,10 +192,36 @@ class SummaryPage(QWidget):
         marker = "\u26a0 " if rack.over_capacity else ""
         return f"{marker}{rack.rack_units} / {rack.capacity_u} U"
 
-    def refresh(self):
-        from src.calculations.thresholds import Status
-        from src.models.cluster_project import PRIMARY, DR
+    def _ensure_site_cards(self, site_names: list[str]) -> None:
+        """Rebuilds the site-card grids only when the site LIST itself
+        has changed (added/removed) - cheap early exit on every other
+        refresh, which just updates values on the existing widgets."""
+        if set(self.site_cards.keys()) == set(site_names):
+            return
 
+        for widget in self.site_cards.values():
+            widget.setParent(None)
+            widget.deleteLater()
+        self.site_cards.clear()
+
+        for widgets in self.rack_cards.values():
+            for w in widgets:
+                w.setParent(None)
+                w.deleteLater()
+        self.rack_cards.clear()
+
+        for i, site in enumerate(site_names):
+            card = SiteCapacityWidget(site)
+            self.site_cards[site] = card
+            self.sites_grid.addWidget(card, i // 2, i % 2)
+
+            units_card = SummaryWidget(f"{site} Rack Units", "-", compact=True)
+            power_card = SummaryWidget(f"{site} Power (W)", "-", compact=True)
+            self.rack_cards[site] = (units_card, power_card)
+            self.rack_grid.addWidget(units_card, i // 2, (i % 2) * 2)
+            self.rack_grid.addWidget(power_card, i // 2, (i % 2) * 2 + 1)
+
+    def refresh(self):
         project = self.service.project
         thresholds = self.service.thresholds
 
@@ -247,84 +235,38 @@ class SummaryPage(QWidget):
         self.card_cores.set_value(project.total_cores)
         self.card_ram.set_value(f"{project.total_ram} GB")
 
-        total_storage_tb = (
-            project.usable_storage_gb(PRIMARY) + project.usable_storage_gb(DR)
+        total_storage_tb = sum(
+            project.usable_storage_gb(site) for site in project.site_names
         ) / 1024
         self.card_storage.set_value(f"{total_storage_tb:.1f} TB")
 
         self.card_vms.set_value(len(project.vms))
-        self.card_primary_servers.set_value(len(project.servers_at(PRIMARY)))
-        self.card_dr_servers.set_value(len(project.servers_at(DR)))
-
-        ready = project.dr_ready()
-        if ready is None:
-            self.card_dr_ready.set_value("n/a")
-        else:
-            self.card_dr_ready.set_value("Yes" if ready else "No")
+        self.card_sites.set_value(len(project.site_names))
 
         #
-        # Deep-dive
+        # Deep-dive: one card per site
         #
 
-        primary_report, dr_report, dr_check = build_reports(project, thresholds)
+        self._ensure_site_cards(project.site_names)
 
-        self.primary_card.set_report(primary_report)
-        if self.dr_failover_toggle_button.isChecked():
-            self.dr_card.set_report(build_dr_failover_report(project, thresholds))
-        else:
-            self.dr_card.set_report(dr_report)
+        preview = self.failover_preview_toggle_button.isChecked()
+        reports = build_reports(project, thresholds)
 
-        #
-        # Rack sizing
-        #
+        for site in project.site_names:
+            card = self.site_cards[site]
+            if preview:
+                card.set_report(build_failover_scenario_report(project, site, thresholds))
+            else:
+                card.set_report(reports[site])
+            card.set_failover_report(build_failover_report(project, site))
 
-        primary_rack = compute_rack_sizing(project, PRIMARY)
-        dr_rack = compute_rack_sizing(project, DR)
-
-        if primary_rack.is_cloud:
-            self.card_primary_rack_units.set_value("Cloud")
-            self.card_primary_power.set_value("Cloud")
-        else:
-            self.card_primary_rack_units.set_value(self._format_rack_units(primary_rack))
-            self.card_primary_power.set_value(self._format_watts(primary_rack.power_watts))
-
-        if dr_rack.is_cloud:
-            self.card_dr_rack_units.set_value("Cloud")
-            self.card_dr_power.set_value("Cloud")
-        else:
-            self.card_dr_rack_units.set_value(self._format_rack_units(dr_rack))
-            self.card_dr_power.set_value(self._format_watts(dr_rack.power_watts))
-
-        if dr_check.ready is None:
-            self.dr_badge.set_status(Status.UNKNOWN)
-            self.dr_detail_label.setText(
-                "No servers/storage defined at the DR site - add them on the "
-                "Servers/Storage pages to calculate DR readiness."
-            )
-        elif dr_check.ready:
-            self.dr_badge.set_status(Status.OK)
-            self.dr_detail_label.setText(
-                f"The DR site has enough capacity for failover: "
-                f"{dr_check.protected_vm_count} DR-protected VM(s) (+ what's already "
-                f"running on DR) need {dr_check.failover_vcpu_demand} vCPU / "
-                f"{dr_check.failover_ram_demand_gb:.0f} GB / "
-                f"{dr_check.failover_disk_demand_gb / 1024:.1f} TB."
-            )
-        else:
-            self.dr_badge.set_status(Status.CRITICAL)
-            problems = []
-            if dr_check.cpu_ok is False:
-                problems.append("CPU")
-            if dr_check.ram_ok is False:
-                problems.append("RAM")
-            if dr_check.storage_ok is False:
-                problems.append("Storage")
-            self.dr_detail_label.setText(
-                f"The DR site does NOT have enough capacity for failover. Missing: "
-                f"{', '.join(problems)}. Demand: {dr_check.protected_vm_count} "
-                f"DR-protected VM(s) ({dr_check.failover_vcpu_demand} vCPU / "
-                f"{dr_check.failover_ram_demand_gb:.0f} GB / "
-                f"{dr_check.failover_disk_demand_gb / 1024:.1f} TB)."
-            )
+            rack = compute_rack_sizing(project, site)
+            units_card, power_card = self.rack_cards[site]
+            if rack.is_cloud:
+                units_card.set_value("Cloud")
+                power_card.set_value("Cloud")
+            else:
+                units_card.set_value(self._format_rack_units(rack))
+                power_card.set_value(self._format_watts(rack.power_watts))
 
         self.attention_panel.set_items(compute_attention_items(project, thresholds))

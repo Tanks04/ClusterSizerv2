@@ -3,15 +3,33 @@ import uuid
 
 from src.models.workload_tier import DEFAULT_WORKLOAD_TIER
 
+# Suggested starting points for dr_category - NOT a strict enum (the
+# GUI uses an editable combo) - some organizations need their own
+# labels (e.g. specific regulatory/business-continuity frameworks like
+# NIS/NIS2), so this is offered as a convenience default, not a limit.
+DR_CATEGORIES = ["Core / Mission-Critical", "Important", "Standard", "Non-Essential"]
+
 
 @dataclass
 class VirtualMachine:
     """Represents one virtual machine that counts toward cluster capacity.
 
-    dr_protected + dr_* fields exist because VMs are often NOT replicated
-    1:1 to DR (e.g. replicated with fewer resources, or not replicated at
-    all). When dr_protected=False, the VM is not counted in DR failover
-    demand - it only consumes resources at its home (site) location.
+    Failover footprint (which sites this VM should be able to run on,
+    and with what vCPU/RAM/disk on each) lives in FailoverAssignment, a
+    standalone list on ClusterProject - NOT fields here - since the
+    same VM can need a different footprint on different target sites
+    (e.g. a smaller footprint on a budget DR site than on a full-size
+    second DR), and a flat "one DR footprint" field can't represent
+    that. A VM with no FailoverAssignment rows simply isn't planned to
+    fail over anywhere.
+
+    dr_category is a separate, purely informational label (e.g. "Core
+    / Mission-Critical") - it does NOT gate what can be assigned in
+    FailoverAssignment; that's a deliberate choice (discussed directly)
+    so categorization stays a simple tag rather than a policy that
+    silently blocks a valid assignment. It's useful for filtering the
+    Failover Assignments table and for compliance-driven categorization
+    schemes.
 
     workload_tier feeds the Cluster Preparation sizing wizard (see
     src/calculations/cluster_preparation.py) - it does NOT affect the
@@ -27,7 +45,7 @@ class VirtualMachine:
 
     uid: str
     name: str
-    site: str  # "Primary" | "DR" - which cluster the VM currently "lives" on
+    site: str  # which site the VM currently "lives" on - one of the project's site_names
 
     vcpu: int
     ram_gb: float
@@ -35,12 +53,9 @@ class VirtualMachine:
 
     powered_on: bool = True
 
-    dr_protected: bool = False  # is this VM replicated to DR (failover)?
-    dr_vcpu: int = 0            # DR footprint - can be smaller than vcpu
-    dr_ram_gb: float = 0.0
-    dr_disk_gb: float = 0.0
-
     workload_tier: str = DEFAULT_WORKLOAD_TIER
+
+    dr_category: str = ""  # free text, one of DR_CATEGORIES or a custom label - purely informational
 
     ip_address: str = ""  # guest OS IP, free text (not validated - IPv4/IPv6/hostname all fine)
 
@@ -49,18 +64,6 @@ class VirtualMachine:
     vlan_uid: str = ""  # optional reference to a Vlan.uid - independent of ip_address, never required together
 
     notes: str = ""
-
-    @property
-    def effective_dr_vcpu(self) -> int:
-        return self.dr_vcpu if self.dr_protected else 0
-
-    @property
-    def effective_dr_ram_gb(self) -> float:
-        return self.dr_ram_gb if self.dr_protected else 0.0
-
-    @property
-    def effective_dr_disk_gb(self) -> float:
-        return self.dr_disk_gb if self.dr_protected else 0.0
 
     @staticmethod
     def create_default() -> "VirtualMachine":
@@ -71,9 +74,5 @@ class VirtualMachine:
             vcpu=2,
             ram_gb=8.0,
             disk_gb=100.0,
-            dr_protected=False,
-            dr_vcpu=2,
-            dr_ram_gb=8.0,
-            dr_disk_gb=100.0,
             workload_tier=DEFAULT_WORKLOAD_TIER,
         )

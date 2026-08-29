@@ -1,10 +1,11 @@
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.models.virtual_machine import VirtualMachine
+from src.models.failover_assignment import FailoverAssignment
 from src.models.server import Server
 from src.calculations.cluster_preparation import compute_sizing, SizingPolicy, HostSpec
 
 
-def _vm(name, vcpu, ram, disk, tier, dr=False, site=PRIMARY):
+def _vm(name, vcpu, ram, disk, tier, site=PRIMARY):
     vm = VirtualMachine.create_default()
     vm.name = name
     vm.site = site
@@ -12,12 +13,21 @@ def _vm(name, vcpu, ram, disk, tier, dr=False, site=PRIMARY):
     vm.ram_gb = ram
     vm.disk_gb = disk
     vm.workload_tier = tier
-    vm.dr_protected = dr
-    if dr:
-        vm.dr_vcpu = vcpu
-        vm.dr_ram_gb = ram
-        vm.dr_disk_gb = disk
     return vm
+
+
+def _assign_dr(project, vm, vcpu=None, ram_gb=None, disk_gb=None):
+    """Adds a FailoverAssignment targeting DR for vm, defaulting the
+    footprint to match the VM's own vcpu/ram/disk unless overridden -
+    mirrors how ProjectService.set_failover_assignment_for_vms() does it."""
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = vcpu if vcpu is not None else vm.vcpu
+    assignment.ram_gb = ram_gb if ram_gb is not None else vm.ram_gb
+    assignment.disk_gb = disk_gb if disk_gb is not None else vm.disk_gb
+    project.failover_assignments.append(assignment)
+    return assignment
 
 
 def test_empty_project_needs_zero_hosts():
@@ -60,8 +70,11 @@ def test_minimum_two_host_floor():
 
 def test_dr_sizing_only_counts_dr_protected_vms():
     project = ClusterProject()
-    project.vms.append(_vm("protected", 8, 32, 200, "Tier-0 / Mission-Critical", dr=True))
-    project.vms.append(_vm("unprotected", 8, 32, 200, "Tier-0 / Mission-Critical", dr=False))
+    protected = _vm("protected", 8, 32, 200, "Tier-0 / Mission-Critical")
+    unprotected = _vm("unprotected", 8, 32, 200, "Tier-0 / Mission-Critical")
+    project.vms.append(protected)
+    project.vms.append(unprotected)
+    _assign_dr(project, protected)
 
     result = compute_sizing(project, SizingPolicy())
     assert result.dr_vm_count == 1
@@ -124,8 +137,9 @@ def test_storage_sizing_matches_demand_with_overhead():
 
 def test_dr_storage_uses_dr_footprint_not_primary_disk():
     project = ClusterProject()
-    project.vms.append(_vm("db1", 4, 16, 1000, "Tier-0 / Mission-Critical", dr=True))
-    project.vms[0].dr_disk_gb = 250  # DR replica with a much smaller disk footprint
+    db1 = _vm("db1", 4, 16, 1000, "Tier-0 / Mission-Critical")
+    project.vms.append(db1)
+    _assign_dr(project, db1, disk_gb=250)  # DR replica with a much smaller disk footprint
 
     result = compute_sizing(project, SizingPolicy(growth_percent=0.0))
 

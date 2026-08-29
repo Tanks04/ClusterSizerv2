@@ -33,12 +33,13 @@ class RVToolsImportDialog(QDialog):
     If it has more than one, a mapping section appears letting each
     found Datacenter be routed to Primary or DR individually."""
 
-    def __init__(self, parent=None):
+    def __init__(self, sites: list | None = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Import from RVTools")
         self.resize(520, 420)
 
         self._path: str | None = None
+        self._sites = sites or ["Primary", "DR"]
         self._servers: list = []
         self._vms: list = []
         self._switches: list = []
@@ -68,7 +69,7 @@ class RVToolsImportDialog(QDialog):
         form.addRow("RVTools file (.xlsx)", file_row)
 
         self.site_combo = QComboBox()
-        self.site_combo.addItems(["Primary", "DR"])
+        self.site_combo.addItems(self._sites)
         self.site_combo.setToolTip(
             "Used for everything when only one Datacenter is found in the "
             "file, or as the fallback for any Datacenter value not covered "
@@ -159,7 +160,7 @@ class RVToolsImportDialog(QDialog):
 
         for dc in datacenters:
             combo = QComboBox()
-            combo.addItems(["Primary", "DR"])
+            combo.addItems(self._sites)
             self.dc_mapping_layout.addRow(dc, combo)
             self._dc_combos[dc] = combo
 

@@ -1,7 +1,8 @@
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
+from src.models.failover_assignment import FailoverAssignment
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.calculations.sizing import build_site_report, build_dr_failover_report
+from src.calculations.sizing import build_site_report, build_failover_scenario_report
 from src.calculations.thresholds import Thresholds, Status
 
 
@@ -15,16 +16,22 @@ def _dr_server(sockets=1, cores_per_socket=8, ram_gb=64):
     return s
 
 
-def _vm(site, vcpu, ram_gb, dr_protected=False, dr_vcpu=None, dr_ram_gb=None):
+def _vm(site, vcpu, ram_gb):
     vm = VirtualMachine.create_default()
     vm.site = site
     vm.vcpu = vcpu
     vm.ram_gb = ram_gb
-    vm.dr_protected = dr_protected
-    if dr_protected:
-        vm.dr_vcpu = dr_vcpu if dr_vcpu is not None else vcpu
-        vm.dr_ram_gb = dr_ram_gb if dr_ram_gb is not None else ram_gb
     return vm
+
+
+def _assign(project, vm, target_site, vcpu=None, ram_gb=None, disk_gb=0):
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid
+    a.target_site = target_site
+    a.vcpu = vcpu if vcpu is not None else vm.vcpu
+    a.ram_gb = ram_gb if ram_gb is not None else vm.ram_gb
+    a.disk_gb = disk_gb
+    project.failover_assignments.append(a)
 
 
 def test_failover_report_uses_same_physical_capacity_as_current():
@@ -34,25 +41,27 @@ def test_failover_report_uses_same_physical_capacity_as_current():
     project.vms.append(_vm(DR, vcpu=2, ram_gb=8))
 
     current = build_site_report(project, DR, Thresholds())
-    failover = build_dr_failover_report(project, Thresholds())
+    failover = build_failover_scenario_report(project, DR, Thresholds())
 
     assert current.physical_cores == failover.physical_cores
     assert current.physical_ram_gb == failover.physical_ram_gb
     assert current.usable_storage_gb == failover.usable_storage_gb
 
 
-def test_failover_demand_includes_baseline_plus_protected_vms():
+def test_failover_demand_includes_baseline_plus_assigned_vms():
     project = ClusterProject()
     project.servers.append(_dr_server())
     project.vms.append(_vm(DR, vcpu=2, ram_gb=8))  # always-on DR VM (e.g. AD)
     for _ in range(3):
-        project.vms.append(_vm(PRIMARY, vcpu=4, ram_gb=16, dr_protected=True))
+        vm = _vm(PRIMARY, vcpu=4, ram_gb=16)
+        project.vms.append(vm)
+        _assign(project, vm, DR)
 
     current = build_site_report(project, DR, Thresholds())
-    failover = build_dr_failover_report(project, Thresholds())
+    failover = build_failover_scenario_report(project, DR, Thresholds())
 
     assert current.vcpu_demand == 2  # only the baseline DR VM
-    assert failover.vcpu_demand == 2 + 3 * 4  # baseline + 3 protected VMs
+    assert failover.vcpu_demand == 2 + 3 * 4  # baseline + 3 assigned VMs
     assert failover.ram_demand_gb == 8 + 3 * 16
 
 
@@ -62,21 +71,23 @@ def test_failover_report_can_reveal_critical_status_current_hides():
     project = ClusterProject()
     project.servers.append(_dr_server(ram_gb=32))  # small DR host
     project.vms.append(_vm(DR, vcpu=1, ram_gb=4))  # tiny baseline - looks fine
-    project.vms.append(_vm(PRIMARY, vcpu=8, ram_gb=64, dr_protected=True))  # big failover load
+    big_vm = _vm(PRIMARY, vcpu=8, ram_gb=64)  # big failover load
+    project.vms.append(big_vm)
+    _assign(project, big_vm, DR)
 
     current = build_site_report(project, DR, Thresholds())
-    failover = build_dr_failover_report(project, Thresholds())
+    failover = build_failover_scenario_report(project, DR, Thresholds())
 
     assert current.ram_status == Status.OK
     assert failover.ram_status == Status.CRITICAL
 
 
-def test_unprotected_primary_vms_never_count_toward_failover_demand():
+def test_unassigned_primary_vms_never_count_toward_failover_demand():
     project = ClusterProject()
     project.servers.append(_dr_server())
-    project.vms.append(_vm(PRIMARY, vcpu=4, ram_gb=16, dr_protected=False))
+    project.vms.append(_vm(PRIMARY, vcpu=4, ram_gb=16))  # no assignment at all
 
-    failover = build_dr_failover_report(project, Thresholds())
+    failover = build_failover_scenario_report(project, DR, Thresholds())
 
     assert failover.vcpu_demand == 0
     assert failover.ram_demand_gb == 0
@@ -84,9 +95,34 @@ def test_unprotected_primary_vms_never_count_toward_failover_demand():
 
 def test_no_dr_servers_gives_none_ratios_not_a_crash():
     project = ClusterProject()
-    project.vms.append(_vm(PRIMARY, vcpu=4, ram_gb=16, dr_protected=True))
+    vm = _vm(PRIMARY, vcpu=4, ram_gb=16)
+    project.vms.append(vm)
+    _assign(project, vm, DR)
 
-    failover = build_dr_failover_report(project, Thresholds())
+    failover = build_failover_scenario_report(project, DR, Thresholds())
 
     assert failover.cpu_ratio is None
     assert failover.ram_status == Status.UNKNOWN
+
+
+def test_failover_scenario_report_works_for_a_third_site_too():
+    """Generic per-site, not just fixed to DR - confirms the same
+    function works for any site name."""
+    project = ClusterProject()
+    project.add_site("DR2")
+    server = Server.create_default()
+    server.site = "DR2"
+    server.sockets = 1
+    server.cores_per_socket = 8
+    server.hyperthreading_enabled = False
+    server.ram_gb = 64
+    project.servers.append(server)
+
+    vm = _vm(PRIMARY, vcpu=2, ram_gb=8)
+    project.vms.append(vm)
+    _assign(project, vm, "DR2")
+
+    failover = build_failover_scenario_report(project, "DR2", Thresholds())
+
+    assert failover.site == "DR2"
+    assert failover.vcpu_demand == 2

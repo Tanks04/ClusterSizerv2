@@ -13,7 +13,7 @@ from src.models.vlan import Vlan
 
 class VlanDialog(QDialog):
 
-    def __init__(self, vlan: Vlan | None = None, parent=None):
+    def __init__(self, vlan: Vlan | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self.setWindowTitle("VLAN")
@@ -26,7 +26,7 @@ class VlanDialog(QDialog):
         layout.addRow("Name", self.name_edit)
 
         self.site_combo = QComboBox()
-        self.site_combo.addItems(["Primary", "DR"])
+        self.site_combo.addItems(sites or ["Primary", "DR"])
         layout.addRow("Site", self.site_combo)
 
         self.network_edit = QLineEdit()

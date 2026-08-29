@@ -28,7 +28,7 @@ from src.calculations.hci_storage import compute_hci_raw_capacity
 
 class StorageDialog(QDialog):
 
-    def __init__(self, storage: Storage | None = None, servers: list | None = None, parent=None):
+    def __init__(self, storage: Storage | None = None, servers: list | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self._servers = servers or []
@@ -56,7 +56,7 @@ class StorageDialog(QDialog):
         layout.addRow("Name", self.name_edit)
 
         self.site_combo = QComboBox()
-        self.site_combo.addItems(["Primary", "DR"])
+        self.site_combo.addItems(sites or ["Primary", "DR"])
         layout.addRow("Site", self.site_combo)
 
         self.vendor_edit = QLineEdit()

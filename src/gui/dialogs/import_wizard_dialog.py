@@ -52,12 +52,13 @@ class ImportWizardDialog(QDialog):
     RVTools' "VM" column, consistent across its sheets). Pick a sheet per
     field one at a time until every field you need is mapped."""
 
-    def __init__(self, path: Path, parent=None):
+    def __init__(self, path: Path, sites: list | None = None, parent=None):
         super().__init__(parent)
         self.path = Path(path)
         self.setWindowTitle(f"Import Wizard - {self.path.name}")
         self.resize(760, 700)
 
+        self._sites = sites or ["Primary", "DR"]
         self._raw_rows: list[list] = []
         self._header: list[str] = []
         self._data_rows: list[dict] = []
@@ -118,7 +119,7 @@ class ImportWizardDialog(QDialog):
         extra_form = QFormLayout()
 
         self.default_site_combo = QComboBox()
-        self.default_site_combo.addItems(["Primary", "DR"])
+        self.default_site_combo.addItems(self._sites)
         extra_form.addRow("Default site", self.default_site_combo)
 
         self.powered_on_edit = QLineEdit("Powered On")

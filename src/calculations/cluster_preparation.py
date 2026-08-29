@@ -229,17 +229,20 @@ def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResul
         if required_hosts > 0 and host_effective_cores > 0 else None
     )
 
-    # DR: reuses each VM's OWN dr_protected flag + DR footprint (already
-    # editable per-VM on the VMs tab) rather than a separate global "DR
-    # capacity %" - see the module/VirtualMachine docstrings for why.
-    # Uses the SAME host_spec as Primary (consistent hardware), just a
-    # different host COUNT.
-    dr_vms = [vm for vm in primary_vms if vm.dr_protected]
+    # DR: reuses each VM's own FailoverAssignment targeting DR (editable
+    # on the VMs tab's Failover Assignments table) rather than a
+    # separate global "DR capacity %" - see the module/VirtualMachine
+    # docstrings for why. Uses the SAME host_spec as Primary (consistent
+    # hardware), just a different host COUNT. Scoped to DR specifically
+    # (not every site) - this wizard sizes one Primary + one DR-like
+    # target at a time, same as before N-site support existed.
+    dr_assignments = {a.vm_uid: a for a in project.failover_assignments_for(DR)}
+    dr_vms = [vm for vm in primary_vms if vm.uid in dr_assignments]
     dr_effective_vcpu = sum(
-        vm.effective_dr_vcpu / policy.ratio_for(vm.workload_tier) for vm in dr_vms
+        dr_assignments[vm.uid].vcpu / policy.ratio_for(vm.workload_tier) for vm in dr_vms
     ) * growth_factor
     dr_ram_with_reserve = (
-        sum(vm.effective_dr_ram_gb for vm in dr_vms) * growth_factor
+        sum(dr_assignments[vm.uid].ram_gb for vm in dr_vms) * growth_factor
     ) / reserve_factor
 
     dr_hosts_for_cpu = _hosts_needed(dr_effective_vcpu, host_effective_cores)
@@ -248,7 +251,7 @@ def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResul
     dr_binding_constraint = "RAM" if dr_hosts_for_ram >= dr_hosts_for_cpu else "CPU"
     dr_required_hosts = dr_base_hosts + ha_extra if dr_vms else 0
 
-    dr_storage_demand_gb = sum(vm.effective_dr_disk_gb for vm in dr_vms) * growth_factor
+    dr_storage_demand_gb = sum(dr_assignments[vm.uid].disk_gb for vm in dr_vms) * growth_factor
     dr_recommended_storage_usable_tb = dr_storage_demand_gb / 1024
     dr_recommended_storage_raw_tb = dr_recommended_storage_usable_tb / storage_overhead_factor
 

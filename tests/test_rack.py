@@ -118,7 +118,7 @@ def test_disabled_server_still_counts_toward_rack_sizing():
 
 def test_cloud_site_reports_is_cloud_and_zero():
     project = ClusterProject()
-    project.dr_deployment_model = "Cloud"
+    project.set_deployment_model(DR, "Cloud")
 
     result = compute_rack_sizing(project, DR)
 
@@ -132,7 +132,7 @@ def test_cloud_site_ignores_leftover_server_rack_data():
     not get summed - that data is meaningless there (e.g. a leftover
     from switching a site's deployment model)."""
     project = ClusterProject()
-    project.dr_deployment_model = "Cloud"
+    project.set_deployment_model(DR, "Cloud")
     project.servers.append(_server(site=DR, rack_units=4, power_watts=1200))
 
     result = compute_rack_sizing(project, DR)
@@ -155,7 +155,7 @@ def test_hybrid_project_primary_on_prem_dr_cloud():
     """The exact scenario this feature exists for - DRaaS: on-premise
     Primary with a cloud DR."""
     project = ClusterProject()
-    project.dr_deployment_model = "Cloud"
+    project.set_deployment_model(DR, "Cloud")
     project.servers.append(_server(rack_units=2, power_watts=500))  # Primary, default site
 
     primary_result = compute_rack_sizing(project, PRIMARY)
@@ -175,8 +175,8 @@ def test_rack_capacity_u_for_defaults_to_zero():
 
 def test_rack_capacity_u_for_looks_up_the_right_site():
     project = ClusterProject()
-    project.primary_rack_capacity_u = 84
-    project.dr_rack_capacity_u = 24
+    project.set_rack_capacity_u(PRIMARY, 84)
+    project.set_rack_capacity_u(DR, 24)
 
     assert project.rack_capacity_u_for(PRIMARY) == 84
     assert project.rack_capacity_u_for(DR) == 24
@@ -184,7 +184,7 @@ def test_rack_capacity_u_for_looks_up_the_right_site():
 
 def test_capacity_u_flows_through_to_the_summary():
     project = ClusterProject()
-    project.primary_rack_capacity_u = 84
+    project.set_rack_capacity_u(PRIMARY, 84)
     project.servers.append(_server(rack_units=12))
 
     result = compute_rack_sizing(project, PRIMARY)
@@ -195,7 +195,7 @@ def test_capacity_u_flows_through_to_the_summary():
 
 def test_over_capacity_true_when_used_exceeds_capacity():
     project = ClusterProject()
-    project.primary_rack_capacity_u = 10
+    project.set_rack_capacity_u(PRIMARY, 10)
     project.servers.append(_server(rack_units=12))
 
     result = compute_rack_sizing(project, PRIMARY)
@@ -205,7 +205,7 @@ def test_over_capacity_true_when_used_exceeds_capacity():
 
 def test_over_capacity_false_when_within_capacity():
     project = ClusterProject()
-    project.primary_rack_capacity_u = 84
+    project.set_rack_capacity_u(PRIMARY, 84)
     project.servers.append(_server(rack_units=12))
 
     result = compute_rack_sizing(project, PRIMARY)
@@ -230,8 +230,8 @@ def test_cloud_site_still_reports_its_capacity_u_even_though_rack_units_is_zero(
     cloud - useful if a site later switches from Cloud back to
     On-Premise without losing the previously-entered capacity."""
     project = ClusterProject()
-    project.dr_deployment_model = "Cloud"
-    project.dr_rack_capacity_u = 24
+    project.set_deployment_model(DR, "Cloud")
+    project.set_rack_capacity_u(DR, 24)
 
     result = compute_rack_sizing(project, DR)
 

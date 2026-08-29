@@ -4,12 +4,13 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from src.calculations.thresholds import Thresholds
-from src.models.cluster_project import ClusterProject
+from src.models.cluster_project import ClusterProject, PRIMARY
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
+from src.models.failover_assignment import FailoverAssignment
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
@@ -274,24 +275,54 @@ class ProjectService(QObject):
             server.hyperthreading_enabled = enabled
         self._notify(self.servers_changed)
 
-    def set_primary_deployment_model(self, model: str) -> None:
+    def set_deployment_model(self, site: str, model: str) -> None:
         self._push_undo_snapshot()
-        self._project.primary_deployment_model = model
+        self._project.set_deployment_model(site, model)
         self._notify()
 
-    def set_dr_deployment_model(self, model: str) -> None:
+    def set_rack_capacity_u(self, site: str, capacity: int) -> None:
         self._push_undo_snapshot()
-        self._project.dr_deployment_model = model
+        self._project.set_rack_capacity_u(site, capacity)
         self._notify()
 
-    def set_primary_rack_capacity_u(self, capacity: int) -> None:
+    def add_site(self, name: str) -> None:
         self._push_undo_snapshot()
-        self._project.primary_rack_capacity_u = capacity
+        self._project.add_site(name)
         self._notify()
 
-    def set_dr_rack_capacity_u(self, capacity: int) -> None:
+    def site_in_use(self, name: str) -> bool:
+        """Whether any entity currently references this site - used to
+        decide whether remove_site() can proceed safely or should be
+        refused, since (unlike VLAN) a Server/VM/etc. can't have an
+        empty/unset site the way a VM's optional vlan_uid can."""
+        return (
+            any(s.site == name for s in self._project.servers)
+            or any(s.site == name for s in self._project.storages)
+            or any(v.site == name for v in self._project.vms)
+            or any(s.site == name for s in self._project.switches)
+            or any(d.site == name for d in self._project.backup_destinations)
+            or any(v.site == name for v in self._project.vlans)
+            or any(a.target_site == name for a in self._project.failover_assignments)
+        )
+
+    def remove_site(self, name: str) -> None:
+        """Raises ValueError if name is Primary. Refuses (RuntimeError)
+        if any entity still references this site - the caller should
+        check site_in_use() first and prompt the user to reassign/
+        delete those entities, rather than this silently orphaning them
+        or silently deleting them. Both checks happen BEFORE the undo
+        snapshot is pushed, so a refused removal doesn't leave a
+        no-op entry in the undo stack."""
+        if name == PRIMARY:
+            raise ValueError("Cannot remove the Primary site")
+        if self.site_in_use(name):
+            raise RuntimeError(
+                f'"{name}" is still in use by at least one Server, Storage, VM, '
+                "Switch, Backup Destination, VLAN, or Failover Assignment - "
+                "reassign or delete those first."
+            )
         self._push_undo_snapshot()
-        self._project.dr_rack_capacity_u = capacity
+        self._project.remove_site(name)
         self._notify()
 
     def set_enabled_for_servers(self, servers: list[Server], enabled: bool) -> None:
@@ -532,12 +563,17 @@ class ProjectService(QObject):
     def remove_vms(self, vms: list[VirtualMachine]) -> None:
         self._push_undo_snapshot()
         removed = set(id(v) for v in vms)
+        removed_uids = {v.uid for v in vms}
         self._project.vms = [v for v in self._project.vms if id(v) not in removed]
+        self._project.failover_assignments = [
+            a for a in self._project.failover_assignments if a.vm_uid not in removed_uids
+        ]
         self._notify(self.vms_changed)
 
     def clear_vms(self) -> None:
         self._push_undo_snapshot()
         self._project.vms = []
+        self._project.failover_assignments = []
         self._notify(self.vms_changed)
 
     def set_all_vms_workload_tier(self, tier: str) -> None:
@@ -550,37 +586,70 @@ class ProjectService(QObject):
             vm.workload_tier = tier
         self._notify(self.vms_changed)
 
-    def set_all_vms_dr_protected(self, protected: bool) -> None:
-        """Bulk-sets dr_protected on every VM at once - one undo snapshot
-        for the whole action. Turning it ON also defaults each VM's DR
-        footprint to match its primary footprint (vcpu/ram/disk) unless
-        it already had DR values set; turning it OFF just clears the flag,
-        leaving the footprint numbers in place in case it's turned back on."""
-        self._push_undo_snapshot()
-        for vm in self._project.vms:
-            self._apply_dr_protected(vm, protected)
-        self._notify(self.vms_changed)
-
-    def set_dr_protected_for_vms(self, vms: list[VirtualMachine], protected: bool) -> None:
-        """Same as set_all_vms_dr_protected, but scoped to a specific
-        selection (e.g. from a table's right-click menu or "Apply to
-        Selected") - one undo snapshot for the whole selection, not one
-        per VM. The typical workflow this exists for: load 45 VMs, select
-        only the 12 that should actually go to DR, mark just those."""
+    def set_failover_assignment_for_vms(
+        self, vms: list[VirtualMachine], target_site: str, assigned: bool,
+    ) -> None:
+        """Bulk create/remove a FailoverAssignment targeting target_site
+        for each given VM - one undo snapshot for the whole selection.
+        Turning it ON creates an assignment (defaulting footprint to
+        match the VM's own vcpu/ram/disk) unless one already exists for
+        that VM+site; turning it OFF only removes the assignment for
+        target_site - any assignments to OTHER sites are untouched, so
+        toggling DR off doesn't accidentally drop a VM's DR2 assignment."""
         if not vms:
             return
         self._push_undo_snapshot()
         for vm in vms:
-            self._apply_dr_protected(vm, protected)
+            existing = next(
+                (a for a in self._project.failover_assignments
+                 if a.vm_uid == vm.uid and a.target_site == target_site),
+                None,
+            )
+            if assigned:
+                if existing is None:
+                    new_assignment = FailoverAssignment.create_default()
+                    new_assignment.vm_uid = vm.uid
+                    new_assignment.target_site = target_site
+                    new_assignment.vcpu = vm.vcpu
+                    new_assignment.ram_gb = vm.ram_gb
+                    new_assignment.disk_gb = vm.disk_gb
+                    self._project.failover_assignments.append(new_assignment)
+            elif existing is not None:
+                self._project.failover_assignments.remove(existing)
         self._notify(self.vms_changed)
 
-    @staticmethod
-    def _apply_dr_protected(vm: VirtualMachine, protected: bool) -> None:
-        vm.dr_protected = protected
-        if protected and vm.dr_vcpu == 0 and vm.dr_ram_gb == 0 and vm.dr_disk_gb == 0:
-            vm.dr_vcpu = vm.vcpu
-            vm.dr_ram_gb = vm.ram_gb
-            vm.dr_disk_gb = vm.disk_gb
+    def set_failover_assignment_for_all_vms(self, target_site: str, assigned: bool) -> None:
+        """Same as set_failover_assignment_for_vms, but applied to every
+        VM in the project at once."""
+        self.set_failover_assignment_for_vms(self._project.vms, target_site, assigned)
+
+    # ------------------------------------------------------------------
+    # Failover Assignments (standalone list - see FailoverAssignment's
+    # docstring for why this isn't nested on VirtualMachine)
+    # ------------------------------------------------------------------
+
+    def add_failover_assignment(self, assignment: FailoverAssignment) -> None:
+        self._push_undo_snapshot()
+        self._project.failover_assignments.append(assignment)
+        self._notify(self.vms_changed)
+
+    def update_failover_assignment(self, index: int, assignment: FailoverAssignment) -> None:
+        self._push_undo_snapshot()
+        self._project.failover_assignments[index] = assignment
+        self._notify(self.vms_changed)
+
+    def remove_failover_assignments(self, assignments: list[FailoverAssignment]) -> None:
+        self._push_undo_snapshot()
+        removed_uids = {a.uid for a in assignments}
+        self._project.failover_assignments = [
+            a for a in self._project.failover_assignments if a.uid not in removed_uids
+        ]
+        self._notify(self.vms_changed)
+
+    def clear_failover_assignments(self) -> None:
+        self._push_undo_snapshot()
+        self._project.failover_assignments = []
+        self._notify(self.vms_changed)
 
     def set_workload_tier_for_vms(self, vms: list[VirtualMachine], tier: str) -> None:
         """Same as set_all_vms_workload_tier, but scoped to a selection -
@@ -593,11 +662,11 @@ class ProjectService(QObject):
         self._notify(self.vms_changed)
 
     def set_site_for_vms(self, vms: list[VirtualMachine], site: str) -> None:
-        """Moves the given VMs to a different site (Primary/DR) - a
-        DIFFERENT concept from dr_protected (which flags a VM as
-        replicated to DR while it keeps living on its current site).
-        This actually relocates where the VM "lives". One undo snapshot
-        for the whole selection."""
+        """Moves the given VMs to a different site (Primary/DR/etc.) - a
+        DIFFERENT concept from a FailoverAssignment (which targets a VM
+        to fail over to a site while it keeps living on its CURRENT
+        site). This actually relocates where the VM "lives". One undo
+        snapshot for the whole selection."""
         if not vms:
             return
         self._push_undo_snapshot()

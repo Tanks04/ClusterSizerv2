@@ -1,5 +1,93 @@
 # ROADMAP
 
+## v4.0.0 (Multi-site support - configurable sites, per-site failover assignments)
+
+The big one deferred from v3.10.0's equipment-inventory review: some
+organizations (banks especially) run 3+ sites, not just Primary/DR.
+"Primary"/"DR" were hardcoded throughout nearly every layer of the app
+before this - every dropdown, every calculation signature, the Summary
+page's fixed two-card layout, the whole DR Readiness/failover concept.
+Genuine N-site support meant a foundational model change, not a field
+addition - touched close to 30 files.
+
+- **Sites are now a real, editable list** (`project.site_names`,
+  default `["Primary", "DR"]` so every existing project loads
+  unchanged) instead of two hardcoded string constants. Add/remove
+  sites from Settings - Primary can never be removed (too much of the
+  app assumes it always exists as "the main site"), and a site still
+  referenced by any Server/Storage/VM/Switch/Backup Destination/VLAN/
+  Failover Assignment can't be removed either, until those are
+  reassigned or deleted first.
+- **Deployment Model and Rack Capacity became per-site lookups**
+  (dicts keyed by site name) instead of the `primary_X`/`dr_X` field
+  pairs introduced in v3.6.0/v3.10.0 - those simply didn't scale past
+  two sites.
+- **New: FailoverAssignment** - replaces VM's old `dr_protected`/
+  `dr_vcpu`/`dr_ram_gb`/`dr_disk_gb` fields entirely. The failover
+  model discussed at length turned out to be simpler than initially
+  proposed: no fixed "failover target," no per-VM footprint filtering
+  by category - just an explicit, standalone list (VM -> target site,
+  with its own vCPU/RAM/disk footprint) that someone fills in
+  deliberately. The same VM can appear in several rows (one per target
+  site) with a DIFFERENT footprint on each - a bank's core VM might
+  need less on a budget DR2 than a full-size DR. Managed centrally in
+  a new **Failover Assignments** table on the VMs tab (same pattern as
+  Switches/Connections/VLANs on the Network tab), plus a target-site-
+  aware bulk toggle (checkbox + site combo + Apply Selected/All) for
+  quickly assigning many VMs at once.
+  - **New: VM DR Category** (Core / Mission-Critical, Important,
+    Standard, Non-Essential - editable combo, type your own for a
+    specific compliance framework's categories e.g. NIS2). Purely
+    informational - deliberately does NOT gate what can be assigned in
+    Failover Assignments, confirmed directly rather than assumed.
+  - Every readiness/capacity calculation generalized from "Primary vs.
+    DR" to "any site vs. its assigned failover load": `failover_ready
+    (site)`, `failover_vcpu_demand(site)`, etc. on ClusterProject; the
+    old fixed `DRReport` became a generic `FailoverReport`; `build_
+    reports()` now returns a dict keyed by site name instead of a
+    fixed 3-tuple.
+- **Summary page**: one capacity card per site (2 per row, so Primary/
+  DR still land side by side as before - additional sites just form
+  further rows in the same size/style, per direct suggestion for
+  keeping the layout change simple). Each card shows a new, minimal
+  "VMs Assigned (Failover): N [OK/Warning/Critical]" row rather than a
+  full data dump - the detailed numbers live in the Failover
+  Assignments table and the Word report. "Preview Failover" now
+  applies to every site's card at once. Also fixed: SummaryPage had no
+  scroll area at all (found while building this - a page with several
+  site cards plus a long Attention list can exceed a typical window's
+  height).
+- **Word report**: loops over every site in `project.site_names`
+  instead of a hardcoded Primary/DR pair - confirmed by adding a third
+  site to a test project and regenerating with zero code changes
+  needed for that site to appear correctly.
+- **Every dialog with a site dropdown** (Server, Storage, Switch, VM,
+  Backup Destination, VLAN, RVTools Import, CSV Import Wizard) now
+  populates from the project's actual site list instead of a hardcoded
+  pair - 8 call sites across 7 files. Found and fixed a real bug in
+  the process: Import Wizard's site combo referenced an out-of-scope
+  local variable inside a separate `_build_ui()` method (a `NameError`
+  waiting to happen) - caught by writing the dynamic-sites test for it.
+- **Full migration for existing files**: an old project's `primary_
+  deployment_model`/`dr_deployment_model` and `primary_rack_capacity_u`/
+  `dr_rack_capacity_u` migrate into the new per-site dicts automatically.
+  Critically, any VM with `dr_protected=True` becomes exactly one
+  FailoverAssignment targeting DR, preserving its old DR footprint
+  numbers - verified against a simulated old-format file to confirm
+  nothing is silently dropped. Schema bumped to v8.
+- **New example**: `scenario_multisite_example.clsz` - a 3-site bank
+  scenario (Primary + DR + DR2, 2 large Primary hosts vs. 3x smaller
+  hosts per DR site, matching the exact numbers discussed), 7 VMs
+  tagged across all four DR Categories, and Failover Assignments to
+  both DR sites for everything except the DWH and test-environment VMs
+  - mirroring "sell everything except DWH and test/dev, since the
+  business can tolerate losing those for a while."
+- 62 new/rewritten tests across the model, persistence/migration, and
+  GUI layers (FailoverAssignmentDialog, its table model, VMs-page
+  integration, dynamic-sites coverage for all 7 dialogs, plus updates
+  to every pre-existing test that touched a removed field or method) -
+  325 passed total.
+
 ## v3.10.0 (Server inventory fields, Backup Cloud/Location, Rack Capacity)
 
 From a direct equipment-inventory review - "have we covered what an
