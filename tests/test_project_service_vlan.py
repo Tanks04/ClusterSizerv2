@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QApplication
 from src.services.project_service import ProjectService
 from src.models.vlan import Vlan
 from src.models.virtual_machine import VirtualMachine
+from src.models.failover_assignment import FailoverAssignment
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -123,3 +124,47 @@ def test_import_export_vlans_csv(tmp_path):
     assert count == 1
     assert service2.project.vlans[0].name == "DMZ"
     assert service2.project.vlans[0].network == "10.0.0.0/24"
+
+
+def test_set_failover_assignment_confirmed():
+    service = ProjectService()
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid
+    a.target_site = "DR"
+    service.add_failover_assignment(a)
+
+    service.set_failover_assignment_confirmed([a], True)
+
+    assert service.project.failover_assignments[0].footprint_confirmed is True
+
+
+def test_set_failover_assignment_confirmed_is_undoable():
+    service = ProjectService()
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid
+    a.target_site = "DR"
+    service.add_failover_assignment(a)
+
+    service.set_failover_assignment_confirmed([a], True)
+    service.undo()
+
+    assert service.project.failover_assignments[0].footprint_confirmed is False
+
+
+def test_set_failover_assignment_confirmed_can_be_toggled_off():
+    service = ProjectService()
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid
+    a.target_site = "DR"
+    service.add_failover_assignment(a)
+    service.set_failover_assignment_confirmed([a], True)
+
+    service.set_failover_assignment_confirmed([a], False)
+
+    assert service.project.failover_assignments[0].footprint_confirmed is False

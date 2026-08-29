@@ -144,7 +144,7 @@ class ServersPage(QWidget):
         self.service.set_enabled_for_servers(servers, enabled)
 
     def _add_server(self):
-        dialog = ServerDialog(parent=self)
+        dialog = ServerDialog(sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_servers(dialog.get_servers())
 
@@ -156,7 +156,7 @@ class ServersPage(QWidget):
 
         row = rows[0]
         server = self.model.server_at(row)
-        dialog = ServerDialog(server, parent=self)
+        dialog = ServerDialog(server, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_server(row, dialog.get_server())
 

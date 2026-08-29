@@ -248,6 +248,12 @@ class VirtualMachinesPage(QWidget):
         self.failover_table.set_source_model(self.failover_model)
         self.failover_table.edit_requested.connect(self._edit_failover_assignment)
         self.failover_table.delete_requested.connect(self._delete_failover_assignments)
+        self.failover_table.set_custom_actions([
+            ("\u2705 Acknowledge (footprint is intentional)",
+             lambda checked=False: self._set_failover_confirmed_for_selected(True)),
+            ("Un-acknowledge",
+             lambda checked=False: self._set_failover_confirmed_for_selected(False)),
+        ])
 
         failover_layout.addWidget(self.failover_table)
 
@@ -580,3 +586,10 @@ class VirtualMachinesPage(QWidget):
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_failover_assignments()
+
+    def _set_failover_confirmed_for_selected(self, confirmed: bool):
+        assignments = self._selected_failover_assignments()
+        if not assignments:
+            QMessageBox.information(self, "Acknowledge", "Select at least one assignment in the table.")
+            return
+        self.service.set_failover_assignment_confirmed(assignments, confirmed)

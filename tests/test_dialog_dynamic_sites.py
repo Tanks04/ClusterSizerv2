@@ -10,6 +10,7 @@ pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 
 from src.gui.dialogs.storage_dialog import StorageDialog
+from src.gui.dialogs.server_dialog import ServerDialog
 from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.gui.dialogs.vlan_dialog import VlanDialog
 from src.gui.dialogs.backup_destination_dialog import BackupDestinationDialog
@@ -29,6 +30,20 @@ THREE_SITES = ["Primary", "DR", "DR2"]
 
 def _items(combo):
     return [combo.itemText(i) for i in range(combo.count())]
+
+
+def test_server_dialog_uses_dynamic_sites():
+    """The dialog that was reported broken directly - its hardcoded
+    ["Primary", "DR"] was spread across multiple lines with a trailing
+    comma, a formatting variant the original single-line grep for the
+    other 7 dialogs didn't catch."""
+    dialog = ServerDialog(sites=THREE_SITES)
+    assert _items(dialog.site_combo) == THREE_SITES
+
+
+def test_server_dialog_falls_back_to_primary_dr_when_omitted():
+    dialog = ServerDialog()
+    assert _items(dialog.site_combo) == ["Primary", "DR"]
 
 
 def test_storage_dialog_uses_dynamic_sites():

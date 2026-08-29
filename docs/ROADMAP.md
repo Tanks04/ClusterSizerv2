@@ -1,5 +1,163 @@
 # ROADMAP
 
+## v4.3.0 (Critical: Reports tab crashed on every use since v4.0.0; all examples now backup-compliant)
+
+- **Fixed a severe regression that had zero test coverage**: reports_page.py's
+  `_build_report_text()` still unpacked `build_reports()` as a fixed
+  `primary, dr, dr_check` 3-tuple - but v4.0.0's multi-site refactor
+  changed that function to return a `dict` keyed by site name months
+  ago. Every single time the Reports tab was shown, refreshed, or a
+  new project was loaded while it already existed, this raised
+  (`ValueError: not enough values to unpack`, then cascading into
+  `AttributeError` on the next redraw) - reported directly as "loaded
+  several example files in a row and nothing happened after the
+  first." Reports had NO test file at all before this, which is
+  exactly how something this broken went undetected through v4.0.0,
+  v4.1.x, and v4.2.x. Rewritten to loop over `project.site_names`
+  generically, matching the same approach already used in the Word
+  report - now also includes Rack Sizing and Failover Assignment data
+  per site, which the text report never had before at all.
+  - Re-verified every tab + two sequential project loads produces zero
+    exceptions, not just Reports specifically.
+  - 5 new tests, including the exact reported scenario (Reports page
+    already open, then a different project gets loaded).
+- **Fixed backup compliance in the 3 examples that had none**:
+  `scenario_vsan_example.clsz` and `scenario_stretched_vsan_3site_
+  example.clsz` had zero Backup Destinations at all (added a local
+  Veeam repository plus an offsite immutable copy to each), and
+  `scenario_draas_example.clsz` had only one (added a second, Cloud-
+  type Azure copy, matching its own DRaaS theme) - all 7 example
+  projects are now genuinely 3-2-1-1 compliant with zero Attention
+  Needed items related to backup.
+
+## v4.2.2 (ServerDialog missed the dynamic-sites fix - found and fixed)
+
+- **Fixed**: ServerDialog's site dropdown was still hardcoded to
+  Primary/DR only - reported directly ("2 servers on Primary, 3 on DR,
+  3 should go on DR2, but DR2 isn't in the list when editing a
+  server"). Root cause: back in v4.0.0's audit of every dialog with a
+  hardcoded site list, the search pattern was a single-line literal
+  (`["Primary", "DR"]`) - ServerDialog's was written across multiple
+  lines with a trailing comma, a formatting variant that search missed
+  entirely. Now takes a `sites` parameter and is wired from
+  ServersPage exactly like the other 7 dialogs fixed back then
+  (StorageDialog, SwitchDialog, VlanDialog, BackupDestinationDialog,
+  VMDialog, RVToolsImportDialog, ImportWizardDialog).
+- **Re-audited every dialog, page, and widget file** (not just the
+  original single-line grep) for any other literal "Primary"/"DR"
+  occurrence, to make sure nothing else was hiding behind a formatting
+  difference. Found two more hits, both confirmed as the Cluster
+  Preparation wizard's already-documented, deliberate Primary+one-DR
+  scope limit (not a bug) - nothing else was missed.
+- 4 new tests (ServerDialog with a 3-site list, its Primary/DR
+  fallback, and ServersPage's Add/Edit call sites, verified by
+  spying on the constructor rather than actually opening a modal
+  dialog in the test).
+
+## v4.2.1 (Fixed the multisite example's missing backup; no blanket "dismiss" for Attention)
+
+- **Fixed**: `scenario_multisite_example.clsz` had zero Backup
+  Destinations - the same class of oversight as the storage gap fixed
+  in v4.2.0, just the next thing the example was missing. Added a
+  local Veeam repository on Primary plus an offsite, immutable copy on
+  DR - now genuinely 3-2-1-1 compliant, zero Attention items.
+- **Deliberately declined**: a general "acknowledge/dismiss" option for
+  every Attention Needed item, considered after the backup gap above
+  first looked like it needed one. The FailoverAssignment acknowledge
+  feature (v4.2.0) works because it attaches to one concrete,
+  addressable record and resolves a genuinely AMBIGUOUS situation (a
+  larger DR footprint could be a mistake or a deliberate choice - both
+  are plausible). "Zero backup destinations," like CPU/RAM Critical or
+  a failed N+1 check, isn't ambiguous - it's a real, unresolved risk
+  the app is designed to keep surfacing until it's actually fixed. A
+  blanket per-item dismiss button would let any of these be silenced
+  and forgotten, undermining the whole point of the panel - matching
+  why no override exists anywhere else in the app for N+1 or
+  oversubscription status either. Fix the underlying gap instead of
+  suppressing the warning about it.
+
+## v4.2.0 (Acknowledge stale failover footprints; storage-gap detection; Preview Failover made visible)
+
+- **Preview Failover button styled orange** on Summary - reported as
+  "well hidden" as a plain default-styled button sitting among the
+  other controls.
+- **New: acknowledge an intentionally larger failover footprint.** The
+  stale-assignment warning added just before this (an assignment
+  exceeding the VM's current size) couldn't tell "forgotten update"
+  apart from "deliberately over-provisioned warm standby." Right-click
+  → Acknowledge on the Failover Assignments table (VMs tab) sets a new
+  `footprint_confirmed` flag on that assignment - silences both the
+  Attention Needed warning and the table's orange marker for exactly
+  that assignment. Un-acknowledge reverts it. Does NOT reset
+  automatically if the numbers change again later, by design - simpler
+  and more predictable than guessing whether a change was "big enough"
+  to need re-confirming. No new file or storage mechanism needed - it's
+  one boolean field on the FailoverAssignment record that already gets
+  saved with everything else; a missing field on an older file just
+  defaults to `False` via the existing tolerant loader, no migration
+  required.
+- **New: flag real VM disk demand with zero storage capacity anywhere**
+  as Critical - found directly from a real project (a full 3-site
+  scenario with substantial VM disk demand and not a single Storage
+  entity or server-local disk entered anywhere). Deliberately distinct
+  from the ordinary storage-status "Unknown" case, which stays silent
+  for a genuinely empty, not-yet-started site - the new check only
+  fires when there's real demand (disk_demand_gb > 0) with nothing to
+  check it against, a genuine blind spot rather than "haven't started
+  yet."
+- **Fixed the example that surfaced this**:
+  `scenario_multisite_example.clsz` had 3.4TB of VM disk demand across
+  7 VMs and no storage anywhere - added a Pure Storage array per site,
+  sized comfortably above each site's real/failover demand.
+- 12 new tests across the model, ProjectService, the table model
+  (column-specific marker + acknowledge), the Attention aggregation
+  (both new checks, plus confirming a healthy-project test itself had
+  been missing storage), and the VMs page's right-click action - 345
+  passed total.
+
+## v4.1.2 (Settings: field widths, and the real cause of "settings changing themselves")
+
+- **Fixed**: every combo/spin box on Settings stretched to fill the
+  full window width (`QFormLayout`'s default field growth policy).
+  Reported directly from a screenshot - now `FieldsStayAtSizeHint` on
+  all 5 form layouts, so each field is only as wide as its content
+  (e.g. "On-Premise") and stays left-aligned, leaving the rest of the
+  row empty and clickable-through to the page behind it.
+- **Fixed the actual root cause of "I scrolled up and down and it
+  changed Deployment Model and the oversubscription settings"**: Qt
+  lets a combo/spin box under the mouse cursor consume a wheel-scroll
+  event and change ITS value instead of scrolling the page underneath
+  it - with no click or focus needed at all. A request for a Settings
+  "Cancel" button would have papered over this rather than fixed it
+  (and would have interacted awkwardly with the existing per-change
+  undo system, which already reverts each of these edits one at a
+  time via Ctrl+Z). Instead, every input on the page now ignores wheel
+  scroll unless it already has keyboard focus (click or Tab into a
+  field first to intentionally scroll its value) - verified the
+  accidental-change path is blocked while normal interaction (click,
+  keyboard, programmatic set) is untouched.
+- 4 new tests (field growth policy, wheel-without-focus on both a
+  dynamic Deployment Model combo and a static threshold spinbox, and a
+  regression check that real interaction still works).
+
+## v4.1.1 (Settings page scroll fix - real bug reported from a screenshot)
+
+- **Fixed**: SettingsPage had no scroll area at all, same class of
+  problem already fixed on SummaryPage and the entity dialogs. It went
+  unnoticed until now because the page used to be short enough to fit
+  most windows - v4.0.0 added the Sites section and made Deployment
+  Model/Rack Capacity dynamic per site (each site adds a row to both),
+  so a project with even one extra site (very much the point of this
+  app now) pushes the page well past a typical window's height.
+  Reported directly with a screenshot showing word-wrapped note labels
+  rendering cut off/overlapping - worse than simple clipping, since
+  Qt's layout was squeezing labels into less vertical space than their
+  wrapped text needs rather than just hiding the overflow. Reproduced
+  exactly (a 3-site project needs 1078px of content in a 500px window)
+  and confirmed fixed with an actual rendered screenshot, not just
+  code inspection.
+- 1 new regression test.
+
 ## v4.1.0 (Three new example projects, exercising v4.0.0's multi-site features)
 
 - **`scenario_stretched_vsan_3site_example.clsz`** - vSAN stretched

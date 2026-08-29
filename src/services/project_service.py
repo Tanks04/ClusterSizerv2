@@ -651,6 +651,23 @@ class ProjectService(QObject):
         self._project.failover_assignments = []
         self._notify(self.vms_changed)
 
+    def set_failover_assignment_confirmed(
+        self, assignments: list[FailoverAssignment], confirmed: bool,
+    ) -> None:
+        """Marks a footprint that exceeds the VM's current size as
+        intentional (e.g. a deliberately over-provisioned warm standby)
+        rather than stale - silences the Attention Needed warning and
+        the table's orange marker for exactly these assignments, one
+        undo step for the whole selection."""
+        if not assignments:
+            return
+        self._push_undo_snapshot()
+        target_uids = {a.uid for a in assignments}
+        for a in self._project.failover_assignments:
+            if a.uid in target_uids:
+                a.footprint_confirmed = confirmed
+        self._notify(self.vms_changed)
+
     def set_workload_tier_for_vms(self, vms: list[VirtualMachine], tier: str) -> None:
         """Same as set_all_vms_workload_tier, but scoped to a selection -
         one undo snapshot for the whole selection."""

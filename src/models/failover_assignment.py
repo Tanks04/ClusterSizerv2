@@ -21,6 +21,15 @@ class FailoverAssignment:
     ram_gb: float = 0.0
     disk_gb: float = 0.0
 
+    # Set via right-click "Acknowledge" on the Failover Assignments table
+    # when a footprint exceeding the VM's current size is INTENTIONAL
+    # (e.g. a deliberately over-provisioned warm standby) rather than
+    # stale/forgotten - silences the Attention Needed warning and the
+    # table's orange marker for this specific assignment. Does NOT
+    # reset automatically if the numbers change again later - toggle it
+    # off manually via the same action if you want the warning back.
+    footprint_confirmed: bool = False
+
     @staticmethod
     def create_default() -> "FailoverAssignment":
         return FailoverAssignment(

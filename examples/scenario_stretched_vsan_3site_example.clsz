@@ -781,7 +781,36 @@
       "notes": "DWDM optical backbone link, Primary <-> DR2."
     }
   ],
-  "backup_destinations": [],
+  "backup_destinations": [
+    {
+      "uid": "7ac6003e-465c-4620-b5ca-edc972349b33",
+      "name": "primary-backup-nas",
+      "site": "Primary",
+      "destination_type": "NAS",
+      "backup_software": "Veeam",
+      "raw_capacity_tb": 15.0,
+      "dedup_ratio": 3.0,
+      "is_offsite": false,
+      "is_immutable": false,
+      "price": 0.0,
+      "location": "",
+      "notes": "Local daily backup - separate from vSAN's storage-layer replication, protects against ransomware/logical deletion that a synced replica wouldn't."
+    },
+    {
+      "uid": "bdd6f589-a2d9-4523-8dbc-bce15e4d35dc",
+      "name": "dr2-backup-immutable",
+      "site": "DR2",
+      "destination_type": "Disk Appliance",
+      "backup_software": "Veeam",
+      "raw_capacity_tb": 15.0,
+      "dedup_ratio": 3.0,
+      "is_offsite": true,
+      "is_immutable": true,
+      "price": 0.0,
+      "location": "",
+      "notes": "Offsite immutable copy at the third site - hardened repository, ransomware-resistant retention lock."
+    }
+  ],
   "maintenance_items": [],
   "vlans": [],
   "failover_assignments": [
@@ -791,7 +820,8 @@
       "target_site": "DR",
       "vcpu": 8,
       "ram_gb": 32,
-      "disk_gb": 500
+      "disk_gb": 500,
+      "footprint_confirmed": false
     },
     {
       "uid": "50e5eb4f-6042-480b-8188-fd0e9218af07",
@@ -799,7 +829,8 @@
       "target_site": "DR2",
       "vcpu": 8,
       "ram_gb": 32,
-      "disk_gb": 500
+      "disk_gb": 500,
+      "footprint_confirmed": false
     },
     {
       "uid": "bb21b7cf-8bfc-4b8e-a7fd-3788b2ddd9d0",
@@ -807,7 +838,8 @@
       "target_site": "Primary",
       "vcpu": 8,
       "ram_gb": 32,
-      "disk_gb": 500
+      "disk_gb": 500,
+      "footprint_confirmed": false
     },
     {
       "uid": "0d224d84-a4c8-401f-a7dd-3a2c5a3d552e",
@@ -815,7 +847,8 @@
       "target_site": "DR2",
       "vcpu": 8,
       "ram_gb": 32,
-      "disk_gb": 500
+      "disk_gb": 500,
+      "footprint_confirmed": false
     }
   ],
   "thresholds": {

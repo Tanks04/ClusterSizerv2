@@ -19,7 +19,7 @@ from src.models.server import Server, HYPERVISOR_VENDORS
 
 class ServerDialog(QDialog):
 
-    def __init__(self, server: Server | None = None, parent=None):
+    def __init__(self, server: Server | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self.setWindowTitle("Server")
@@ -58,12 +58,7 @@ class ServerDialog(QDialog):
 
         self.site_combo = QComboBox()
 
-        self.site_combo.addItems(
-            [
-                "Primary",
-                "DR",
-            ]
-        )
+        self.site_combo.addItems(sites or ["Primary", "DR"])
 
         layout.addRow("Site", self.site_combo)
 

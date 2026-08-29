@@ -25,6 +25,9 @@ def _data(model, row, col):
 def test_basic_fields():
     vm = VirtualMachine.create_default()
     vm.name = "erp-db01"
+    vm.vcpu = 4
+    vm.ram_gb = 16.0
+    vm.disk_gb = 200.0
     a = FailoverAssignment.create_default()
     a.vm_uid = vm.uid
     a.target_site = "DR"
@@ -76,3 +79,34 @@ def test_set_assignments_resets_the_model():
 
     assert model.rowCount() == 1
     assert model.assignment_at(0) is a
+
+
+def test_stale_marker_and_color_shown_for_exceeding_field():
+    vm = VirtualMachine.create_default()
+    vm.vcpu = 8; vm.ram_gb = 32; vm.disk_gb = 500
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid; a.target_site = "DR"
+    a.vcpu = 16; a.ram_gb = 32; a.disk_gb = 500  # only vCPU exceeds
+
+    model = FailoverAssignmentTableModel([a], vms_provider=lambda: [vm])
+
+    vcpu_text = _data(model, 0, 2)
+    ram_text = _data(model, 0, 3)
+    assert "\u26a0" in vcpu_text
+    assert "\u26a0" not in ram_text
+    assert model.data(model.index(0, 2), Qt.ItemDataRole.ForegroundRole) is not None
+    assert model.data(model.index(0, 3), Qt.ItemDataRole.ForegroundRole) is None
+
+
+def test_confirmed_assignment_shows_no_marker_even_if_exceeding():
+    vm = VirtualMachine.create_default()
+    vm.vcpu = 8
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid; a.target_site = "DR"
+    a.vcpu = 16
+    a.footprint_confirmed = True
+
+    model = FailoverAssignmentTableModel([a], vms_provider=lambda: [vm])
+
+    assert "\u26a0" not in _data(model, 0, 2)
+    assert model.data(model.index(0, 2), Qt.ItemDataRole.ForegroundRole) is None

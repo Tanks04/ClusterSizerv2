@@ -54,6 +54,18 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
                 report.storage_status,
                 f"{report.site}: Storage utilization is {pct_text} ({report.storage_status.value})",
             ))
+        if report.disk_demand_gb > 0 and report.usable_storage_gb == 0:
+            # Distinct from the ordinary storage_status Unknown case (which
+            # covers a genuinely empty site with nothing entered at all,
+            # and is deliberately never flagged) - this is real VM disk
+            # demand with NOWHERE for it to actually live: no Storage
+            # entity, and no server-local disk (HCI) either. A blind spot
+            # in the sizing, not just "tight but assessable."
+            items.append(AttentionItem(
+                Status.CRITICAL,
+                f"{report.site}: {report.disk_demand_gb / 1024:.1f} TB of VM disk demand, but no "
+                "storage capacity entered anywhere (Storage tab or server local disk)",
+            ))
         if report.n_plus_one_ok is False:
             check = report.n_plus_one_check
             shortfalls = []
@@ -81,6 +93,30 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
         if not backup_check.meets_3_2_1_1:
             for gap in backup_check.missing:
                 items.append(AttentionItem(Status.WARNING, f"Backup: {gap}"))
+
+    vm_by_uid = {v.uid: v for v in project.vms}
+    for a in project.failover_assignments:
+        if a.footprint_confirmed:
+            continue
+        vm = vm_by_uid.get(a.vm_uid)
+        if vm is None:
+            continue
+        # Only flag an assignment that RESERVES MORE than the VM's current
+        # size - a smaller footprint is the normal, intentional pattern
+        # for a budget/constrained failover target and must never be
+        # flagged. An assignment exceeding the VM's own live size has no
+        # ordinary justification and most likely means the VM was resized
+        # down after the assignment was created (or the assignment was
+        # never updated when the VM was upsized elsewhere) - the assignment
+        # just wasn't kept in sync.
+        if a.vcpu > vm.vcpu or a.ram_gb > vm.ram_gb or a.disk_gb > vm.disk_gb:
+            items.append(AttentionItem(
+                Status.WARNING,
+                f"Failover assignment for '{vm.name}' to {a.target_site} "
+                f"({a.vcpu} vCPU/{a.ram_gb:.0f} GB/{a.disk_gb:.0f} GB) exceeds the "
+                f"VM's current size ({vm.vcpu} vCPU/{vm.ram_gb:.0f} GB/{vm.disk_gb:.0f} GB) "
+                "- may be out of date.",
+            ))
 
     for status in compute_maintenance_status(project):
         if status.status == "expired":

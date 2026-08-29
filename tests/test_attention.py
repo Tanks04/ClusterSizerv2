@@ -8,6 +8,7 @@ from datetime import date
 
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.models.server import Server
+from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
@@ -46,6 +47,11 @@ def test_healthy_project_has_no_attention_items():
     project.servers.append(_server(sockets=2, cores_per_socket=8, ram_gb=256))
     project.servers.append(_server(sockets=2, cores_per_socket=8, ram_gb=256))
     project.vms.append(_vm(vcpu=2, ram_gb=8, disk_gb=50))
+    storage = Storage.create_default()
+    storage.site = PRIMARY
+    storage.raw_capacity_tb = 10
+    storage.usable_capacity_tb = 8
+    project.storages.append(storage)
     project.backup_destinations.append(BackupDestination(
         uid="1", name="local", site=PRIMARY, destination_type="Disk Appliance",
         backup_software="Veeam", raw_capacity_tb=10, dedup_ratio=1,
@@ -205,3 +211,118 @@ def test_items_are_sorted_critical_before_warning():
 
     severities = [i.severity for i in items]
     assert severities.index(Status.CRITICAL) < severities.index(Status.WARNING)
+
+
+def test_stale_failover_assignment_exceeding_vm_size_is_flagged():
+    """The exact scenario found from a real uploaded project: an
+    assignment reserves MORE than the VM's current size, likely left
+    over from before the VM was resized down."""
+    project = ClusterProject()
+    vm = _vm(vcpu=8, ram_gb=32, disk_gb=500)
+    project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = 16  # exceeds the VM's current 8
+    assignment.ram_gb = 32
+    assignment.disk_gb = 500
+    project.failover_assignments.append(assignment)
+
+    items = compute_attention_items(project, Thresholds())
+
+    matches = [i for i in items if "exceeds the VM's current size" in i.message]
+    assert len(matches) == 1
+    assert matches[0].severity == Status.WARNING
+
+
+def test_smaller_intentional_failover_footprint_is_never_flagged():
+    """A DELIBERATELY smaller DR footprint (the whole point of
+    FailoverAssignment supporting a different footprint per site) must
+    never be treated as stale."""
+    project = ClusterProject()
+    vm = _vm(vcpu=16, ram_gb=64, disk_gb=1000)
+    project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = 4  # deliberately smaller, budget DR site
+    assignment.ram_gb = 16
+    assignment.disk_gb = 1000
+    project.failover_assignments.append(assignment)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("exceeds the VM's current size" in i.message for i in items)
+
+
+def test_exactly_matching_assignment_is_never_flagged():
+    project = ClusterProject()
+    vm = _vm(vcpu=8, ram_gb=32, disk_gb=500)
+    project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = 8
+    assignment.ram_gb = 32
+    assignment.disk_gb = 500
+    project.failover_assignments.append(assignment)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("exceeds the VM's current size" in i.message for i in items)
+
+
+def test_vm_disk_demand_without_any_storage_is_flagged_critical():
+    """Found from a real uploaded project: VMs with real disk demand,
+    but zero Storage entities and zero server-local disk anywhere -
+    the app can't verify there's actually anywhere for that data to
+    live. Distinct from the ordinary "nothing entered yet" Unknown
+    case, which is never flagged."""
+    project = ClusterProject()
+    project.vms.append(_vm(vcpu=2, ram_gb=8, disk_gb=500))
+
+    items = compute_attention_items(project, Thresholds())
+
+    matches = [i for i in items if "no storage capacity entered anywhere" in i.message]
+    assert len(matches) == 1
+    assert matches[0].severity == Status.CRITICAL
+
+
+def test_no_vms_no_storage_is_never_flagged():
+    """A genuinely empty site (no VM disk demand at all) must never be
+    flagged - this is the ordinary Unknown case."""
+    project = ClusterProject()
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("no storage capacity" in i.message for i in items)
+
+
+def test_vm_disk_demand_with_adequate_storage_is_not_flagged():
+    project = ClusterProject()
+    project.vms.append(_vm(vcpu=2, ram_gb=8, disk_gb=500))
+    storage = Storage.create_default()
+    storage.site = PRIMARY
+    storage.raw_capacity_tb = 10
+    storage.usable_capacity_tb = 8
+    project.storages.append(storage)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("no storage capacity" in i.message for i in items)
+
+
+def test_confirmed_stale_assignment_is_not_flagged():
+    project = ClusterProject()
+    vm = _vm(vcpu=8, ram_gb=32, disk_gb=500)
+    project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = 16  # exceeds the VM's current 8
+    assignment.footprint_confirmed = True  # explicitly acknowledged as intentional
+    project.failover_assignments.append(assignment)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("exceeds the VM's current size" in i.message for i in items)

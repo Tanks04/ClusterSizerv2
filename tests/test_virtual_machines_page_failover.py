@@ -95,3 +95,52 @@ def test_add_failover_assignment_via_dialog(monkeypatch):
 
     assert page.failover_model.rowCount() == 1
     assert page.failover_model.assignment_at(0).vm_uid == vm.uid
+
+
+def test_acknowledge_action_confirms_selected_assignment():
+    service = ProjectService()
+    page = VirtualMachinesPage(service)
+    vm = VirtualMachine.create_default()
+    vm.vcpu = 8
+    service.add_vm(vm)
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid
+    a.target_site = "DR"
+    a.vcpu = 16
+    service.add_failover_assignment(a)
+
+    page.failover_table.selectRow(0)
+    page._set_failover_confirmed_for_selected(True)
+
+    assert service.project.failover_assignments[0].footprint_confirmed is True
+
+
+def test_un_acknowledge_action_reverts_confirmation():
+    service = ProjectService()
+    page = VirtualMachinesPage(service)
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+    a = FailoverAssignment.create_default()
+    a.vm_uid = vm.uid
+    a.target_site = "DR"
+    service.add_failover_assignment(a)
+    service.set_failover_assignment_confirmed([a], True)
+
+    page.failover_table.selectRow(0)  # refresh() from the confirm call reset selection
+    page._set_failover_confirmed_for_selected(False)
+
+    assert service.project.failover_assignments[0].footprint_confirmed is False
+
+
+def test_acknowledge_with_no_selection_shows_a_message(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    service = ProjectService()
+    page = VirtualMachinesPage(service)
+
+    informed = {}
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: informed.setdefault("called", True))
+
+    page._set_failover_confirmed_for_selected(True)
+
+    assert informed.get("called") is True

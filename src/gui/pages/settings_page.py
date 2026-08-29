@@ -1,3 +1,4 @@
+from PySide6.QtCore import QEvent, QObject
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -16,6 +18,23 @@ from PySide6.QtWidgets import (
 from src.calculations.thresholds import PRESETS
 from src.models.cluster_project import DEPLOYMENT_MODELS, PRIMARY
 from src.services.project_service import ProjectService
+
+
+class _NoWheelWhenUnfocused(QObject):
+    """Blocks mouse-wheel scroll on a combo/spin box unless it already
+    has keyboard focus - installed on every input in this scrollable
+    page. Without this, Qt lets a combo/spin box under the cursor
+    consume a wheel scroll and change ITS value instead of scrolling
+    the page underneath it - exactly how someone scrolling past a
+    Deployment Model dropdown or a threshold spinbox can accidentally
+    change it without ever clicking on it. Click/tab into a field
+    first (giving it focus) to intentionally scroll its value."""
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.Wheel and not watched.hasFocus():
+            event.ignore()
+            return True
+        return False
 
 
 def _ratio_spin(value: float, suffix: str = "") -> QDoubleSpinBox:
@@ -37,12 +56,26 @@ class SettingsPage(QWidget):
         super().__init__()
 
         self.service = service
+        self._no_wheel = _NoWheelWhenUnfocused(self)
 
         self._create_ui()
         self._load_from_service()
 
     def _create_ui(self):
-        layout = QVBoxLayout(self)
+        # The page can grow taller than the window once a project has a
+        # few extra sites (each site adds a row to Deployment Model AND
+        # Rack Capacity) - without this, content past the bottom is
+        # unreachable, and worse, word-wrapped note labels can end up
+        # squeezed into too little vertical space and render cut off/
+        # overlapping instead of just being clipped. Same fix already
+        # applied to SummaryPage and the entity dialogs.
+        outer_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(scroll_area)
 
         info = QLabel(
             "Warning thresholds are used to color the status (OK / Warning / "
@@ -90,6 +123,7 @@ class SettingsPage(QWidget):
 
         self.deployment_box = QGroupBox("Deployment Model")
         self.deployment_form = QFormLayout(self.deployment_box)
+        self.deployment_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
 
         deployment_note = QLabel(
             "Set per site - a hybrid setup (e.g. on-premise Primary with a "
@@ -111,6 +145,7 @@ class SettingsPage(QWidget):
 
         self.rack_capacity_box = QGroupBox("Rack Capacity")
         self.rack_capacity_form = QFormLayout(self.rack_capacity_box)
+        self.rack_capacity_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
 
         rack_capacity_note = QLabel(
             "How many rack units are available at each site - separate from "
@@ -142,6 +177,7 @@ class SettingsPage(QWidget):
         for preset in PRESETS:
             self.preset_combo.addItem(preset.label, preset.key)
         self.preset_combo.currentIndexChanged.connect(self._update_preset_description)
+        self.preset_combo.installEventFilter(self._no_wheel)
         preset_row.addWidget(self.preset_combo)
 
         apply_preset_button = QPushButton("Use This Preset")
@@ -178,24 +214,33 @@ class SettingsPage(QWidget):
 
         cpu_box = QGroupBox("CPU Oversubscription (vCPU : physical core)")
         cpu_form = QFormLayout(cpu_box)
+        cpu_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         self.cpu_warning_spin = _ratio_spin(4.0, " : 1")
         self.cpu_critical_spin = _ratio_spin(6.0, " : 1")
+        self.cpu_warning_spin.installEventFilter(self._no_wheel)
+        self.cpu_critical_spin.installEventFilter(self._no_wheel)
         cpu_form.addRow("Warning at", self.cpu_warning_spin)
         cpu_form.addRow("Critical at", self.cpu_critical_spin)
         layout.addWidget(cpu_box)
 
         ram_box = QGroupBox("RAM Utilization (allocated / physical)")
         ram_form = QFormLayout(ram_box)
+        ram_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         self.ram_warning_spin = _ratio_spin(80.0, " %")
         self.ram_critical_spin = _ratio_spin(100.0, " %")
+        self.ram_warning_spin.installEventFilter(self._no_wheel)
+        self.ram_critical_spin.installEventFilter(self._no_wheel)
         ram_form.addRow("Warning at", self.ram_warning_spin)
         ram_form.addRow("Critical at", self.ram_critical_spin)
         layout.addWidget(ram_box)
 
         storage_box = QGroupBox("Storage Utilization (allocated / usable)")
         storage_form = QFormLayout(storage_box)
+        storage_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         self.storage_warning_spin = _ratio_spin(80.0, " %")
         self.storage_critical_spin = _ratio_spin(95.0, " %")
+        self.storage_warning_spin.installEventFilter(self._no_wheel)
+        self.storage_critical_spin.installEventFilter(self._no_wheel)
         storage_form.addRow("Warning at", self.storage_warning_spin)
         storage_form.addRow("Critical at", self.storage_critical_spin)
         layout.addWidget(storage_box)
@@ -253,6 +298,7 @@ class SettingsPage(QWidget):
             combo.currentTextChanged.connect(
                 lambda text, s=site: self.service.set_deployment_model(s, text)
             )
+            combo.installEventFilter(self._no_wheel)
             self.deployment_combos[site] = combo
             self.deployment_form.addRow(self._site_row_label(site), combo)
 
@@ -260,6 +306,7 @@ class SettingsPage(QWidget):
             spin.setRange(0, 1000)
             spin.setSuffix(" U")
             spin.setSpecialValueText("(not set)")
+            spin.installEventFilter(self._no_wheel)
             spin.valueChanged.connect(
                 lambda value, s=site: self.service.set_rack_capacity_u(s, value)
             )

@@ -81,26 +81,40 @@ class ReportsPage(QWidget):
         layout.addWidget(self.text_area)
 
     def _build_report_text(self) -> str:
-        from src.models.cluster_project import PRIMARY, DR
+        from src.calculations.sizing import build_failover_report
+        from src.calculations.rack import compute_rack_sizing
 
         project = self.service.project
         thresholds = self.service.thresholds
 
-        primary, dr, dr_check = build_reports(project, thresholds)
+        reports = build_reports(project, thresholds)
 
         lines = []
         lines.append(f"ClusterSizer {VERSION} Report - {project.name}")
         lines.append("=" * 60)
         lines.append("")
 
-        for label, report in (("PRIMARY", primary), ("DR", dr)):
-            lines.append(f"[{label}]")
+        for site in project.site_names:
+            report = reports[site]
+            lines.append(f"[{site.upper()}]")
             lines.append(f"  Servers            : {report.server_count}")
             ht_tag = {"all_on": " [HT ENABLED]", "mixed": " [HT MIXED]"}.get(report.ht_state, "")
             lines.append(f"  Physical cores (HT-adj.): {report.physical_cores}{ht_tag}")
             lines.append(f"  Physical threads    : {report.physical_threads}")
             lines.append(f"  Physical RAM        : {report.physical_ram_gb:.0f} GB")
             lines.append(f"  Usable storage      : {report.usable_storage_gb / 1024:.2f} TB")
+
+            rack = compute_rack_sizing(project, site)
+            if rack.is_cloud:
+                lines.append("  Rack Sizing         : Cloud (not applicable)")
+            elif not rack.rack_units:
+                lines.append("  Rack Sizing         : n/a")
+            elif rack.capacity_u:
+                marker = " [OVER CAPACITY]" if rack.over_capacity else ""
+                lines.append(f"  Rack Sizing         : {rack.rack_units} / {rack.capacity_u} U, {rack.power_watts:.0f} W{marker}")
+            else:
+                lines.append(f"  Rack Sizing         : {rack.rack_units} U, {rack.power_watts:.0f} W")
+
             lines.append(f"  VM count            : {report.vm_count}")
             lines.append(f"  vCPU demand (on)    : {report.vcpu_demand}")
             lines.append(f"  RAM demand (on)     : {report.ram_demand_gb:.0f} GB")
@@ -118,17 +132,15 @@ class ReportsPage(QWidget):
                     shortfalls.append(f"+{check.cpu_shortfall_effective_cores:.0f} effective CPU cores")
                 if shortfalls:
                     lines.append(f"    (would need {' and '.join(shortfalls)} to survive losing a host)")
-            lines.append("")
 
-        lines.append("[DR READINESS] (failover Primary -> DR)")
-        lines.append(f"  DR-protected VMs    : {dr_check.protected_vm_count}")
-        lines.append(f"  Failover vCPU (on)  : {dr_check.failover_vcpu_demand}")
-        lines.append(f"  Failover RAM (on)   : {dr_check.failover_ram_demand_gb:.0f} GB")
-        lines.append(f"  Failover disk demand: {dr_check.failover_disk_demand_gb / 1024:.2f} TB")
-        lines.append(f"  CPU OK      : {_fmt_bool(dr_check.cpu_ok)}")
-        lines.append(f"  RAM OK      : {_fmt_bool(dr_check.ram_ok)}")
-        lines.append(f"  Storage OK  : {_fmt_bool(dr_check.storage_ok)}")
-        lines.append(f"  DR READY    : {_fmt_bool(dr_check.ready)}")
+            failover = build_failover_report(project, site)
+            lines.append(f"  Failover Assigned VMs: {failover.assigned_vm_count}")
+            if failover.assigned_vm_count:
+                lines.append(f"  Failover vCPU demand: {failover.failover_vcpu_demand}")
+                lines.append(f"  Failover RAM demand : {failover.failover_ram_demand_gb:.0f} GB")
+                lines.append(f"  Failover disk demand: {failover.failover_disk_demand_gb / 1024:.2f} TB")
+            lines.append(f"  Failover Ready      : {_fmt_bool(failover.ready)}")
+            lines.append("")
 
         return "\n".join(lines)
 

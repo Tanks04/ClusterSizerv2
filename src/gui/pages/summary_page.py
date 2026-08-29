@@ -106,6 +106,14 @@ class SummaryPage(QWidget):
             "hardware per site, but demand includes the failover load, not "
             "just what's actually running there today."
         )
+        self.failover_preview_toggle_button.setStyleSheet(
+            "QPushButton {"
+            "   background-color: #fb8c00; color: white; font-weight: bold;"
+            "   padding: 4px 14px; border-radius: 4px; border: none;"
+            "}"
+            "QPushButton:hover { background-color: #f57c00; }"
+            "QPushButton:checked { background-color: #e65100; }"
+        )
         self.failover_preview_toggle_button.toggled.connect(self._on_failover_preview_toggle)
         summary_header.addWidget(self.failover_preview_toggle_button)
 
