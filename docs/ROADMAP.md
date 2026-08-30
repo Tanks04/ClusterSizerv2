@@ -1,5 +1,46 @@
 # ROADMAP
 
+## v4.3.1 (CSV import rejected valid older files over newer optional columns)
+
+- **Fixed**: CSV import validation checked for EVERY known column
+  (including newer optional ones like VM's `dr_category`, Server's
+  `serial_number`/`bmc_ip`/`hypervisor_vendor`/`hypervisor_version`,
+  Backup Destination's `location`) - so a perfectly valid CSV exported
+  by an older ClusterSizer version, simply missing a column that
+  didn't exist yet when it was made, got rejected outright with "This
+  doesn't look like a VMs CSV." Reported directly, and it raised a
+  real, important question about version compatibility generally: the
+  validation was stricter than the actual parsing it was guarding -
+  every `import_*()` function already tolerated a missing optional
+  column via `row.get(field, default)`, so only the schema-CHECK
+  needed fixing, not the import logic itself.
+  - Each entity type now has a small `_CORE_FIELDS` list (e.g. VMs:
+    name/site/vcpu/ram_gb/disk_gb) - the minimal, foundational columns
+    that genuinely distinguish "this is a VMs CSV" from "this is a
+    Servers CSV," and are very unlikely to ever change. Only these are
+    validated; everything else is optional exactly as the parsing
+    layer already treated it. The original wrong-file-type protection
+    (e.g. importing a Servers CSV on the VMs tab) still works -
+    verified directly, since it's exactly what this mechanism exists
+    to catch.
+  - **On the broader question this raised - what happens to an older
+    PROJECT (`.clsz`) on a newer version**: unlike CSV, `.clsz` already
+    has real, deliberate version handling and always has, going back to
+    the v6-to-v7 pricing migration - a schema_version number, and every
+    field read tolerates missing/renamed data with an explicit
+    migration path when the shape actually changed (e.g. v4.0.0's
+    Primary/DR-to-site-list, or the dr_protected-to-FailoverAssignment
+    migration). No one loses project work moving to a newer version.
+    CSV import just hadn't received the same discipline until now -
+    it's a much simpler, flatter format with no version number of its
+    own, and its schema check had drifted stricter than the parsing
+    layer, so a project made in v4.1 will fully re-open in whatever
+    version comes after this one.
+- 14 new tests: one per entity type confirming a missing NEWER optional
+  column still imports, plus two confirming a missing CORE column (a
+  genuine wrong-file-type mistake) is still correctly rejected - 362
+  passed total.
+
 ## v4.3.0 (Critical: Reports tab crashed on every use since v4.0.0; all examples now backup-compliant)
 
 - **Fixed a severe regression that had zero test coverage**: reports_page.py's

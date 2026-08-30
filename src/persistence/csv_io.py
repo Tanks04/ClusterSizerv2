@@ -38,6 +38,7 @@ SERVER_FIELDS = [
     "rack_units", "power_watts", "price", "local_disk_raw_tb",
     "enabled", "notes",
 ]
+SERVER_CORE_FIELDS = ["name", "site", "sockets", "cores_per_socket"]
 
 STORAGE_FIELDS = [
     "name", "site", "vendor", "model", "raw_capacity_tb",
@@ -46,17 +47,20 @@ STORAGE_FIELDS = [
     "rack_units", "power_watts", "price",
     "notes",
 ]
+STORAGE_CORE_FIELDS = ["name", "site", "raw_capacity_tb", "usable_capacity_tb"]
 
 BACKUP_DESTINATION_FIELDS = [
     "name", "site", "destination_type", "backup_software",
     "raw_capacity_tb", "dedup_ratio", "is_offsite", "is_immutable",
     "price", "location", "notes",
 ]
+BACKUP_DESTINATION_CORE_FIELDS = ["name", "site", "destination_type", "backup_software"]
 
 VM_FIELDS = [
     "name", "site", "vcpu", "ram_gb", "disk_gb", "powered_on",
     "workload_tier", "dr_category", "ip_address", "os", "notes",
 ]
+VM_CORE_FIELDS = ["name", "site", "vcpu", "ram_gb", "disk_gb"]
 
 SWITCH_FIELDS = [
     "name", "site", "vendor", "model", "switch_type",
@@ -64,15 +68,18 @@ SWITCH_FIELDS = [
     "rack_units", "power_watts", "price",
     "notes",
 ]
+SWITCH_CORE_FIELDS = ["name", "site", "switch_type"]
 
 MAINTENANCE_ITEM_FIELDS = [
     "name", "category", "cost", "duration_months",
     "start_date", "expiry_date", "applies_to", "notes",
 ]
+MAINTENANCE_ITEM_CORE_FIELDS = ["name", "category", "cost", "duration_months"]
 
 VLAN_FIELDS = [
     "name", "site", "network", "gateway", "notes",
 ]
+VLAN_CORE_FIELDS = ["name", "site", "network"]
 
 # server_name / switch_name / storage_name: exactly two of the three
 # should be filled per row - which two determines the connection kind
@@ -81,13 +88,24 @@ CONNECTION_FIELDS = [
     "server_name", "switch_name", "storage_name", "speed", "media",
     "switch_port_label", "purpose", "notes",
 ]
+CONNECTION_CORE_FIELDS = ["server_name", "switch_name", "storage_name", "speed"]
 
 
-def _read_rows(path: str | Path, expected_fields: list[str], kind: str) -> list[dict]:
+def _read_rows(path: str | Path, expected_fields: list[str], kind: str, core_fields: list[str] | None = None) -> list[dict]:
+    """Only validates against core_fields (a small, foundational subset
+    genuinely unlikely to ever change) rather than the full expected_fields
+    list - a CSV exported by an older app version simply won't have a
+    newer optional column (e.g. dr_category, hypervisor_vendor, location)
+    yet, and rejecting the whole file over that would be wrong: every
+    import_*() function already tolerates a missing optional column via
+    row.get(field, default), so the validation gate was stricter than the
+    parsing it's guarding. Falls back to the full list if core_fields
+    isn't given (kept for any future caller that doesn't specify one)."""
+    required = core_fields if core_fields is not None else expected_fields
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         header = set(reader.fieldnames or [])
-        missing = [field for field in expected_fields if field not in header]
+        missing = [field for field in required if field not in header]
         if missing:
             raise CsvSchemaError(
                 f"This doesn't look like a {kind} CSV - missing columns: {', '.join(missing)}. "
@@ -118,7 +136,7 @@ def _bool(value, default: bool = True) -> bool:
 
 def import_servers(path: str | Path) -> list[Server]:
     servers = []
-    for row in _read_rows(path, SERVER_FIELDS, "Servers"):
+    for row in _read_rows(path, SERVER_FIELDS, "Servers", SERVER_CORE_FIELDS):
         default = Server.create_default()
         servers.append(
             Server(
@@ -171,7 +189,7 @@ def export_servers(path: str | Path, servers: list[Server]) -> None:
 
 def import_storages(path: str | Path) -> list[Storage]:
     storages = []
-    for row in _read_rows(path, STORAGE_FIELDS, "Storage"):
+    for row in _read_rows(path, STORAGE_FIELDS, "Storage", STORAGE_CORE_FIELDS):
         default = Storage.create_default()
         storages.append(
             Storage(
@@ -207,7 +225,7 @@ def export_storages(path: str | Path, storages: list[Storage]) -> None:
 
 def import_backup_destinations(path: str | Path) -> list[BackupDestination]:
     destinations = []
-    for row in _read_rows(path, BACKUP_DESTINATION_FIELDS, "Backup Destination"):
+    for row in _read_rows(path, BACKUP_DESTINATION_FIELDS, "Backup Destination", BACKUP_DESTINATION_CORE_FIELDS):
         default = BackupDestination.create_default()
         destinations.append(
             BackupDestination(
@@ -235,7 +253,7 @@ def export_backup_destinations(path: str | Path, destinations: list[BackupDestin
 
 def import_maintenance_items(path: str | Path) -> list[MaintenanceItem]:
     items = []
-    for row in _read_rows(path, MAINTENANCE_ITEM_FIELDS, "Maintenance Item"):
+    for row in _read_rows(path, MAINTENANCE_ITEM_FIELDS, "Maintenance Item", MAINTENANCE_ITEM_CORE_FIELDS):
         default = MaintenanceItem.create_default()
         items.append(
             MaintenanceItem(
@@ -264,7 +282,7 @@ def export_maintenance_items(path: str | Path, items: list[MaintenanceItem]) -> 
 
 def import_vlans(path: str | Path) -> list[Vlan]:
     vlans = []
-    for row in _read_rows(path, VLAN_FIELDS, "VLAN"):
+    for row in _read_rows(path, VLAN_FIELDS, "VLAN", VLAN_CORE_FIELDS):
         default = Vlan.create_default()
         vlans.append(
             Vlan(
@@ -290,7 +308,7 @@ def export_vlans(path: str | Path, vlans: list[Vlan]) -> None:
 
 def import_vms(path: str | Path) -> list[VirtualMachine]:
     vms = []
-    for row in _read_rows(path, VM_FIELDS, "VMs"):
+    for row in _read_rows(path, VM_FIELDS, "VMs", VM_CORE_FIELDS):
         default = VirtualMachine.create_default()
         vcpu = int(float(row.get("vcpu") or 2))
         ram_gb = float(row.get("ram_gb") or 8)
@@ -328,7 +346,7 @@ def export_vms(path: str | Path, vms: list[VirtualMachine]) -> None:
 
 def import_switches(path: str | Path) -> list[NetworkSwitch]:
     switches = []
-    for row in _read_rows(path, SWITCH_FIELDS, "Network Switches"):
+    for row in _read_rows(path, SWITCH_FIELDS, "Network Switches", SWITCH_CORE_FIELDS):
         default = NetworkSwitch.create_default()
         switches.append(
             NetworkSwitch(
@@ -382,7 +400,7 @@ def import_connections(
     connections = []
     skipped = 0
 
-    for row in _read_rows(path, CONNECTION_FIELDS, "Network Connections"):
+    for row in _read_rows(path, CONNECTION_FIELDS, "Network Connections", CONNECTION_CORE_FIELDS):
         server_uid = server_by_name.get(row.get("server_name", "") or "")
         switch_uid = switch_by_name.get(row.get("switch_name", "") or "")
         storage_uid = storage_by_name.get(row.get("storage_name", "") or "")
