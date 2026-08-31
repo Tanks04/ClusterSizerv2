@@ -1,5 +1,60 @@
 # ROADMAP
 
+## v4.5.0 (Storage: disk-count calculators, per-pool VM assignment, and the bug that started it)
+
+Prompted directly by a real RVTools import + manual HCI setup: a newly
+created "VSAN" Storage entry with 48TB Raw simply didn't show up
+anywhere on Summary. Root cause (not a bug): every capacity check in
+the app uses Usable, never Raw, and Usable had been left at 0 (its
+deliberate reset-on-HCI-checked default from v3.6.1, meant to force a
+real number rather than a misleading stale one - but nothing stopped
+saving before actually filling it in).
+
+- **New Attention Needed check**: a Storage entity with Raw capacity
+  entered but Usable still 0 is now flagged by name - would have caught
+  this exact situation immediately instead of a silent no-show on
+  Summary.
+- **New: disk count \u00d7 size calculators** on both ServerDialog (local/
+  HCI disk) and StorageDialog (works for traditional arrays AND HCI
+  alike, per direct request - "for all"). Fills the existing Raw field
+  as a one-time convenience; Raw stays the real, independently-editable
+  stored value afterward (not a live-bound formula) so spares/rounding
+  can still be adjusted by hand. The Storage calculator button disables
+  itself while HCI is checked, since that field is auto-summed from
+  linked servers instead - using the calculator there would silently
+  override the auto-sum.
+- **New: per-pool storage assignment.** A VM can now be assigned to a
+  SPECIFIC Storage entity (`VirtualMachine.storage_uid`, a new optional
+  field on the VM dialog labeled "Storage Pool" - same pattern as VLAN
+  assignment exactly, including graceful fallback to "(none)" if the
+  referenced storage is later deleted). When unset (every project
+  before this, and any VM that doesn't need this), disk demand counts
+  toward the site-wide aggregate exactly as it always has - fully
+  backward compatible, purely opt-in. `ClusterProject.
+  storage_pool_demand_gb()`/`storage_pool_utilization_ratio()` compute
+  the assigned-VM demand against one specific pool's usable capacity.
+- **New: "Pool Utilization" column on the Storage tab**, showing each
+  entity's own assigned-VM demand vs. its usable capacity, colored and
+  marked using the same Warning/Critical thresholds as the site-wide
+  check. Demonstrated directly: two 10TB pools at one site, one at 88%
+  from its assigned VM and one at 5% - the site-wide aggregate reads a
+  comfortable ~46% the whole time, completely hiding that Pool A is
+  nearly full. The Storage page now also refreshes on VM changes (it
+  previously only listened for storage/network changes), since this
+  column depends on VM-to-pool assignments.
+- **New Attention Needed check**: a storage pool whose assigned-VM
+  utilization crosses into Warning/Critical is flagged by name, using
+  the exact same thresholds as the ordinary site-wide storage check -
+  the whole reason this feature exists, surfaced automatically rather
+  than requiring a trip to the Storage tab to notice.
+- Fixed the reported project directly: the "VSAN" entry now has a real
+  Usable Capacity entered.
+- 45 new tests across the three new model fields (Server/Storage disk
+  calculators, VM storage_uid), the two new ClusterProject methods, two
+  dialog calculators, the VM dialog's Storage Pool dropdown, the
+  Storage table's new column plus its live-refresh wiring, and both new
+  Attention Needed checks - 452 passed total.
+
 ## v4.4.0 (Cluster Preparation wizard overhaul - a real bug found live, plus 6 requested improvements)
 
 Prompted by hands-on testing of the wizard with a real 15-VM/120-vCPU

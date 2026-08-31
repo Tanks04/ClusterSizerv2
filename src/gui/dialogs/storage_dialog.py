@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -95,6 +96,29 @@ class StorageDialog(QDialog):
         self.raw_spin.setValue(100.0)
         self.raw_spin.valueChanged.connect(self._recalc_overhead)
         layout.addRow("Raw Capacity", self.raw_spin)
+
+        calc_row = QHBoxLayout()
+        self.disk_count_spin = QSpinBox()
+        self.disk_count_spin.setRange(0, 1000)
+        self.disk_count_spin.setSuffix(" disks")
+        calc_row.addWidget(self.disk_count_spin)
+        calc_row.addWidget(QLabel("\u00d7"))
+        self.disk_size_spin = QDoubleSpinBox()
+        self.disk_size_spin.setRange(0.0, 1000.0)
+        self.disk_size_spin.setDecimals(2)
+        self.disk_size_spin.setSuffix(" TB each")
+        calc_row.addWidget(self.disk_size_spin)
+        self.disk_calc_button = QPushButton("Calculate \u2192 Raw")
+        self.disk_calc_button.setToolTip(
+            "Fills Raw Capacity above with disks \u00d7 size - Raw stays "
+            "independently editable afterward if you need to adjust for "
+            "spares or rounding. Works the same for a traditional array "
+            "or HCI (though HCI's Raw is normally auto-summed from linked "
+            "servers instead)."
+        )
+        self.disk_calc_button.clicked.connect(self._calculate_raw_capacity)
+        calc_row.addWidget(self.disk_calc_button)
+        layout.addRow("Disk Calculator", calc_row)
 
         self.usable_spin = QDoubleSpinBox()
         self.usable_spin.setDecimals(2)
@@ -268,6 +292,7 @@ class StorageDialog(QDialog):
         # even though it's meant to be fully auto-computed while HCI is
         # checked. setEnabled() properly blocks all of that.
         self.raw_spin.setEnabled(not checked)
+        self.disk_calc_button.setEnabled(not checked)
         self.raw_spin.setToolTip(
             "Auto-summed from the checked servers' Local Disk (Raw) - "
             "uncheck HCI above to type a value directly." if checked else ""
@@ -337,6 +362,12 @@ class StorageDialog(QDialog):
         for row in rows:
             self.shelves_table.removeRow(row)
 
+    def _calculate_raw_capacity(self) -> None:
+        count = self.disk_count_spin.value()
+        size = self.disk_size_spin.value()
+        if count > 0 and size > 0:
+            self.raw_spin.setValue(count * size)
+
     def load(self, storage: Storage) -> None:
         self._uid = storage.uid
         self.name_edit.setText(storage.name)
@@ -349,6 +380,8 @@ class StorageDialog(QDialog):
         self.hci_servers_box.setVisible(storage.is_hci)
         self.raw_spin.setReadOnly(storage.is_hci)
         self.raw_spin.setValue(storage.raw_capacity_tb)
+        self.disk_count_spin.setValue(storage.disk_count)
+        self.disk_size_spin.setValue(storage.disk_size_tb)
         self.usable_spin.setValue(storage.usable_capacity_tb)
         self._recalc_overhead()
 
@@ -393,6 +426,8 @@ class StorageDialog(QDialog):
         )
         storage.usable_capacity_tb = self.usable_spin.value()
         storage.raid_overhead_percent = self.overhead_spin.value()
+        storage.disk_count = self.disk_count_spin.value()
+        storage.disk_size_tb = self.disk_size_spin.value()
 
         storage.ports_1g = self.ports_1g_spin.value()
         storage.ports_10g = self.ports_10g_spin.value()

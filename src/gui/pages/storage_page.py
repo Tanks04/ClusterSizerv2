@@ -29,6 +29,8 @@ class StoragePage(QWidget):
         self.service = service
         self.model = StorageTableModel(
             connections_provider=lambda: self.service.project.connections,
+            vms_provider=lambda: self.service.project.vms,
+            thresholds_provider=lambda: self.service.thresholds,
             on_change=self.service.touch_storages,
         )
 
@@ -36,6 +38,7 @@ class StoragePage(QWidget):
 
         self.service.storages_changed.connect(self.refresh)
         self.service.network_changed.connect(self.refresh)
+        self.service.vms_changed.connect(self.refresh)
         self.refresh()
 
     def _create_ui(self):

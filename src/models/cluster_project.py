@@ -227,6 +227,28 @@ class ClusterProject:
         return self.vm_disk_demand_gb(site) / usable
 
     # ------------------------------------------------------------------
+    # Per-pool storage utilization - opt-in, only meaningful once a VM
+    # is actually assigned to a SPECIFIC Storage entity (VirtualMachine.
+    # storage_uid). The site-wide totals above are UNCHANGED and stay
+    # the headline number regardless of whether any VM uses this - it's
+    # possible for the site aggregate to look perfectly healthy while
+    # one specific pool is dangerously full and another sits empty,
+    # which the aggregate alone can never reveal.
+    # ------------------------------------------------------------------
+
+    def storage_pool_demand_gb(self, storage_uid: str) -> float:
+        return sum(
+            vm.disk_gb for vm in self.vms
+            if vm.storage_uid == storage_uid
+        )
+
+    def storage_pool_utilization_ratio(self, storage: Storage) -> float | None:
+        usable_gb = storage.usable_capacity_tb * 1024
+        if usable_gb == 0:
+            return None
+        return self.storage_pool_demand_gb(storage.uid) / usable_gb
+
+    # ------------------------------------------------------------------
     # N+1 check (does the cluster survive losing one host at this site)
     # ------------------------------------------------------------------
     # Hyperthreading state summary - "all_on" / "all_off" / "mixed" /

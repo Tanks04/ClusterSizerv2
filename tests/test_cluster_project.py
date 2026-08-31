@@ -278,3 +278,85 @@ def test_failover_cpu_ok_false_for_a_genuinely_critical_ratio():
 def test_failover_cpu_ok_none_with_no_servers_at_site():
     project = ClusterProject()
     assert project.failover_cpu_ok(DR, Thresholds()) is None
+
+
+# ----------------------------------------------------------------------
+# storage_pool_demand_gb / storage_pool_utilization_ratio - opt-in
+# per-pool tracking via VirtualMachine.storage_uid. Purely additive -
+# the site-wide aggregate stays exactly as it always was, unaffected by
+# whether any VM uses this.
+# ----------------------------------------------------------------------
+
+def test_storage_pool_demand_sums_only_assigned_vms():
+    from src.models.storage import Storage
+
+    project = ClusterProject()
+    pool_a = Storage.create_default()
+    pool_b = Storage.create_default()
+    vm1 = _vm(4, 16)
+    vm1.disk_gb = 500
+    vm1.storage_uid = pool_a.uid
+    vm2 = _vm(4, 16)
+    vm2.disk_gb = 300
+    vm2.storage_uid = pool_a.uid
+    vm3 = _vm(4, 16)
+    vm3.disk_gb = 1000
+    vm3.storage_uid = pool_b.uid
+    project.vms.extend([vm1, vm2, vm3])
+
+    assert project.storage_pool_demand_gb(pool_a.uid) == 800
+    assert project.storage_pool_demand_gb(pool_b.uid) == 1000
+
+
+def test_unassigned_vms_do_not_count_toward_any_pool():
+    from src.models.storage import Storage
+
+    project = ClusterProject()
+    pool = Storage.create_default()
+    vm = _vm(4, 16)
+    vm.disk_gb = 500
+    # vm.storage_uid left at default "" - not assigned to any pool
+    project.vms.append(vm)
+
+    assert project.storage_pool_demand_gb(pool.uid) == 0
+
+
+def test_storage_pool_utilization_ratio_none_when_usable_is_zero():
+    from src.models.storage import Storage
+
+    project = ClusterProject()
+    pool = Storage.create_default()
+    pool.usable_capacity_tb = 0.0
+
+    assert project.storage_pool_utilization_ratio(pool) is None
+
+
+def test_storage_pool_reveals_a_problem_the_site_aggregate_hides():
+    """The exact scenario this feature exists for: two pools at the
+    same site, one nearly full, one nearly empty - the site-wide
+    aggregate ratio looks perfectly healthy while Pool A is a real
+    problem the aggregate alone can never reveal."""
+    from src.models.storage import Storage
+
+    project = ClusterProject()
+    pool_a = Storage.create_default()
+    pool_a.site = PRIMARY
+    pool_a.usable_capacity_tb = 10.0
+    pool_b = Storage.create_default()
+    pool_b.site = PRIMARY
+    pool_b.usable_capacity_tb = 10.0
+    project.storages.extend([pool_a, pool_b])
+
+    vm_a = _vm(2, 8)
+    vm_a.disk_gb = 9000  # 87% of Pool A - nearly full
+    vm_a.storage_uid = pool_a.uid
+    vm_b = _vm(2, 8)
+    vm_b.disk_gb = 500  # ~5% of Pool B
+    vm_b.storage_uid = pool_b.uid
+    project.vms.extend([vm_a, vm_b])
+
+    site_ratio = project.storage_utilization_ratio(PRIMARY)
+    pool_a_ratio = project.storage_pool_utilization_ratio(pool_a)
+
+    assert site_ratio < 0.5  # aggregate looks fine
+    assert pool_a_ratio > 0.85  # but Pool A specifically is nearly full

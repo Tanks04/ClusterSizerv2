@@ -36,6 +36,7 @@ SERVER_FIELDS = [
     "serial_number", "bmc_ip", "hypervisor_vendor", "hypervisor_version",
     "nic_1g", "nic_10g", "nic_25g", "nic_40g", "nic_100g", "nic_fc", "nic_sas",
     "rack_units", "power_watts", "price", "local_disk_raw_tb",
+    "local_disk_count", "local_disk_size_tb",
     "enabled", "notes",
 ]
 SERVER_CORE_FIELDS = ["name", "site", "sockets", "cores_per_socket"]
@@ -43,6 +44,7 @@ SERVER_CORE_FIELDS = ["name", "site", "sockets", "cores_per_socket"]
 STORAGE_FIELDS = [
     "name", "site", "vendor", "model", "raw_capacity_tb",
     "usable_capacity_tb", "raid_overhead_percent", "is_hci",
+    "disk_count", "disk_size_tb",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
     "rack_units", "power_watts", "price",
     "notes",
@@ -163,6 +165,8 @@ def import_servers(path: str | Path) -> list[Server]:
                 rack_units=int(float(row.get("rack_units") or 0)),
                 price=float(row.get("price") or 0),
                 local_disk_raw_tb=float(row.get("local_disk_raw_tb") or 0),
+                local_disk_count=int(float(row.get("local_disk_count") or 0)),
+                local_disk_size_tb=float(row.get("local_disk_size_tb") or 0),
                 power_watts=float(row.get("power_watts") or 0),
                 nic_1g=int(float(row.get("nic_1g") or 0)),
                 nic_10g=int(float(row.get("nic_10g") or 0)),
@@ -212,6 +216,8 @@ def import_storages(path: str | Path) -> list[Storage]:
                 power_watts=float(row.get("power_watts") or 0),
                 price=float(row.get("price") or 0),
                 is_hci=_bool(row.get("is_hci"), default=False),
+                disk_count=int(float(row.get("disk_count") or 0)),
+                disk_size_tb=float(row.get("disk_size_tb") or 0),
                 notes=row.get("notes", "") or "",
             )
         )

@@ -100,3 +100,20 @@ def test_old_clsz_file_without_new_fields_defaults_gracefully(tmp_path):
     assert loaded.project.servers[0].serial_number == ""
     assert loaded.project.servers[0].hypervisor_vendor == ""
     assert loaded.project.backup_destinations[0].location == ""
+
+
+def test_server_disk_calculator_fields_default_to_zero():
+    s = Server.create_default()
+    assert s.local_disk_count == 0
+    assert s.local_disk_size_tb == 0.0
+
+
+def test_server_disk_calculator_csv_round_trip(tmp_path):
+    s = Server.create_default()
+    s.local_disk_count = 12
+    s.local_disk_size_tb = 1.09
+    path = tmp_path / "servers.csv"
+    csv_io.export_servers(path, [s])
+    loaded = csv_io.import_servers(path)
+    assert loaded[0].local_disk_count == 12
+    assert abs(loaded[0].local_disk_size_tb - 1.09) < 0.001

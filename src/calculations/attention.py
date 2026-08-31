@@ -86,6 +86,38 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
                 f"{site}: does not have enough capacity for its assigned failover VMs",
             ))
 
+    for storage in project.storages:
+        if storage.raw_capacity_tb > 0 and storage.usable_capacity_tb == 0:
+            # Found directly from a real project: an HCI storage entry
+            # with Raw auto-summed to 48TB from its linked servers, but
+            # Usable left at 0 (its deliberate reset-on-HCI-checked
+            # default, meant to force a real number rather than leave a
+            # misleading stale one - but nothing stops saving before
+            # actually filling it in). Every capacity check in the app
+            # uses Usable, never Raw, so this entity silently contributes
+            # NOTHING anywhere until a real usable number is entered.
+            items.append(AttentionItem(
+                Status.WARNING,
+                f"Storage '{storage.name}' has {storage.raw_capacity_tb:.1f} TB raw capacity "
+                "entered, but Usable Capacity is still 0 - it won't count toward any "
+                "capacity check until a real usable number is entered.",
+            ))
+
+        pool_ratio = project.storage_pool_utilization_ratio(storage)
+        if pool_ratio is not None:
+            pool_status = thresholds.storage_status(pool_ratio)
+            if pool_status in (Status.WARNING, Status.CRITICAL):
+                # The whole reason this exists: a site's AGGREGATE storage
+                # can look perfectly healthy while one SPECIFIC pool
+                # (VMs assigned via VirtualMachine.storage_uid) is
+                # dangerously full - the aggregate check above would
+                # never catch this on its own.
+                items.append(AttentionItem(
+                    pool_status,
+                    f"Storage '{storage.name}': assigned VMs are using "
+                    f"{pool_ratio * 100:.0f}% of its usable capacity ({pool_status.value})",
+                ))
+
     # Skip nagging about backup compliance for a project with no VMs yet
     # (nothing to back up) - avoids noise on a brand new, still-empty project.
     if project.vms:

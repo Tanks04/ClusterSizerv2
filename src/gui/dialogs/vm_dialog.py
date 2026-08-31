@@ -21,10 +21,11 @@ from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAUL
 
 class VMDialog(QDialog):
 
-    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, sites: list | None = None, parent=None):
+    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, storages: list | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self._vlans = vlans or []
+        self._storages = storages or []
 
         self.setWindowTitle("Virtual Machine")
 
@@ -110,6 +111,20 @@ class VMDialog(QDialog):
         )
         layout.addRow("VLAN", self.vlan_combo)
 
+        self.storage_combo = QComboBox()
+        self.storage_combo.addItem("(none - site-wide aggregate only)", userData="")
+        for storage in self._storages:
+            label = f"{storage.name} ({storage.site})"
+            self.storage_combo.addItem(label, userData=storage.uid)
+        self.storage_combo.setToolTip(
+            "Which specific storage pool/array this VM's disk lives on, if you "
+            "want to track that - some VMs on one array, others on a different "
+            "one, is common in practice. When left as \"(none)\", this VM's disk "
+            "only counts toward the site-wide aggregate, as it always has. "
+            "Manage the list of Storage entries on the Storage tab."
+        )
+        layout.addRow("Storage Pool", self.storage_combo)
+
         self.dr_category_combo = QComboBox()
         self.dr_category_combo.setEditable(True)
         self.dr_category_combo.addItems(DR_CATEGORIES)
@@ -159,6 +174,8 @@ class VMDialog(QDialog):
         self.os_edit.setText(vm.os)
         vlan_index = self.vlan_combo.findData(vm.vlan_uid)
         self.vlan_combo.setCurrentIndex(vlan_index if vlan_index >= 0 else 0)
+        storage_index = self.storage_combo.findData(vm.storage_uid)
+        self.storage_combo.setCurrentIndex(storage_index if storage_index >= 0 else 0)
         self.notes_edit.setPlainText(vm.notes)
 
         self.workload_combo.setCurrentText(vm.workload_tier)
@@ -181,6 +198,7 @@ class VMDialog(QDialog):
         vm.ip_address = self.ip_address_edit.text()
         vm.os = self.os_edit.text()
         vm.vlan_uid = self.vlan_combo.currentData() or ""
+        vm.storage_uid = self.storage_combo.currentData() or ""
         vm.notes = self.notes_edit.toPlainText()
         vm.workload_tier = self.workload_combo.currentText()
         vm.dr_category = self.dr_category_combo.currentText()

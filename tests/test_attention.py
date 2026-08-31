@@ -326,3 +326,116 @@ def test_confirmed_stale_assignment_is_not_flagged():
     items = compute_attention_items(project, Thresholds())
 
     assert not any("exceeds the VM's current size" in i.message for i in items)
+
+
+def test_storage_with_raw_but_zero_usable_is_flagged():
+    """The exact scenario reported directly: an HCI storage entry with
+    Raw auto-summed to 48TB from linked servers, but Usable left at 0
+    (its deliberate reset-on-HCI-checked default) - never filled in
+    before saving. Every capacity check uses Usable, never Raw, so this
+    entity silently contributes nothing anywhere until fixed."""
+    project = ClusterProject()
+    storage = Storage.create_default()
+    storage.name = "VSAN"
+    storage.site = PRIMARY
+    storage.raw_capacity_tb = 48.0
+    storage.usable_capacity_tb = 0.0
+    project.storages.append(storage)
+
+    items = compute_attention_items(project, Thresholds())
+
+    matches = [i for i in items if "Usable Capacity is still 0" in i.message]
+    assert len(matches) == 1
+    assert "VSAN" in matches[0].message
+    assert matches[0].severity == Status.WARNING
+
+
+def test_storage_with_both_raw_and_usable_set_is_not_flagged():
+    project = ClusterProject()
+    storage = Storage.create_default()
+    storage.name = "ok-storage"
+    storage.site = PRIMARY
+    storage.raw_capacity_tb = 48.0
+    storage.usable_capacity_tb = 24.0
+    project.storages.append(storage)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("Usable Capacity is still 0" in i.message for i in items)
+
+
+def test_storage_with_neither_raw_nor_usable_is_not_flagged():
+    """A brand new, untouched Storage entry (0/0) isn't 'incomplete' in
+    the same actionable sense - nothing has been attempted yet."""
+    project = ClusterProject()
+    storage = Storage.create_default()
+    storage.site = PRIMARY
+    project.storages.append(storage)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("Usable Capacity is still 0" in i.message for i in items)
+
+
+def test_nearly_full_storage_pool_is_flagged_even_though_site_aggregate_is_healthy():
+    """The exact scenario this feature exists for: two pools at the
+    same site, one nearly full (assigned VMs), one nearly empty - the
+    site-wide aggregate looks perfectly healthy while Pool A is a real
+    problem the aggregate check alone can never reveal."""
+    project = ClusterProject()
+    pool_a = Storage.create_default()
+    pool_a.name = "Pool A"
+    pool_a.site = PRIMARY
+    pool_a.usable_capacity_tb = 10.0
+    pool_b = Storage.create_default()
+    pool_b.name = "Pool B"
+    pool_b.site = PRIMARY
+    pool_b.usable_capacity_tb = 10.0
+    project.storages.append(pool_a)
+    project.storages.append(pool_b)
+
+    vm_a = _vm(vcpu=2, ram_gb=8, disk_gb=9000)
+    vm_a.storage_uid = pool_a.uid
+    vm_b = _vm(vcpu=2, ram_gb=8, disk_gb=500)
+    vm_b.storage_uid = pool_b.uid
+    project.vms.append(vm_a)
+    project.vms.append(vm_b)
+
+    items = compute_attention_items(project, Thresholds())
+
+    pool_items = [i for i in items if "assigned VMs are using" in i.message]
+    assert len(pool_items) == 1
+    assert "Pool A" in pool_items[0].message
+    assert pool_items[0].severity == Status.WARNING
+
+
+def test_pool_with_no_assigned_vms_is_never_flagged():
+    project = ClusterProject()
+    pool = Storage.create_default()
+    pool.site = PRIMARY
+    pool.usable_capacity_tb = 10.0
+    project.storages.append(pool)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("assigned VMs are using" in i.message for i in items)
+
+
+def test_pool_utilization_severity_matches_storage_thresholds():
+    """A ratio past the CRITICAL threshold should be flagged CRITICAL,
+    not just WARNING - reusing the same thresholds as the ordinary
+    site-wide storage_status check, not a separate hardcoded cutoff."""
+    project = ClusterProject()
+    pool = Storage.create_default()
+    pool.site = PRIMARY
+    pool.usable_capacity_tb = 10.0
+    project.storages.append(pool)
+    vm = _vm(vcpu=2, ram_gb=8, disk_gb=10000)  # 100% - past critical
+    vm.storage_uid = pool.uid
+    project.vms.append(vm)
+
+    items = compute_attention_items(project, Thresholds())
+
+    pool_items = [i for i in items if "assigned VMs are using" in i.message]
+    assert len(pool_items) == 1
+    assert pool_items[0].severity == Status.CRITICAL

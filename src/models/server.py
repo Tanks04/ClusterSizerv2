@@ -79,6 +79,14 @@ class Server:
 
     local_disk_raw_tb: float = 0.0  # HCI/vSAN-style local disk contribution - only meaningful when an HCI Storage entity is linked to this server
 
+    # Optional calculator inputs - when both are set, the GUI can fill
+    # local_disk_raw_tb with their product (disk_count * disk_size_tb)
+    # as a convenience. local_disk_raw_tb stays the real, stored,
+    # independently-editable value - these two are never read by any
+    # calculation directly, only used to help fill that field in.
+    local_disk_count: int = 0
+    local_disk_size_tb: float = 0.0
+
     notes: str = ""
 
     @property

@@ -5,8 +5,11 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QPushButton,
     QScrollArea,
     QSpinBox,
     QDoubleSpinBox,
@@ -264,6 +267,27 @@ class ServerDialog(QDialog):
         )
         layout.addRow("Local Disk (Raw)", self.local_disk_spin)
 
+        calc_row = QHBoxLayout()
+        self.local_disk_count_spin = QSpinBox()
+        self.local_disk_count_spin.setRange(0, 1000)
+        self.local_disk_count_spin.setSuffix(" disks")
+        calc_row.addWidget(self.local_disk_count_spin)
+        calc_row.addWidget(QLabel("\u00d7"))
+        self.local_disk_size_spin = QDoubleSpinBox()
+        self.local_disk_size_spin.setRange(0.0, 1000.0)
+        self.local_disk_size_spin.setDecimals(2)
+        self.local_disk_size_spin.setSuffix(" TB each")
+        calc_row.addWidget(self.local_disk_size_spin)
+        calc_button = QPushButton("Calculate \u2192 Raw")
+        calc_button.setToolTip(
+            "Fills Local Disk (Raw) above with disks \u00d7 size - Raw stays "
+            "independently editable afterward if you need to adjust for "
+            "spares or rounding."
+        )
+        calc_button.clicked.connect(self._calculate_local_disk_raw)
+        calc_row.addWidget(calc_button)
+        layout.addRow("Disk Calculator", calc_row)
+
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(60)
         layout.addRow("Notes", self.notes_edit)
@@ -357,6 +381,12 @@ class ServerDialog(QDialog):
 
             self.load(server)
 
+    def _calculate_local_disk_raw(self) -> None:
+        count = self.local_disk_count_spin.value()
+        size = self.local_disk_size_spin.value()
+        if count > 0 and size > 0:
+            self.local_disk_spin.setValue(count * size)
+
     def load(self, server: Server) -> None:
 
         self._uid = server.uid
@@ -399,6 +429,8 @@ class ServerDialog(QDialog):
         self.power_watts_spin.setValue(server.power_watts)
         self.price_spin.setValue(server.price)
         self.local_disk_spin.setValue(server.local_disk_raw_tb)
+        self.local_disk_count_spin.setValue(server.local_disk_count)
+        self.local_disk_size_spin.setValue(server.local_disk_size_tb)
         self.notes_edit.setPlainText(server.notes)
 
         self.nic_1g_spin.setValue(server.nic_1g)
@@ -432,6 +464,8 @@ class ServerDialog(QDialog):
         server.power_watts = self.power_watts_spin.value()
         server.price = self.price_spin.value()
         server.local_disk_raw_tb = self.local_disk_spin.value()
+        server.local_disk_count = self.local_disk_count_spin.value()
+        server.local_disk_size_tb = self.local_disk_size_spin.value()
         server.notes = self.notes_edit.toPlainText()
         server.nic_1g = self.nic_1g_spin.value()
         server.nic_10g = self.nic_10g_spin.value()

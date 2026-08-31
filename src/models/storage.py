@@ -48,6 +48,16 @@ class Storage:
     is_hci: bool = False
     hci_server_uids: list[str] = field(default_factory=list)
 
+    # Optional calculator inputs - when both are set, the GUI can fill
+    # raw_capacity_tb with their product (disk_count * disk_size_tb) as
+    # a convenience, for both traditional arrays and HCI alike.
+    # raw_capacity_tb stays the real, stored, independently-editable
+    # value (for HCI, it's normally auto-summed from linked servers
+    # instead - these calculator fields are for the non-HCI case, or
+    # for double-checking an HCI number by hand).
+    disk_count: int = 0
+    disk_size_tb: float = 0.0
+
     # Connectivity port inventory - same pattern as Server.nic_* and
     # NetworkSwitch.ports_*. Used on the Network tab to track free/used
     # ports for links to switches, and for direct-attach links straight

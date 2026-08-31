@@ -63,6 +63,15 @@ class VirtualMachine:
 
     vlan_uid: str = ""  # optional reference to a Vlan.uid - independent of ip_address, never required together
 
+    # Optional reference to a Storage.uid - which specific storage pool/
+    # array this VM's disk lives on, if you want to track that (some
+    # VMs on one array, others on a different one, is common in
+    # practice). When empty (the default, and every project before
+    # this existed), disk demand only counts toward the site-wide
+    # aggregate as it always has - this is purely additive, opt-in
+    # per-pool tracking, same spirit as vlan_uid above.
+    storage_uid: str = ""
+
     notes: str = ""
 
     @staticmethod

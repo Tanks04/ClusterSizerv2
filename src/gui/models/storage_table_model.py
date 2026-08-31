@@ -1,8 +1,13 @@
 from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtGui import QColor
 from src.models.storage import Storage
 from src.calculations.networking import storage_port_usage, format_usage, any_over_committed
+from src.calculations.thresholds import Thresholds, Status
+
+_WARNING_COLOR = QColor("#ed6c02")
+_CRITICAL_COLOR = QColor("#c62828")
 
 
 class StorageTableModel(QAbstractTableModel):
@@ -10,6 +15,7 @@ class StorageTableModel(QAbstractTableModel):
     HEADERS = [
         "Name", "Site", "Vendor", "Model", "Type",
         "Raw (TB)", "Usable (TB)", "Overhead %",
+        "Pool Utilization",
         "Ports (declared)", "Used/Free", "Rack (U)", "Power (W)", "Notes",
     ]
 
@@ -19,12 +25,25 @@ class StorageTableModel(QAbstractTableModel):
         self,
         storages: Sequence[Storage] | None = None,
         connections_provider: Callable[[], list] | None = None,
+        vms_provider: Callable[[], list] | None = None,
+        thresholds_provider: Callable[[], Thresholds] | None = None,
         on_change: Callable[[], None] | None = None,
     ):
         super().__init__()
         self._storages = list(storages) if storages else []
         self._connections_provider = connections_provider or (lambda: [])
+        self._vms_provider = vms_provider or (lambda: [])
+        self._thresholds_provider = thresholds_provider or Thresholds
         self._on_change = on_change
+
+    def _pool_demand_gb(self, storage: Storage) -> float:
+        return sum(vm.disk_gb for vm in self._vms_provider() if vm.storage_uid == storage.uid)
+
+    def _pool_status(self, storage: Storage) -> Status:
+        if storage.usable_capacity_tb == 0:
+            return Status.UNKNOWN
+        ratio = self._pool_demand_gb(storage) / (storage.usable_capacity_tb * 1024)
+        return self._thresholds_provider().storage_status(ratio)
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self._storages)
@@ -48,11 +67,20 @@ class StorageTableModel(QAbstractTableModel):
     def data(self, index, role):
         if not index.isValid():
             return None
-        if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
-            return None
 
         storage = self._storages[index.row()]
         column = index.column()
+
+        if role == Qt.ItemDataRole.ForegroundRole and column == 8:
+            status = self._pool_status(storage)
+            if status == Status.CRITICAL:
+                return _CRITICAL_COLOR
+            if status == Status.WARNING:
+                return _WARNING_COLOR
+            return None
+
+        if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
+            return None
 
         match column:
             case 0:
@@ -72,6 +100,14 @@ class StorageTableModel(QAbstractTableModel):
             case 7:
                 return round(storage.raid_overhead_percent, 1)
             case 8:
+                if storage.usable_capacity_tb == 0:
+                    return "-"
+                demand_tb = self._pool_demand_gb(storage) / 1024
+                pct = (demand_tb / storage.usable_capacity_tb) * 100
+                status = self._pool_status(storage)
+                marker = "\u26a0 " if status in (Status.WARNING, Status.CRITICAL) else ""
+                return f"{marker}{demand_tb:.2f} TB ({pct:.0f}%)"
+            case 9:
                 parts = []
                 if storage.ports_1g:
                     parts.append(f"1G:{storage.ports_1g}")
@@ -88,17 +124,17 @@ class StorageTableModel(QAbstractTableModel):
                 if storage.ports_sas:
                     parts.append(f"SAS:{storage.ports_sas}")
                 return " ".join(parts) if parts else "-"
-            case 9:
+            case 10:
                 usage = storage_port_usage(storage, self._connections_provider())
                 text = format_usage(usage)
                 return f"\u26a0 {text}" if any_over_committed(usage) else text
-            case 10:
+            case 11:
                 total_u = storage.total_rack_units
                 shelf_note = f" (+{len(storage.expansion_shelves)} shelf/shelves)" if storage.expansion_shelves else ""
                 return f"{total_u}{shelf_note}" if total_u else "-"
-            case 11:
-                return round(storage.total_power_watts, 0) if storage.total_power_watts else "-"
             case 12:
+                return round(storage.total_power_watts, 0) if storage.total_power_watts else "-"
+            case 13:
                 return storage.notes or "-"
 
         return None
