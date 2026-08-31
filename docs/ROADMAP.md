@@ -1,5 +1,43 @@
 # ROADMAP
 
+## v4.5.1 (Disk calculator GUI polish, RAID-level Usable estimate, white input fields)
+
+Direct hands-on feedback on v4.5.0's new disk calculators.
+
+- **Fixed**: the Calc button was invisible on both ServerDialog and
+  StorageDialog - the calculator row's fields were wide enough to push
+  it past the dialog's edge. Widened both dialogs (440\u2192520px),
+  shortened labels ("TB each" \u2192 "TB", "Calculate \u2192 Raw" \u2192 "Calc"),
+  and capped the spinboxes' width so the button has guaranteed room -
+  verified with real rendered screenshots this time, not just widget
+  geometry checks (which read "fits" even when a render showed it cut
+  off - a real discrepancy in the offscreen test environment worth
+  being skeptical of going forward).
+- **Fixed**: StorageDialog's calculator did nothing while HCI was
+  checked, with no indication why - correctly self-diagnosed directly
+  ("valjda jer je HCI i vuče s diskova"). Rather than leaving a
+  disabled-but-visible control, the entire "Disk Calculator" row
+  (label included) now disappears via `QFormLayout.setRowVisible()`
+  while HCI is checked, since Raw is auto-summed from linked servers
+  in that mode and the calculator simply doesn't apply.
+- **New: RAID-level Usable estimate**, addressing the non-uniform-disk
+  case directly (e.g. a ZFS box with 12 disks of mixed sizes) - a RAID
+  Level dropdown (RAID 0/JBOD, 1/10, 5, 6) next to the existing disk
+  count \u00d7 size calculator. Calc now optionally fills Usable Capacity
+  too (e.g. RAID5 = disk count - 1 disks' worth), but - consistent with
+  every other calculator in this app - Usable stays the real, stored,
+  independently-editable value afterward, so a real non-uniform number
+  can always override the estimate directly, exactly as requested.
+  New `Storage.raid_level` field (persisted, CSV-optional, defaults to
+  "" = no estimate offered, Calc only fills Raw as before).
+- **New: white input fields.** Every widget the person types or picks
+  a value into (text fields, spin boxes, dropdowns) now has a white
+  background, distinct from the app's gray - disabled fields get a
+  subtle gray-out instead. Direct request: "app ostane siv, ali polja
+  koja omogućuju unos neka budu bijela."
+- 23 new tests (RAID formula, GUI row-hiding, Usable-stays-editable
+  after estimate, persistence, backward compat) - 462 passed total.
+
 ## v4.5.0 (Storage: disk-count calculators, per-pool VM assignment, and the bug that started it)
 
 Prompted directly by a real RVTools import + manual HCI setup: a newly

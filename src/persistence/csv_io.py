@@ -44,7 +44,7 @@ SERVER_CORE_FIELDS = ["name", "site", "sockets", "cores_per_socket"]
 STORAGE_FIELDS = [
     "name", "site", "vendor", "model", "raw_capacity_tb",
     "usable_capacity_tb", "raid_overhead_percent", "is_hci",
-    "disk_count", "disk_size_tb",
+    "disk_count", "disk_size_tb", "raid_level",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
     "rack_units", "power_watts", "price",
     "notes",
@@ -218,6 +218,7 @@ def import_storages(path: str | Path) -> list[Storage]:
                 is_hci=_bool(row.get("is_hci"), default=False),
                 disk_count=int(float(row.get("disk_count") or 0)),
                 disk_size_tb=float(row.get("disk_size_tb") or 0),
+                raid_level=row.get("raid_level", "") or "",
                 notes=row.get("notes", "") or "",
             )
         )

@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.storage import Storage, StorageShelf
+from src.models.storage import Storage, StorageShelf, RAID_LEVELS, raid_usable_disk_count
 from src.calculations.hci_storage import compute_hci_raw_capacity
 
 
@@ -36,7 +36,7 @@ class StorageDialog(QDialog):
 
         self.setWindowTitle("Storage")
 
-        self.resize(440, 620)
+        self.resize(520, 620)
 
         # See ServerDialog for why this is scrollable - the form has
         # grown taller than a lot of screens can show at once, with no
@@ -51,6 +51,7 @@ class StorageDialog(QDialog):
         dialog_layout.addWidget(scroll_area)
 
         layout = QFormLayout()
+        self.form_layout = layout
         outer.addLayout(layout)
 
         self.name_edit = QLineEdit()
@@ -97,28 +98,50 @@ class StorageDialog(QDialog):
         self.raw_spin.valueChanged.connect(self._recalc_overhead)
         layout.addRow("Raw Capacity", self.raw_spin)
 
-        calc_row = QHBoxLayout()
+        calc_container = QWidget()
+        calc_layout = QVBoxLayout(calc_container)
+        calc_layout.setContentsMargins(0, 0, 0, 0)
+
+        size_row = QHBoxLayout()
         self.disk_count_spin = QSpinBox()
         self.disk_count_spin.setRange(0, 1000)
         self.disk_count_spin.setSuffix(" disks")
-        calc_row.addWidget(self.disk_count_spin)
-        calc_row.addWidget(QLabel("\u00d7"))
+        self.disk_count_spin.setMaximumWidth(85)
+        size_row.addWidget(self.disk_count_spin)
+        size_row.addWidget(QLabel("\u00d7"))
         self.disk_size_spin = QDoubleSpinBox()
         self.disk_size_spin.setRange(0.0, 1000.0)
         self.disk_size_spin.setDecimals(2)
-        self.disk_size_spin.setSuffix(" TB each")
-        calc_row.addWidget(self.disk_size_spin)
-        self.disk_calc_button = QPushButton("Calculate \u2192 Raw")
+        self.disk_size_spin.setSuffix(" TB")
+        self.disk_size_spin.setMaximumWidth(85)
+        size_row.addWidget(self.disk_size_spin)
+        size_row.addStretch()
+        calc_layout.addLayout(size_row)
+
+        raid_row = QHBoxLayout()
+        raid_row.addWidget(QLabel("RAID:"))
+        self.raid_level_combo = QComboBox()
+        self.raid_level_combo.addItem("(none - Raw only)", userData="")
+        for level in RAID_LEVELS[1:]:
+            self.raid_level_combo.addItem(level, userData=level)
+        raid_row.addWidget(self.raid_level_combo)
+        self.disk_calc_button = QPushButton("Calc")
         self.disk_calc_button.setToolTip(
             "Fills Raw Capacity above with disks \u00d7 size - Raw stays "
             "independently editable afterward if you need to adjust for "
             "spares or rounding. Works the same for a traditional array "
             "or HCI (though HCI's Raw is normally auto-summed from linked "
-            "servers instead)."
+            "servers instead). Pick a RAID level to also fill Usable "
+            "Capacity with a rough estimate (e.g. RAID5 = disk count - 1 "
+            "disks usable) - Usable stays independently editable too, "
+            "this is a starting estimate, not the final word."
         )
         self.disk_calc_button.clicked.connect(self._calculate_raw_capacity)
-        calc_row.addWidget(self.disk_calc_button)
-        layout.addRow("Disk Calculator", calc_row)
+        raid_row.addWidget(self.disk_calc_button)
+        raid_row.addStretch()
+        calc_layout.addLayout(raid_row)
+
+        layout.addRow("Disk Calculator", calc_container)
 
         self.usable_spin = QDoubleSpinBox()
         self.usable_spin.setDecimals(2)
@@ -292,7 +315,7 @@ class StorageDialog(QDialog):
         # even though it's meant to be fully auto-computed while HCI is
         # checked. setEnabled() properly blocks all of that.
         self.raw_spin.setEnabled(not checked)
-        self.disk_calc_button.setEnabled(not checked)
+        self.form_layout.setRowVisible(self.disk_calc_button.parentWidget(), not checked)
         self.raw_spin.setToolTip(
             "Auto-summed from the checked servers' Local Disk (Raw) - "
             "uncheck HCI above to type a value directly." if checked else ""
@@ -368,6 +391,11 @@ class StorageDialog(QDialog):
         if count > 0 and size > 0:
             self.raw_spin.setValue(count * size)
 
+        raid_level = self.raid_level_combo.currentData()
+        if raid_level and count > 0 and size > 0:
+            usable_disks = raid_usable_disk_count(raid_level, count)
+            self.usable_spin.setValue(usable_disks * size)
+
     def load(self, storage: Storage) -> None:
         self._uid = storage.uid
         self.name_edit.setText(storage.name)
@@ -382,6 +410,8 @@ class StorageDialog(QDialog):
         self.raw_spin.setValue(storage.raw_capacity_tb)
         self.disk_count_spin.setValue(storage.disk_count)
         self.disk_size_spin.setValue(storage.disk_size_tb)
+        raid_index = self.raid_level_combo.findData(storage.raid_level)
+        self.raid_level_combo.setCurrentIndex(raid_index if raid_index >= 0 else 0)
         self.usable_spin.setValue(storage.usable_capacity_tb)
         self._recalc_overhead()
 
@@ -428,6 +458,7 @@ class StorageDialog(QDialog):
         storage.raid_overhead_percent = self.overhead_spin.value()
         storage.disk_count = self.disk_count_spin.value()
         storage.disk_size_tb = self.disk_size_spin.value()
+        storage.raid_level = self.raid_level_combo.currentData() or ""
 
         storage.ports_1g = self.ports_1g_spin.value()
         storage.ports_10g = self.ports_10g_spin.value()

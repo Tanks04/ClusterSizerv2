@@ -1,6 +1,28 @@
 from dataclasses import dataclass, field
 import uuid
 
+# Common RAID levels for the Calc button's optional Usable estimate.
+# "" (no selection) skips the Usable estimate entirely - Calc only
+# fills Raw in that case, exactly as before this existed.
+RAID_LEVELS = ["", "RAID 0 / JBOD", "RAID 1 / RAID 10", "RAID 5", "RAID 6"]
+
+
+def raid_usable_disk_count(raid_level: str, disk_count: int) -> float:
+    """How many of disk_count disks' worth of capacity survive this
+    RAID level's redundancy overhead - a common, rough estimate (real
+    overhead varies by stripe/chunk size, spares, controller, etc.),
+    the same spirit as raid_overhead_percent being informational
+    rather than an authoritative computation."""
+    if raid_level == "RAID 0 / JBOD":
+        return disk_count
+    if raid_level == "RAID 1 / RAID 10":
+        return disk_count / 2
+    if raid_level == "RAID 5":
+        return max(0, disk_count - 1)
+    if raid_level == "RAID 6":
+        return max(0, disk_count - 2)
+    return 0  # "" or anything unrecognized - no estimate offered
+
 
 @dataclass
 class StorageShelf:
@@ -57,6 +79,15 @@ class Storage:
     # for double-checking an HCI number by hand).
     disk_count: int = 0
     disk_size_tb: float = 0.0
+
+    # Optional - when set to something other than "", the Calc button
+    # ALSO fills usable_capacity_tb with a rough estimate based on this
+    # RAID level's common overhead (e.g. RAID5 = disk_count - 1 disks
+    # usable). usable_capacity_tb stays the real, stored, independently
+    # -editable value either way - this is a starting estimate, not an
+    # authoritative computation, same spirit as raid_overhead_percent
+    # being informational rather than binding.
+    raid_level: str = ""
 
     # Connectivity port inventory - same pattern as Server.nic_* and
     # NetworkSwitch.ports_*. Used on the Network tab to track free/used

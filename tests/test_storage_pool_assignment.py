@@ -77,3 +77,34 @@ def test_old_clsz_file_without_new_fields_defaults_gracefully(tmp_path):
 
     assert loaded.project.storages[0].disk_count == 0
     assert loaded.project.vms[0].storage_uid == ""
+
+
+def test_raid_usable_disk_count_formulas():
+    from src.models.storage import raid_usable_disk_count
+
+    assert raid_usable_disk_count("RAID 0 / JBOD", 12) == 12
+    assert raid_usable_disk_count("RAID 1 / RAID 10", 12) == 6
+    assert raid_usable_disk_count("RAID 5", 12) == 11
+    assert raid_usable_disk_count("RAID 6", 12) == 10
+    assert raid_usable_disk_count("", 12) == 0
+
+
+def test_raid_usable_disk_count_never_goes_negative():
+    from src.models.storage import raid_usable_disk_count
+
+    assert raid_usable_disk_count("RAID 5", 0) == 0
+    assert raid_usable_disk_count("RAID 6", 1) == 0
+
+
+def test_raid_level_field_default_and_csv_round_trip(tmp_path):
+    from src.models.storage import Storage
+    from src.persistence import csv_io
+
+    s = Storage.create_default()
+    assert s.raid_level == ""
+
+    s.raid_level = "RAID 5"
+    path = tmp_path / "storage.csv"
+    csv_io.export_storages(path, [s])
+    loaded = csv_io.import_storages(path)
+    assert loaded[0].raid_level == "RAID 5"

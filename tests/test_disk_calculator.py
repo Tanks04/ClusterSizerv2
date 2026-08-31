@@ -63,21 +63,21 @@ def test_storage_calculator_fills_raw_capacity():
     assert dialog.raw_spin.value() == 48.0
 
 
-def test_storage_calculator_button_disabled_when_hci_checked():
+def test_storage_calculator_row_hidden_when_hci_checked():
     dialog = StorageDialog(servers=[])
 
     dialog.is_hci_check.setChecked(True)
 
-    assert dialog.disk_calc_button.isEnabled() is False
+    assert dialog.form_layout.isRowVisible(dialog.disk_calc_button.parentWidget()) is False
 
 
-def test_storage_calculator_button_re_enabled_when_hci_unchecked():
+def test_storage_calculator_row_shown_when_hci_unchecked_again():
     dialog = StorageDialog(servers=[])
     dialog.is_hci_check.setChecked(True)
 
     dialog.is_hci_check.setChecked(False)
 
-    assert dialog.disk_calc_button.isEnabled() is True
+    assert dialog.form_layout.isRowVisible(dialog.disk_calc_button.parentWidget()) is True
 
 
 def test_storage_fields_persist_through_load():
@@ -91,3 +91,92 @@ def test_storage_fields_persist_through_load():
 
     assert dialog.disk_count_spin.value() == 24
     assert dialog.disk_size_spin.value() == 2.0
+
+
+# ----------------------------------------------------------------------
+# RAID-level Usable estimate - the ZFS/non-uniform-disk scenario
+# discussed directly: pick a RAID level, Calc also fills Usable with a
+# rough estimate, but it stays independently editable afterward so a
+# real (non-uniform-disk) number can always override it.
+# ----------------------------------------------------------------------
+
+def test_raid5_calc_fills_both_raw_and_usable():
+    dialog = StorageDialog(servers=[])
+    dialog.disk_count_spin.setValue(12)
+    dialog.disk_size_spin.setValue(1.0)
+    dialog.raid_level_combo.setCurrentText("RAID 5")
+
+    dialog._calculate_raw_capacity()
+
+    assert dialog.raw_spin.value() == 12.0
+    assert dialog.usable_spin.value() == 11.0  # RAID5 = N-1 disks
+
+
+def test_raid6_usable_estimate():
+    dialog = StorageDialog(servers=[])
+    dialog.disk_count_spin.setValue(12)
+    dialog.disk_size_spin.setValue(2.0)
+    dialog.raid_level_combo.setCurrentText("RAID 6")
+
+    dialog._calculate_raw_capacity()
+
+    assert dialog.usable_spin.value() == 20.0  # (12-2) * 2 TB
+
+
+def test_raid10_usable_estimate():
+    dialog = StorageDialog(servers=[])
+    dialog.disk_count_spin.setValue(12)
+    dialog.disk_size_spin.setValue(1.0)
+    dialog.raid_level_combo.setCurrentText("RAID 1 / RAID 10")
+
+    dialog._calculate_raw_capacity()
+
+    assert dialog.usable_spin.value() == 6.0  # 12/2 disks
+
+
+def test_no_raid_selected_leaves_usable_untouched():
+    dialog = StorageDialog(servers=[])
+    dialog.usable_spin.setValue(42.0)
+    dialog.disk_count_spin.setValue(10)
+    dialog.disk_size_spin.setValue(2.0)
+    # raid_level_combo left at default "(none - Raw only)"
+
+    dialog._calculate_raw_capacity()
+
+    assert dialog.raw_spin.value() == 20.0
+    assert dialog.usable_spin.value() == 42.0  # untouched
+
+
+def test_usable_stays_editable_after_raid_estimate():
+    dialog = StorageDialog(servers=[])
+    dialog.disk_count_spin.setValue(12)
+    dialog.disk_size_spin.setValue(1.0)
+    dialog.raid_level_combo.setCurrentText("RAID 5")
+    dialog._calculate_raw_capacity()
+
+    dialog.usable_spin.setValue(9.5)  # manual override for non-uniform disks
+
+    storage = dialog.get_storage()
+    assert storage.usable_capacity_tb == 9.5
+
+
+def test_raid_level_persists_through_load():
+    from src.models.storage import Storage
+
+    existing = Storage.create_default()
+    existing.raid_level = "RAID 6"
+
+    dialog = StorageDialog(existing, servers=[])
+
+    assert dialog.raid_level_combo.currentData() == "RAID 6"
+
+
+def test_stale_raid_level_falls_back_to_none():
+    from src.models.storage import Storage
+
+    existing = Storage.create_default()
+    existing.raid_level = "Some Deleted Custom Level"
+
+    dialog = StorageDialog(existing, servers=[])
+
+    assert dialog.raid_level_combo.currentIndex() == 0

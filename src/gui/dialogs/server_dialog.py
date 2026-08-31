@@ -27,7 +27,7 @@ class ServerDialog(QDialog):
 
         self.setWindowTitle("Server")
 
-        self.resize(440, 620)
+        self.resize(520, 620)
 
         # The dialog kept growing past the screen's height as fields were
         # added over time, with no way to reach the bottom (no scrollbar,
@@ -271,14 +271,16 @@ class ServerDialog(QDialog):
         self.local_disk_count_spin = QSpinBox()
         self.local_disk_count_spin.setRange(0, 1000)
         self.local_disk_count_spin.setSuffix(" disks")
+        self.local_disk_count_spin.setMaximumWidth(85)
         calc_row.addWidget(self.local_disk_count_spin)
         calc_row.addWidget(QLabel("\u00d7"))
         self.local_disk_size_spin = QDoubleSpinBox()
         self.local_disk_size_spin.setRange(0.0, 1000.0)
         self.local_disk_size_spin.setDecimals(2)
-        self.local_disk_size_spin.setSuffix(" TB each")
+        self.local_disk_size_spin.setSuffix(" TB")
+        self.local_disk_size_spin.setMaximumWidth(85)
         calc_row.addWidget(self.local_disk_size_spin)
-        calc_button = QPushButton("Calculate \u2192 Raw")
+        calc_button = QPushButton("Calc")
         calc_button.setToolTip(
             "Fills Local Disk (Raw) above with disks \u00d7 size - Raw stays "
             "independently editable afterward if you need to adjust for "
