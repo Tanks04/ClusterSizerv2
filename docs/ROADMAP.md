@@ -1,5 +1,74 @@
 # ROADMAP
 
+## v4.4.0 (Cluster Preparation wizard overhaul - a real bug found live, plus 6 requested improvements)
+
+Prompted by hands-on testing of the wizard with a real 15-VM/120-vCPU
+scenario, which surfaced a genuine calculation bug alongside a batch of
+concrete workflow requests.
+
+- **Fixed a real bug**: `failover_cpu_ok()` compared raw physical cores
+  against raw vCPU demand (`physical_cores >= vcpu_demand`) - effectively
+  requiring near 1:1 CPU provisioning, flagging a perfectly healthy
+  3.75:1 oversubscribed Primary site as "does not have enough capacity
+  for its assigned failover VMs." Now uses the same Warning/Critical
+  ratio thresholds as ordinary CPU status. Threaded `Thresholds` through
+  `failover_cpu_ok`/`failover_ready`/`build_failover_report` and all 4
+  call sites (Summary, Reports, Attention, Word report).
+- **Fixed**: Effective Cores showed the same number as Total Cores when
+  Hyperthreading is off (redundant/confusing) - now shows "-".
+- **Fixed**: ResultPage had no scroll area, so its hypervisor-CPU-
+  reservation warning was silently clipped off-screen - confirmed via a
+  real screenshot showing the text cut off entirely.
+- **Fixed**: clicking "Add Recommended Cluster" gave no visible
+  confirmation - the old code appended text to the SAME already-
+  overflowing label, compounding the scroll bug above. Now a real
+  QMessageBox stating plainly that nothing is saved until Finish.
+- **New: a real, configurable hypervisor CPU reserve.** Previously only
+  a warning NOTE, never actually subtracted from capacity - `Sizing
+  Policy.hypervisor_cpu_reserve_cores` (default 2 physical cores/host,
+  0 to disable) is now applied in both the optimizer and the final host
+  count, scaling correctly with Hyperthreading.
+- **New: Hyperthreading question moved to the Policy page**, asked
+  upfront rather than only discoverable as a post-hoc edit on Result -
+  defaults to OFF (HT gains vary by workload, so sizing without relying
+  on it is the safer starting point).
+- **New: manual aggregate demand entry** for a brand-new environment
+  with no VMs entered yet - a "no VMs yet" box on the Workload page
+  accepts total vCPU/RAM/disk plus one workload tier for the whole
+  total, sized exactly like real VM data (growth, reserve, ratio, all
+  applied identically). Ignored automatically the moment real VMs
+  exist. Found and fixed two bugs in an earlier, incomplete pass at
+  this feature before shipping it: `total_storage_demand_gb` was only
+  set in the manual-demand branch (NameError for every normal call),
+  and `required_hosts` didn't check for manual demand at all (always 0
+  hosts in that mode).
+- **New: existing-equipment Add/Replace/Cancel prompt** - if the target
+  site already has servers/storage when adding a recommended cluster,
+  asks whether to add alongside, replace, or cancel, instead of
+  silently double-provisioning.
+- **New: N-site recommendations**, not just a fixed Primary+DR pair.
+  `compute_site_recommendation()` sizes ANY site, driven by DR Category
+  selection (Core/Important/Standard/Non-Essential, default Core+
+  Important) rather than requiring FailoverAssignment records to
+  already exist - matches how a real DR conversation actually goes
+  ("everything except DWH and test/dev"). A new "Additional Sites" page
+  shows one block per non-Primary site in `project.site_names`; adding
+  a site's recommended cluster ALSO auto-creates a FailoverAssignment
+  for each qualifying VM (defaulting to the VM's own current size),
+  reusing Primary's host spec for consistent hardware. The older DR-
+  specific fields (driven by pre-existing FailoverAssignment records)
+  are unchanged and still work, kept alongside this rather than
+  replaced, to avoid destabilizing already-tested code for a
+  fixed-DR-only workflow some users may already rely on.
+- **New: optional Backup page** - a mini-form (name, site, type,
+  software, capacity, dedup, offsite/immutable, location) with an Add
+  button that queues it and resets the form for the next one, so a
+  typical local-plus-offsite-immutable pair takes two quick fills
+  rather than leaving the wizard and using the Backup tab separately.
+- 47 new tests across the calculation layer, the two newly-discovered-
+  and-fixed bugs, and five new/updated real-Qt GUI test files - 414
+  passed total.
+
 ## v4.3.1 (CSV import rejected valid older files over newer optional columns)
 
 - **Fixed**: CSV import validation checked for EVERY known column

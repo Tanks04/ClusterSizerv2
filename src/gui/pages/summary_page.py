@@ -266,7 +266,7 @@ class SummaryPage(QWidget):
                 card.set_report(build_failover_scenario_report(project, site, thresholds))
             else:
                 card.set_report(reports[site])
-            card.set_failover_report(build_failover_report(project, site))
+            card.set_failover_report(build_failover_report(project, site, thresholds))
 
             rack = compute_rack_sizing(project, site)
             units_card, power_card = self.rack_cards[site]

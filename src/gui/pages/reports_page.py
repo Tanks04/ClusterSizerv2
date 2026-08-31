@@ -133,7 +133,7 @@ class ReportsPage(QWidget):
                 if shortfalls:
                     lines.append(f"    (would need {' and '.join(shortfalls)} to survive losing a host)")
 
-            failover = build_failover_report(project, site)
+            failover = build_failover_report(project, site, thresholds)
             lines.append(f"  Failover Assigned VMs: {failover.assigned_vm_count}")
             if failover.assigned_vm_count:
                 lines.append(f"  Failover vCPU demand: {failover.failover_vcpu_demand}")

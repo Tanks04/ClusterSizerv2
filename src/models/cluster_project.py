@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from src.calculations.thresholds import Thresholds, Status
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
@@ -378,10 +379,20 @@ class ClusterProject:
     # it (plus whatever it already runs)?
     # ------------------------------------------------------------------
 
-    def failover_cpu_ok(self, site: str) -> bool | None:
-        if not self.servers_at(site):
+    def failover_cpu_ok(self, site: str, thresholds: Thresholds) -> bool | None:
+        """Whether this site's CPU can absorb its own baseline load plus
+        assigned failover VMs - uses the SAME oversubscription ratio
+        threshold as ordinary CPU status (e.g. 4:1 warning/6:1 critical),
+        not a strict physical_cores >= vcpu_demand comparison. That
+        stricter check effectively demanded near-1:1 provisioning and
+        flagged perfectly healthy, normally-oversubscribed sites (e.g.
+        3.75:1, well under a 4:1 warning threshold) as "not enough
+        capacity" - a real bug found from a live report."""
+        cores = self.physical_cores(site)
+        if cores == 0:
             return None
-        return self.physical_cores(site) >= self.failover_vcpu_demand(site)
+        ratio = self.failover_vcpu_demand(site) / cores
+        return thresholds.cpu_status(ratio) != Status.CRITICAL
 
     def failover_ram_ok(self, site: str) -> bool | None:
         if not self.servers_at(site):
@@ -393,10 +404,10 @@ class ClusterProject:
             return None
         return self.usable_storage_gb(site) >= self.failover_disk_demand_gb(site)
 
-    def failover_ready(self, site: str) -> bool | None:
+    def failover_ready(self, site: str, thresholds: Thresholds) -> bool | None:
         """None if the site has no resources defined at all (no point
         evaluating readiness)."""
-        checks = [self.failover_cpu_ok(site), self.failover_ram_ok(site), self.failover_storage_ok(site)]
+        checks = [self.failover_cpu_ok(site, thresholds), self.failover_ram_ok(site), self.failover_storage_ok(site)]
         if all(c is None for c in checks):
             return None
         return all(c is not False for c in checks)

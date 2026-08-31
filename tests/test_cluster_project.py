@@ -1,6 +1,8 @@
-from src.models.cluster_project import ClusterProject, PRIMARY
+from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
+from src.models.failover_assignment import FailoverAssignment
+from src.calculations.thresholds import Thresholds
 
 
 def _server(name, ram_gb, sockets, cores_per_socket):
@@ -208,3 +210,71 @@ def test_is_cloud_reflects_per_site_setting_independently():
 
     assert project.is_cloud(PRIMARY) is False
     assert project.is_cloud(DR) is True
+
+
+# ----------------------------------------------------------------------
+# failover_cpu_ok / failover_ready - a real bug reported directly: the
+# check compared raw physical_cores against raw vCPU demand (effectively
+# requiring near-1:1 provisioning) instead of using the same CPU
+# oversubscription ratio threshold as ordinary CPU status - so a
+# perfectly healthy, normally-oversubscribed site (e.g. 3.75:1, well
+# under a 4:1 warning threshold) got falsely flagged as "not enough
+# capacity for its assigned failover VMs."
+# ----------------------------------------------------------------------
+
+def test_failover_cpu_ok_true_for_a_healthy_oversubscribed_ratio():
+    """The exact reported scenario: 15 VMs / 120 vCPU on 2 hosts with 32
+    physical cores (HT-adjusted) - a 3.75:1 ratio, comfortably under the
+    default 4:1 warning threshold, must NOT be flagged as failing."""
+    project = ClusterProject()
+    for _ in range(2):
+        s = Server.create_default()
+        s.site = PRIMARY
+        s.sockets = 1
+        s.cores_per_socket = 8
+        s.hyperthreading_enabled = True
+        s.threads_per_core = 2
+        s.ram_gb = 256
+        project.servers.append(s)
+    for _ in range(15):
+        vm = VirtualMachine.create_default()
+        vm.site = PRIMARY
+        vm.vcpu = 8
+        vm.ram_gb = 16
+        project.vms.append(vm)
+
+    assert project.physical_cores(PRIMARY) == 32
+    assert project.vm_vcpu_demand(PRIMARY) == 120
+
+    thresholds = Thresholds()
+    assert project.failover_cpu_ok(PRIMARY, thresholds) is True
+
+
+def test_failover_cpu_ok_false_for_a_genuinely_critical_ratio():
+    """A real mismatch (10:1, well past the 6:1 default critical
+    threshold) must still be caught - the fix must not become so
+    permissive it stops catching real problems."""
+    project = ClusterProject()
+    server = Server.create_default()
+    server.site = DR
+    server.sockets = 1
+    server.cores_per_socket = 4
+    server.hyperthreading_enabled = False
+    project.servers.append(server)
+    vm = VirtualMachine.create_default()
+    vm.site = PRIMARY
+    vm.vcpu = 40
+    project.vms.append(vm)
+    assignment = FailoverAssignment.create_default()
+    assignment.vm_uid = vm.uid
+    assignment.target_site = DR
+    assignment.vcpu = 40
+    project.failover_assignments.append(assignment)
+
+    thresholds = Thresholds()
+    assert project.failover_cpu_ok(DR, thresholds) is False
+
+
+def test_failover_cpu_ok_none_with_no_servers_at_site():
+    project = ClusterProject()
+    assert project.failover_cpu_ok(DR, Thresholds()) is None

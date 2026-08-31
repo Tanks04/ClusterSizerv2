@@ -265,7 +265,7 @@ def _cluster_section(document: Document, project: ClusterProject, thresholds: Th
                 detail = document.add_paragraph()
                 _add_colored_run(detail, f"Would need {' and '.join(shortfalls)} to survive losing a host.", _ORANGE)
 
-        failover = build_failover_report(project, site)
+        failover = build_failover_report(project, site, thresholds)
         p = document.add_paragraph()
         p.add_run("Failover Readiness (VMs assigned here): ").bold = True
         assigned_text = f"{failover.assigned_vm_count} VM(s) assigned"

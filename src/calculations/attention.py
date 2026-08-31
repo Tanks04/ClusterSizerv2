@@ -79,7 +79,7 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
                 f"{report.site}: would NOT survive losing 1 host (short {detail})",
             ))
 
-        failover = build_failover_report(project, site)
+        failover = build_failover_report(project, site, thresholds)
         if failover.ready is False:
             items.append(AttentionItem(
                 Status.CRITICAL,

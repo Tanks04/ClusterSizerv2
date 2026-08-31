@@ -20,7 +20,7 @@ import math
 from dataclasses import dataclass, field
 
 from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.models.virtual_machine import VirtualMachine
+from src.models.virtual_machine import VirtualMachine, DR_CATEGORIES
 from src.models.workload_tier import WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
 
 HA_LEVELS = ["None", "Basic HA", "N+1", "N+2"]
@@ -69,6 +69,26 @@ class SizingPolicy:
     memory_reserve_percent: float = 20.0  # hypervisor/mgmt/HA/growth overhead
     storage_overhead_percent: float = 20.0  # RAID/EC + headroom, mirrors Storage.raid_overhead_percent
 
+    # Physical CPU cores reserved PER HOST for the hypervisor itself,
+    # subtracted from each host's raw core count before computing
+    # effective capacity - previously this was only a warning NOTE on
+    # the Result page ("not reserved above"), never actually applied to
+    # the math, which was itself a real gap: RAM gets a %-based reserve
+    # (memory_reserve_percent) but CPU had nothing. Defaults to a small,
+    # commonly-cited minimum (roughly matching VMware's ESXi overhead
+    # guidance in absolute cores rather than a %, since the hypervisor's
+    # own footprint is closer to a fixed cost than proportional to host
+    # size). Set to 0 to disable entirely, or raise it if you know your
+    # actual footprint is bigger.
+    hypervisor_cpu_reserve_cores: int = 2
+
+    # Whether the auto-optimized host spec assumes Hyperthreading is on.
+    # Defaults True to preserve prior behavior for any caller not using
+    # the wizard's own upfront question (which defaults its own checkbox
+    # to False - HT gains vary by workload, so starting conservative
+    # without relying on it was the direct preference when this was added).
+    assume_hyperthreading: bool = True
+
     # If None, compute_sizing() picks one for you (see module docstring).
     # Set explicitly to override the auto-optimizer with a spec you
     # already know you're buying.
@@ -93,10 +113,33 @@ class SizingPolicy:
 
 
 @dataclass
+class ManualDemand:
+    """Aggregate CPU/RAM/disk demand entered directly, for sizing a
+    brand-new cluster before any VMs have been loaded/entered yet -
+    compute_sizing() normally reads real VM records from the project,
+    which doesn't work for a genuinely empty project. One workload tier
+    applies to the whole aggregate (there's no per-VM granularity here
+    by nature - if you need that, enter real VMs on the VMs tab
+    instead and this input is ignored). DR sizing isn't available in
+    this mode, since DR footprint comes from FailoverAssignment records
+    tied to real VMs, which don't exist yet either."""
+
+    vcpu: int
+    ram_gb: float
+    disk_gb: float
+    workload_tier: str = DEFAULT_WORKLOAD_TIER
+
+    @property
+    def has_demand(self) -> bool:
+        return self.vcpu > 0 or self.ram_gb > 0 or self.disk_gb > 0
+
+
+@dataclass
 class SizingResult:
     vm_count: int
     dr_site_vm_count: int  # VMs already tagged site=DR - excluded from Primary sizing, shown so "why fewer than I loaded" has an answer
     workload_breakdown: dict[str, int]  # tier name -> VM count
+    used_manual_demand: bool  # True if sized from ManualDemand rather than real VM records
 
     total_vcpu_raw: int
     total_effective_vcpu: float  # workload-weighted, drives CPU sizing
@@ -151,6 +194,8 @@ def _optimize_host_spec(
     total_effective_vcpu: float,
     total_ram_with_reserve_gb: float,
     target_cpu_ratio: float,
+    hypervisor_cpu_reserve_cores: int = 0,
+    hyperthreading_enabled: bool = True,
 ) -> HostSpec:
     """Grid search over common host configurations. Picks the one that
     needs the FEWEST hosts first (fewer physical chassis = cheaper -
@@ -165,13 +210,15 @@ def _optimize_host_spec(
         for ram in _RAM_CANDIDATES:
             spec = HostSpec(
                 sockets=2, cores_per_socket=cores, threads_per_core=2,
-                hyperthreading_enabled=True, ram_gb=float(ram),
+                hyperthreading_enabled=hyperthreading_enabled, ram_gb=float(ram),
             )
-            hosts_cpu = _hosts_needed(total_effective_vcpu, spec.effective_cores)
+            reserved = hypervisor_cpu_reserve_cores * spec.threads_per_core
+            usable_effective_cores = max(1, spec.effective_cores - reserved)
+            hosts_cpu = _hosts_needed(total_effective_vcpu, usable_effective_cores)
             hosts_ram = _hosts_needed(total_ram_with_reserve_gb, spec.ram_gb)
             hosts = max(hosts_cpu, hosts_ram, _MIN_CLUSTER_HOSTS)
 
-            ratio = total_vcpu_raw / (hosts * spec.effective_cores) if spec.effective_cores > 0 else 0
+            ratio = total_vcpu_raw / (hosts * usable_effective_cores) if usable_effective_cores > 0 else 0
             key = (hosts, abs(ratio - target_cpu_ratio))
 
             if best_key is None or key < best_key:
@@ -181,7 +228,9 @@ def _optimize_host_spec(
     return best_spec or HostSpec()
 
 
-def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResult:
+def compute_sizing(
+    project: ClusterProject, policy: SizingPolicy, manual_demand: ManualDemand | None = None,
+) -> SizingResult:
     growth_factor = 1 + (policy.growth_percent / 100)
     reserve_factor = 1 - (policy.memory_reserve_percent / 100)
     if reserve_factor <= 0:
@@ -190,15 +239,27 @@ def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResul
     primary_vms = project.vms_at(PRIMARY)
     dr_site_vm_count = len(project.vms_at(DR))
 
-    breakdown: dict[str, int] = {}
-    for vm in primary_vms:
-        breakdown[vm.workload_tier] = breakdown.get(vm.workload_tier, 0) + 1
+    # Real VMs always take priority - manual_demand is only USED when
+    # there genuinely aren't any, matching the wizard's own behavior
+    # (the manual input fields are hidden once VMs exist).
+    using_manual_demand = not primary_vms and manual_demand is not None and manual_demand.has_demand
 
-    total_vcpu_raw = sum(vm.vcpu for vm in primary_vms)
-    total_effective_vcpu = sum(_effective_vcpu(vm, policy) for vm in primary_vms) * growth_factor
-    total_ram_demand_gb = sum(vm.ram_gb for vm in primary_vms)
+    if using_manual_demand:
+        breakdown = {manual_demand.workload_tier: 1}  # nominal - there's no real per-VM count to show
+        total_vcpu_raw = manual_demand.vcpu
+        total_effective_vcpu = (manual_demand.vcpu / policy.ratio_for(manual_demand.workload_tier)) * growth_factor
+        total_ram_demand_gb = manual_demand.ram_gb
+        total_storage_demand_gb = manual_demand.disk_gb * growth_factor
+    else:
+        breakdown: dict[str, int] = {}
+        for vm in primary_vms:
+            breakdown[vm.workload_tier] = breakdown.get(vm.workload_tier, 0) + 1
+
+        total_vcpu_raw = sum(vm.vcpu for vm in primary_vms)
+        total_effective_vcpu = sum(_effective_vcpu(vm, policy) for vm in primary_vms) * growth_factor
+        total_ram_demand_gb = sum(vm.ram_gb for vm in primary_vms)
+        total_storage_demand_gb = sum(vm.disk_gb for vm in primary_vms) * growth_factor
     total_ram_with_reserve_gb = (total_ram_demand_gb * growth_factor) / reserve_factor
-    total_storage_demand_gb = sum(vm.disk_gb for vm in primary_vms) * growth_factor
 
     storage_overhead_factor = max(0.01, 1 - (policy.storage_overhead_percent / 100))
     recommended_storage_usable_tb = total_storage_demand_gb / 1024
@@ -206,23 +267,30 @@ def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResul
 
     if policy.host_spec is not None:
         host_spec = policy.host_spec
-    elif primary_vms:
+    elif primary_vms or using_manual_demand:
         host_spec = _optimize_host_spec(
             total_vcpu_raw, total_effective_vcpu, total_ram_with_reserve_gb,
-            policy.target_cpu_ratio,
+            policy.target_cpu_ratio, policy.hypervisor_cpu_reserve_cores,
+            policy.assume_hyperthreading,
         )
     else:
         host_spec = HostSpec()
 
-    host_effective_cores = host_spec.effective_cores
+    # Hypervisor CPU reserve is set in PHYSICAL cores - when HT is on,
+    # that translates to threads_per_core times as many EFFECTIVE
+    # (logical) cores, matching how host_spec.effective_cores itself
+    # scales physical cores by threads_per_core.
+    ht_multiplier = host_spec.threads_per_core if host_spec.hyperthreading_enabled else 1
+    reserved_effective_cores = policy.hypervisor_cpu_reserve_cores * ht_multiplier
+    host_effective_cores = max(1, host_spec.effective_cores - reserved_effective_cores)
     hosts_for_cpu = _hosts_needed(total_effective_vcpu, host_effective_cores)
     hosts_for_ram = _hosts_needed(total_ram_with_reserve_gb, host_spec.ram_gb)
 
-    base_hosts = max(hosts_for_cpu, hosts_for_ram, _MIN_CLUSTER_HOSTS if primary_vms else 0)
+    base_hosts = max(hosts_for_cpu, hosts_for_ram, _MIN_CLUSTER_HOSTS if (primary_vms or using_manual_demand) else 0)
     binding_constraint = "RAM" if hosts_for_ram >= hosts_for_cpu else "CPU"
 
     ha_extra = _HA_EXTRA_HOSTS.get(policy.ha_level, 0)
-    required_hosts = base_hosts + ha_extra if primary_vms else 0
+    required_hosts = base_hosts + ha_extra if (primary_vms or using_manual_demand) else 0
 
     raw_oversubscription_ratio = (
         total_vcpu_raw / (required_hosts * host_effective_cores)
@@ -259,6 +327,7 @@ def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResul
         vm_count=len(primary_vms),
         dr_site_vm_count=dr_site_vm_count,
         workload_breakdown=breakdown,
+        used_manual_demand=using_manual_demand,
         total_vcpu_raw=total_vcpu_raw,
         total_effective_vcpu=total_effective_vcpu,
         total_ram_demand_gb=total_ram_demand_gb,
@@ -282,4 +351,95 @@ def compute_sizing(project: ClusterProject, policy: SizingPolicy) -> SizingResul
         dr_storage_demand_gb=dr_storage_demand_gb,
         dr_recommended_storage_usable_tb=dr_recommended_storage_usable_tb,
         dr_recommended_storage_raw_tb=dr_recommended_storage_raw_tb,
+    )
+
+
+# ----------------------------------------------------------------------
+# N-site recommendations - a NEW, generic path alongside the DR-specific
+# fields above (which stay as-is, driven by pre-existing FailoverAssignment
+# records - kept for backward compatibility with anyone already using that
+# flow). This one works for ANY site (DR, DR2, a third site, etc.) and is
+# driven by DR Category selection instead of requiring FailoverAssignment
+# records to already exist - "which categories of Primary VM need to be
+# able to run at this site" is asked directly, matching how a real DR
+# planning conversation actually goes ("everything except DWH and test/
+# dev"), rather than requiring the assignments to be set up by hand first.
+# ----------------------------------------------------------------------
+
+@dataclass
+class SiteRecommendation:
+    site: str
+    included_categories: list[str]
+    vm_count: int
+    included_vm_uids: list[str]  # for creating FailoverAssignment records afterward, if the user opts in
+
+    total_vcpu_raw: int
+    effective_vcpu: float
+    ram_demand_gb: float
+    storage_demand_gb: float
+
+    hosts_for_cpu: int
+    hosts_for_ram: int
+    binding_constraint: str
+    required_hosts: int
+
+    recommended_storage_usable_tb: float
+    recommended_storage_raw_tb: float
+
+
+def compute_site_recommendation(
+    project: ClusterProject,
+    policy: SizingPolicy,
+    host_spec: HostSpec,
+    target_site: str,
+    included_categories: set[str],
+) -> SiteRecommendation:
+    """Sizes target_site to hold whichever Primary VMs fall into
+    included_categories (VirtualMachine.dr_category) - reuses host_spec
+    AS GIVEN rather than re-optimizing, so every site the wizard
+    recommends uses the SAME hardware spec as Primary (consistent
+    purchasing), just a different host count."""
+    growth_factor = 1 + (policy.growth_percent / 100)
+    reserve_factor = max(0.01, 1 - (policy.memory_reserve_percent / 100))
+    storage_overhead_factor = max(0.01, 1 - (policy.storage_overhead_percent / 100))
+
+    primary_vms = project.vms_at(PRIMARY)
+    qualifying_vms = [vm for vm in primary_vms if vm.dr_category in included_categories]
+
+    total_vcpu_raw = sum(vm.vcpu for vm in qualifying_vms)
+    effective_vcpu = sum(_effective_vcpu(vm, policy) for vm in qualifying_vms) * growth_factor
+    ram_demand_gb = sum(vm.ram_gb for vm in qualifying_vms)
+    ram_with_reserve_gb = (ram_demand_gb * growth_factor) / reserve_factor
+    storage_demand_gb = sum(vm.disk_gb for vm in qualifying_vms) * growth_factor
+
+    ht_multiplier = host_spec.threads_per_core if host_spec.hyperthreading_enabled else 1
+    reserved_effective_cores = policy.hypervisor_cpu_reserve_cores * ht_multiplier
+    host_effective_cores = max(1, host_spec.effective_cores - reserved_effective_cores)
+
+    hosts_for_cpu = _hosts_needed(effective_vcpu, host_effective_cores)
+    hosts_for_ram = _hosts_needed(ram_with_reserve_gb, host_spec.ram_gb)
+    binding_constraint = "RAM" if hosts_for_ram >= hosts_for_cpu else "CPU"
+
+    ha_extra = _HA_EXTRA_HOSTS.get(policy.ha_level, 0)
+    base_hosts = max(hosts_for_cpu, hosts_for_ram, _MIN_CLUSTER_HOSTS if qualifying_vms else 0)
+    required_hosts = base_hosts + ha_extra if qualifying_vms else 0
+
+    recommended_storage_usable_tb = storage_demand_gb / 1024
+    recommended_storage_raw_tb = recommended_storage_usable_tb / storage_overhead_factor
+
+    return SiteRecommendation(
+        site=target_site,
+        included_categories=sorted(included_categories),
+        vm_count=len(qualifying_vms),
+        included_vm_uids=[vm.uid for vm in qualifying_vms],
+        total_vcpu_raw=total_vcpu_raw,
+        effective_vcpu=effective_vcpu,
+        ram_demand_gb=ram_demand_gb,
+        storage_demand_gb=storage_demand_gb,
+        hosts_for_cpu=hosts_for_cpu,
+        hosts_for_ram=hosts_for_ram,
+        binding_constraint=binding_constraint,
+        required_hosts=required_hosts,
+        recommended_storage_usable_tb=recommended_storage_usable_tb,
+        recommended_storage_raw_tb=recommended_storage_raw_tb,
     )

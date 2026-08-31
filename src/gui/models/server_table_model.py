@@ -85,7 +85,7 @@ class ServerTableModel(QAbstractTableModel):
             case 10:
                 return server.total_cores
             case 11:
-                return server.effective_cores
+                return server.effective_cores if server.hyperthreading_enabled else "-"
             case 12:
                 return server.ram_gb
             case 13:

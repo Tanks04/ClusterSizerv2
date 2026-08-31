@@ -6,21 +6,29 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
     QWizard,
     QWizardPage,
 )
 
 from src.calculations.cluster_preparation import (
-    compute_sizing, SizingPolicy, HostSpec, HA_LEVELS,
+    compute_sizing, SizingPolicy, HostSpec, HA_LEVELS, ManualDemand,
+    compute_site_recommendation as compute_site_recommendation_calc,
 )
 from src.calculations.thresholds import PRESETS
 from src.models.cluster_project import ClusterProject
 from src.models.server import Server
 from src.models.storage import Storage
-from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
+from src.models.backup_destination import BackupDestination, DESTINATION_TYPES
+from src.models.failover_assignment import FailoverAssignment
+from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
+from src.models.virtual_machine import DR_CATEGORIES
 from src.gui.error_handling import report_error
 
 _HA_EXPLANATIONS = {
@@ -119,18 +127,62 @@ class WorkloadPage(QWizardPage):
             self.ratio_spins[name] = spin
 
         layout.addWidget(self.ratio_box)
+
+        self.manual_demand_box = QGroupBox("No VMs yet - enter aggregate demand directly")
+        self.manual_demand_box.setToolTip(
+            "Sizes the cluster from these totals instead of real VM records - useful "
+            "for a brand-new environment before anything's been entered on the VMs "
+            "tab yet. One workload tier applies to the whole total, since there's no "
+            "per-VM breakdown here by nature. Ignored once real VMs exist on the VMs "
+            "tab - DR sizing also isn't available in this mode, since DR footprint "
+            "comes from FailoverAssignment records tied to real VMs."
+        )
+        manual_form = QFormLayout(self.manual_demand_box)
+
+        self.manual_vcpu_spin = QSpinBox()
+        self.manual_vcpu_spin.setRange(0, 100000)
+        self.manual_vcpu_spin.setSuffix(" vCPU")
+        manual_form.addRow("Total vCPU needed", self.manual_vcpu_spin)
+
+        self.manual_ram_spin = QDoubleSpinBox()
+        self.manual_ram_spin.setRange(0.0, 1000000.0)
+        self.manual_ram_spin.setSuffix(" GB")
+        manual_form.addRow("Total RAM needed", self.manual_ram_spin)
+
+        self.manual_disk_spin = QDoubleSpinBox()
+        self.manual_disk_spin.setRange(0.0, 10000000.0)
+        self.manual_disk_spin.setSuffix(" GB")
+        manual_form.addRow("Total Disk needed", self.manual_disk_spin)
+
+        self.manual_tier_combo = QComboBox()
+        self.manual_tier_combo.addItems(WORKLOAD_TIER_NAMES)
+        self.manual_tier_combo.setCurrentText(DEFAULT_WORKLOAD_TIER)
+        manual_form.addRow("Workload Tier (applies to the whole total)", self.manual_tier_combo)
+
+        layout.addWidget(self.manual_demand_box)
         layout.addStretch()
+
+    def manual_demand(self) -> "ManualDemand":
+        return ManualDemand(
+            vcpu=self.manual_vcpu_spin.value(),
+            ram_gb=self.manual_ram_spin.value(),
+            disk_gb=self.manual_disk_spin.value(),
+            workload_tier=self.manual_tier_combo.currentText(),
+        )
 
     def initializePage(self):
         primary_vms = self.project.vms_at("Primary")
         dr_site_count = len(self.project.vms_at("DR"))
 
         if not primary_vms:
-            msg = "No VMs on the VMs tab yet - add some there first, with a Workload Tier set on each."
+            msg = "No VMs on the VMs tab yet - enter aggregate demand below, or add real VMs there first."
             if dr_site_count:
                 msg += f" ({dr_site_count} VM(s) are tagged site=DR and would be excluded from this sizing anyway.)"
             self.summary_label.setText(msg)
+            self.manual_demand_box.setVisible(True)
             return
+
+        self.manual_demand_box.setVisible(False)
 
         breakdown: dict[str, int] = {}
         for vm in primary_vms:
@@ -169,7 +221,10 @@ class PolicyPage(QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle("Policy")
-        self.setSubTitle("If you skip these, sensible defaults are used - N+1, 30% growth, 20% reserve.")
+        self.setSubTitle(
+            "If you skip these, sensible defaults are used - N+1, 30% growth, "
+            "20% reserve, 2 cores/host reserved for the hypervisor, Hyperthreading off."
+        )
 
         layout = QFormLayout(self)
 
@@ -217,6 +272,30 @@ class PolicyPage(QWizardPage):
         )
         layout.addRow("Storage Overhead", self.storage_overhead_spin)
 
+        self.cpu_reserve_spin = QSpinBox()
+        self.cpu_reserve_spin.setRange(0, 16)
+        self.cpu_reserve_spin.setSuffix(" cores/host")
+        self.cpu_reserve_spin.setValue(2)
+        self.cpu_reserve_spin.setToolTip(
+            "Physical cores per host reserved for the hypervisor itself, subtracted "
+            "from usable capacity before sizing - matches how Memory Reserve already "
+            "works for RAM, just in absolute cores rather than a percentage (a "
+            "hypervisor's own CPU footprint is closer to a fixed cost than "
+            "proportional to host size). Set to 0 to disable and size on raw "
+            "capacity alone."
+        )
+        layout.addRow("Hypervisor CPU Reserve", self.cpu_reserve_spin)
+
+        self.ht_check = QCheckBox("Hyperthreading Enabled")
+        self.ht_check.setChecked(False)
+        self.ht_check.setToolTip(
+            "Whether the recommended host spec assumes Hyperthreading is on. "
+            "Off by default - HT gains vary by workload and aren't guaranteed, so "
+            "sizing without relying on it is the more conservative starting point. "
+            "You can still edit this per-field on the Result page afterward."
+        )
+        layout.addRow("", self.ht_check)
+
     def _update_ha_explanation(self):
         self.ha_explanation_label.setText(_HA_EXPLANATIONS.get(self.ha_combo.currentText(), ""))
 
@@ -235,7 +314,19 @@ class ResultPage(QWizardPage):
             "the target ratio. Adjust it and the numbers recalculate live."
         )
 
-        layout = QVBoxLayout(self)
+        # The result text plus the editable spec box comfortably exceeds
+        # a typical wizard page's fixed height - without this, content
+        # past the bottom (notably the hypervisor-CPU-reservation warning
+        # and, once queued, the "click Finish" confirmation) is simply
+        # cut off with no way to reach it. Same fix already applied to
+        # Summary/Settings for the same class of problem.
+        outer_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(scroll_area)
 
         self.result_label = QLabel("")
         self.result_label.setWordWrap(True)
@@ -327,8 +418,269 @@ class ResultPage(QWizardPage):
 
 
 # ----------------------------------------------------------------------
-# The wizard itself
+# Page 5 - Additional Sites (optional, one block per non-Primary site)
 # ----------------------------------------------------------------------
+
+class AdditionalSitesPage(QWizardPage):
+    """One block per site in project.site_names other than Primary -
+    opt in per site, pick which DR Categories should be sized for it,
+    see a live recommendation, and add it - reusing Primary's host spec
+    for consistent hardware across sites. Driven by DR Category
+    selection rather than requiring FailoverAssignment records to
+    already exist, matching how a real DR conversation actually goes
+    ("everything except DWH and test/dev")."""
+
+    def __init__(self, wizard: "ClusterPreparationWizard", parent=None):
+        super().__init__(parent)
+        self._wizard_ref = wizard
+        self.setTitle("Additional Sites")
+        self.setSubTitle(
+            "Optional - recommend a cluster for other sites too, sized to hold only "
+            "the DR Categories you select below. Reuses the same host spec as Primary."
+        )
+
+        outer_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        self._layout = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(scroll_area)
+
+        self.no_sites_label = QLabel(
+            "No additional sites yet - add one on the Settings tab (Sites section) "
+            "first if you want a recommendation for a DR/second site."
+        )
+        self.no_sites_label.setWordWrap(True)
+        self.no_sites_label.setVisible(False)
+        self._layout.addWidget(self.no_sites_label)
+
+        self._site_widgets: dict[str, dict] = {}
+        self._known_sites: list[str] = []
+        self._layout.addStretch()
+
+    def initializePage(self):
+        current_sites = [s for s in self._wizard_ref.project.site_names if s != "Primary"]
+        if current_sites == self._known_sites:
+            self._recompute_all()
+            return
+
+        for widgets in self._site_widgets.values():
+            widgets["box"].setParent(None)
+            widgets["box"].deleteLater()
+        self._site_widgets.clear()
+
+        self.no_sites_label.setVisible(not current_sites)
+
+        stretch_item = self._layout.takeAt(self._layout.count() - 1)  # remove trailing stretch
+        for site in current_sites:
+            box = self._build_site_box(site)
+            self._layout.insertWidget(self._layout.count(), box)
+        if stretch_item is not None:
+            self._layout.addItem(stretch_item)
+        else:
+            self._layout.addStretch()
+
+        self._known_sites = current_sites
+        self._recompute_all()
+
+    def _build_site_box(self, site: str) -> QGroupBox:
+        box = QGroupBox(f"Recommend for {site}")
+        box.setCheckable(True)
+        box.setChecked(False)
+        form = QVBoxLayout(box)
+
+        category_checks = {}
+        for category in DR_CATEGORIES:
+            check = QCheckBox(category)
+            check.setChecked(category in ("Core / Mission-Critical", "Important"))
+            check.toggled.connect(lambda checked=False, s=site: self._recompute_site(s))
+            form.addWidget(check)
+            category_checks[category] = check
+
+        result_label = QLabel("")
+        result_label.setWordWrap(True)
+        form.addWidget(result_label)
+
+        add_button = QPushButton(f"Add Recommended Cluster to Project ({site})")
+        add_button.clicked.connect(lambda checked=False, s=site: self._wizard_ref.add_site_cluster(s))
+        form.addWidget(add_button)
+
+        box.toggled.connect(lambda checked=False, s=site: self._recompute_site(s))
+
+        self._site_widgets[site] = {
+            "box": box,
+            "category_checks": category_checks,
+            "result_label": result_label,
+            "add_button": add_button,
+        }
+        return box
+
+    def selected_categories(self, site: str) -> set[str]:
+        widgets = self._site_widgets.get(site)
+        if not widgets or not widgets["box"].isChecked():
+            return set()
+        return {cat for cat, check in widgets["category_checks"].items() if check.isChecked()}
+
+    def _recompute_all(self):
+        for site in self._site_widgets:
+            self._recompute_site(site)
+
+    def _recompute_site(self, site: str):
+        widgets = self._site_widgets.get(site)
+        if widgets is None:
+            return
+        enabled = widgets["box"].isChecked()
+        for check in widgets["category_checks"].values():
+            check.setEnabled(enabled)
+        widgets["add_button"].setEnabled(enabled)
+
+        if not enabled:
+            widgets["result_label"].setText("")
+            return
+
+        categories = self.selected_categories(site)
+        rec = self._wizard_ref.compute_site_recommendation(site, categories)
+        if rec.vm_count == 0:
+            widgets["result_label"].setText(
+                "No Primary VMs match the selected categories - nothing to size."
+            )
+            return
+        widgets["result_label"].setText(
+            f"<b>{rec.required_hosts} host(s)</b> for {rec.vm_count} VM(s) "
+            f"({rec.hosts_for_cpu} for CPU, {rec.hosts_for_ram} for RAM, "
+            f"{rec.binding_constraint} is the limiting factor).<br>"
+            f"Storage: {rec.recommended_storage_usable_tb:.1f} TB usable "
+            f"({rec.recommended_storage_raw_tb:.1f} TB raw).<br>"
+            "<i>Adding this also creates a Failover Assignment for each included VM, "
+            "targeting this site, defaulting to the VM's own current size - "
+            "adjust individually afterward on the VMs tab if needed.</i>"
+        )
+
+
+# ----------------------------------------------------------------------
+# Page 6 - Backup (optional)
+# ----------------------------------------------------------------------
+
+class BackupPage(QWizardPage):
+    """Optional mini-form for one or more Backup Destinations - fill in
+    one, click Add, the form resets so you can add another (e.g. a
+    local repo, then an offsite/immutable copy - the two-destination
+    shape most of this app's own example projects use for 3-2-1-1).
+    Skippable entirely; nothing is required here."""
+
+    def __init__(self, wizard: "ClusterPreparationWizard", parent=None):
+        super().__init__(parent)
+        self._wizard_ref = wizard
+        self.setTitle("Backup")
+        self.setSubTitle(
+            "Optional - queue one or more backup destinations for the new cluster. "
+            "Fill in one, click Add, then fill in another if you want more than one "
+            "(e.g. a local repo plus an offsite immutable copy)."
+        )
+
+        outer_layout = QVBoxLayout(self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(scroll_area)
+
+        form_box = QGroupBox("New Backup Destination")
+        form = QFormLayout(form_box)
+
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("e.g. veeam-repo-primary")
+        form.addRow("Name", self.name_edit)
+
+        self.site_combo = QComboBox()
+        form.addRow("Site", self.site_combo)
+
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(DESTINATION_TYPES)
+        form.addRow("Type", self.type_combo)
+
+        self.software_edit = QLineEdit()
+        self.software_edit.setPlaceholderText("e.g. Veeam, Commvault...")
+        form.addRow("Backup Software", self.software_edit)
+
+        self.raw_capacity_spin = QDoubleSpinBox()
+        self.raw_capacity_spin.setRange(0.0, 100000.0)
+        self.raw_capacity_spin.setSuffix(" TB")
+        form.addRow("Raw Capacity", self.raw_capacity_spin)
+
+        self.dedup_spin = QDoubleSpinBox()
+        self.dedup_spin.setRange(1.0, 100.0)
+        self.dedup_spin.setValue(1.0)
+        self.dedup_spin.setSuffix(" : 1")
+        form.addRow("Dedup Ratio", self.dedup_spin)
+
+        self.offsite_check = QCheckBox("Offsite")
+        form.addRow("", self.offsite_check)
+
+        self.immutable_check = QCheckBox("Immutable")
+        form.addRow("", self.immutable_check)
+
+        self.location_edit = QLineEdit()
+        self.location_edit.setPlaceholderText("e.g. Azure Blob Storage - West Europe (optional)")
+        form.addRow("Location", self.location_edit)
+
+        add_button = QPushButton("Add This Destination")
+        add_button.clicked.connect(self._add_destination)
+        form.addRow("", add_button)
+
+        layout.addWidget(form_box)
+
+        self.queued_label = QLabel("No backup destinations queued yet.")
+        self.queued_label.setWordWrap(True)
+        layout.addWidget(self.queued_label)
+        layout.addStretch()
+
+    def initializePage(self):
+        current = self.site_combo.currentText()
+        self.site_combo.clear()
+        self.site_combo.addItems(self._wizard_ref.project.site_names)
+        if current in self._wizard_ref.project.site_names:
+            self.site_combo.setCurrentText(current)
+
+    def _add_destination(self):
+        if not self.name_edit.text().strip():
+            QMessageBox.information(self, "Backup", "Give this destination a name first.")
+            return
+
+        destination = BackupDestination.create_default()
+        destination.name = self.name_edit.text().strip()
+        destination.site = self.site_combo.currentText()
+        destination.destination_type = self.type_combo.currentText()
+        destination.backup_software = self.software_edit.text().strip()
+        destination.raw_capacity_tb = self.raw_capacity_spin.value()
+        destination.dedup_ratio = self.dedup_spin.value()
+        destination.is_offsite = self.offsite_check.isChecked()
+        destination.is_immutable = self.immutable_check.isChecked()
+        destination.location = self.location_edit.text().strip()
+        destination.notes = "Added by Cluster Preparation."
+
+        self._wizard_ref.new_backup_destinations.append(destination)
+
+        names = ", ".join(d.name for d in self._wizard_ref.new_backup_destinations)
+        self.queued_label.setText(
+            f"<b>{len(self._wizard_ref.new_backup_destinations)} destination(s) queued:</b> {names}.<br>"
+            "Nothing has been saved to your project yet - click Finish to actually add them."
+        )
+
+        # Reset the form for the next entry, but keep Site (most setups
+        # add several destinations at the same site or a natural pair
+        # like Primary then DR, so re-picking every time is more friction
+        # than it's worth).
+        self.name_edit.clear()
+        self.software_edit.clear()
+        self.raw_capacity_spin.setValue(0.0)
+        self.dedup_spin.setValue(1.0)
+        self.offsite_check.setChecked(False)
+        self.immutable_check.setChecked(False)
+        self.location_edit.clear()
+
 
 class ClusterPreparationWizard(QWizard):
     """Reverse-direction sizing: given the VMs already entered on the VMs
@@ -363,21 +715,35 @@ class ClusterPreparationWizard(QWizard):
         self.workload_page = WorkloadPage(project)
         self.policy_page = PolicyPage()
         self.result_page = ResultPage(self)
+        self.additional_sites_page = AdditionalSitesPage(self)
+        self.backup_page = BackupPage(self)
 
         self.addPage(self.hypervisor_page)
         self.addPage(self.workload_page)
         self.addPage(self.policy_page)
         self.addPage(self.result_page)
+        self.addPage(self.additional_sites_page)
+        self.addPage(self.backup_page)
 
         self.host_spec_override: HostSpec | None = None
 
         self.recommended_primary_hosts = 0
         self.recommended_dr_hosts = 0
+        self._last_policy: SizingPolicy | None = None
+        self._last_primary_host_spec: HostSpec | None = None
 
         self.new_primary_servers: list[Server] = []
         self.new_primary_storage: list[Storage] = []
         self.new_dr_servers: list[Server] = []
         self.new_dr_storage: list[Storage] = []
+
+        # Generic N-site queues, keyed by site name - populated by
+        # add_site_cluster() below, read back by the caller
+        # (VirtualMachinesPage._open_cluster_preparation) after the
+        # wizard closes, same pattern as the Primary/DR queues above.
+        self.new_site_clusters: dict[str, tuple[list[Server], list[Storage]]] = {}
+        self.new_failover_assignments: list[FailoverAssignment] = []
+        self.new_backup_destinations: list[BackupDestination] = []
 
     # ------------------------------------------------------------------
     # Sizing
@@ -390,6 +756,8 @@ class ClusterPreparationWizard(QWizard):
             growth_percent=self.policy_page.growth_spin.value(),
             memory_reserve_percent=self.policy_page.reserve_spin.value(),
             storage_overhead_percent=self.policy_page.storage_overhead_spin.value(),
+            hypervisor_cpu_reserve_cores=self.policy_page.cpu_reserve_spin.value(),
+            assume_hyperthreading=self.policy_page.ht_check.isChecked(),
             host_spec=self.host_spec_override,  # None -> compute_sizing auto-optimizes
             target_cpu_ratio=vendor_preset.thresholds.cpu_warning_ratio * 0.75,
             ratio_overrides=self.workload_page.ratio_overrides(),
@@ -398,7 +766,7 @@ class ClusterPreparationWizard(QWizard):
     def recompute(self, refill_spec_fields: bool = True):
         policy = self.build_policy()
         try:
-            result = compute_sizing(self.project, policy)
+            result = compute_sizing(self.project, policy, manual_demand=self.workload_page.manual_demand())
         except Exception as exc:
             report_error(self, "Cluster Preparation", exc)
             self.result_page.result_label.setText(
@@ -414,6 +782,9 @@ class ClusterPreparationWizard(QWizard):
         self.recommended_dr_hosts = result.dr_required_hosts
         self.recommended_dr_storage_usable_tb = result.dr_recommended_storage_usable_tb
         self.recommended_dr_storage_raw_tb = result.dr_recommended_storage_raw_tb
+
+        self._last_policy = policy
+        self._last_primary_host_spec = result.host_spec
 
         if refill_spec_fields:
             self.result_page.fill_spec_fields(result.host_spec)
@@ -442,8 +813,17 @@ class ClusterPreparationWizard(QWizard):
             if result.dr_vm_count else "No DR-protected VMs - nothing to size for DR."
         )
 
+        if result.used_manual_demand:
+            vm_count_line = (
+                f"<b>Sized from manual entry:</b> {result.total_vcpu_raw} vCPU / "
+                f"{result.total_ram_demand_gb:.0f} GB RAM / {result.total_storage_demand_gb / 1024:.1f} TB "
+                f"disk (no real VMs on the VMs tab yet - DR sizing isn't available in this mode)."
+            )
+        else:
+            vm_count_line = f"<b>{result.vm_count} Primary VMs.</b>{dr_site_note}"
+
         self.result_page.result_label.setText(
-            f"<b>{result.vm_count} Primary VMs.</b>{dr_site_note}<br><br>"
+            f"{vm_count_line}<br><br>"
             f"<b>Primary: {result.required_hosts} host(s)</b> "
             f"({result.hosts_for_cpu} for CPU, {result.hosts_for_ram} for RAM, "
             f"+{result.ha_extra_hosts} for {policy.ha_level}). {limiting}"
@@ -460,13 +840,22 @@ class ClusterPreparationWizard(QWizard):
             f"<i>Assumptions: {vendor_preset.label}, {policy.ha_level} HA, "
             f"{policy.growth_percent:.0f}% growth, {policy.memory_reserve_percent:.0f}% "
             f"memory reserve, {policy.storage_overhead_percent:.0f}% storage overhead.</i><br><br>"
-            f"\u26a0 <b>Not reserved above: CPU for the hypervisor itself</b> (only RAM is, via "
-            f"Memory Reserve). Real hypervisors do consume some CPU - commonly cited around "
-            f"8-10% overhead for VMware ESXi (similar magnitude to its RAM overhead). Hyper-V's "
-            f"parent partition runs a full Windows Server, so its overhead tends to run higher, "
-            f"though there's no single widely-quoted figure the way there is for VMware. Leave "
-            f"yourself a small margin if you're sizing close to the edge."
         )
+        if policy.hypervisor_cpu_reserve_cores > 0:
+            self.result_page.result_label.setText(
+                self.result_page.result_label.text() +
+                f"<b>{policy.hypervisor_cpu_reserve_cores} physical core(s) per host reserved for the "
+                f"hypervisor itself</b> - already subtracted from the effective capacity used above, "
+                f"not just a note. Adjust on the Policy page if you know your actual footprint differs."
+            )
+        else:
+            self.result_page.result_label.setText(
+                self.result_page.result_label.text() +
+                "\u26a0 <b>No CPU reserved for the hypervisor itself</b> (RAM still reserves "
+                f"{policy.memory_reserve_percent:.0f}% above). Real hypervisors do consume some CPU - "
+                "commonly cited around 8-10% overhead for VMware ESXi. Turned off on the Policy page - "
+                "set it back above 0 if you'd rather have this reserved automatically."
+            )
 
         self.result_page.add_primary_button.setEnabled(self.recommended_primary_hosts > 0)
         self.result_page.add_dr_button.setEnabled(self.recommended_dr_hosts > 0)
@@ -537,9 +926,70 @@ class ClusterPreparationWizard(QWizard):
             return
         self._confirm_added("DR", len(self.new_dr_servers), len(self.new_dr_storage))
 
+    def compute_site_recommendation(self, site: str, categories: set[str]):
+        """Wraps the calculation module's function, reusing the CURRENT
+        policy and Primary's host spec (computed by the last recompute())
+        so every site shares consistent hardware."""
+        if self._last_policy is None or self._last_primary_host_spec is None:
+            self.recompute(refill_spec_fields=False)
+        return compute_site_recommendation_calc(
+            self.project, self._last_policy, self._last_primary_host_spec,
+            site, categories,
+        )
+
+    def add_site_cluster(self, site: str):
+        """Queues the recommended servers/storage for this site AND a
+        FailoverAssignment for each included VM, targeting this site,
+        defaulting to the VM's own current size - one undo step once
+        actually committed by the caller after the wizard closes."""
+        try:
+            categories = self.additional_sites_page.selected_categories(site)
+            rec = self.compute_site_recommendation(site, categories)
+
+            servers = self._make_servers(rec.required_hosts, site, f"recommended-{site.lower()}")
+            storage = self._make_storage(
+                rec.recommended_storage_usable_tb, rec.recommended_storage_raw_tb,
+                site, f"recommended-storage-{site.lower()}",
+            )
+            self.new_site_clusters[site] = (servers, storage)
+
+            vm_by_uid = {vm.uid: vm for vm in self.project.vms}
+            new_assignments = []
+            for vm_uid in rec.included_vm_uids:
+                vm = vm_by_uid.get(vm_uid)
+                if vm is None:
+                    continue
+                assignment = FailoverAssignment.create_default()
+                assignment.vm_uid = vm.uid
+                assignment.target_site = site
+                assignment.vcpu = vm.vcpu
+                assignment.ram_gb = vm.ram_gb
+                assignment.disk_gb = vm.disk_gb
+                new_assignments.append(assignment)
+            # Replace any assignments THIS wizard already queued for this
+            # site (e.g. re-clicking Add after changing category checkboxes)
+            # rather than accumulating duplicates.
+            self.new_failover_assignments = [
+                a for a in self.new_failover_assignments if a.target_site != site
+            ] + new_assignments
+        except Exception as exc:
+            self.new_site_clusters.pop(site, None)
+            report_error(self, "Cluster Preparation", exc)
+            return
+
+        QMessageBox.information(
+            self, "Queued",
+            f"{len(servers)} {site} server(s), {len(storage)} storage system(s), and "
+            f"{len(new_assignments)} Failover Assignment(s) queued.\n\n"
+            "Nothing has been saved to your project yet - click Finish (bottom of the "
+            "wizard) to actually add them.",
+        )
+
     def _confirm_added(self, site: str, server_count: int, storage_count: int):
-        self.result_page.result_label.setText(
-            self.result_page.result_label.text() +
-            f"<br><br><b>{server_count} {site} server(s) and {storage_count} storage "
-            "system(s) queued - click Finish, they'll be added to your project.</b>"
+        QMessageBox.information(
+            self,
+            "Queued",
+            f"{server_count} {site} server(s) and {storage_count} storage system(s) queued.\n\n"
+            "Nothing has been saved to your project yet - click Finish (bottom of the "
+            "wizard) to actually add them.",
         )

@@ -77,14 +77,14 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
     )
 
 
-def build_failover_report(project: ClusterProject, site: str) -> FailoverReport:
+def build_failover_report(project: ClusterProject, site: str, thresholds: Thresholds) -> FailoverReport:
     """Generic per-site version - works for any site in project.site_names,
     not just a fixed "DR"."""
     return FailoverReport(
-        cpu_ok=project.failover_cpu_ok(site),
+        cpu_ok=project.failover_cpu_ok(site, thresholds),
         ram_ok=project.failover_ram_ok(site),
         storage_ok=project.failover_storage_ok(site),
-        ready=project.failover_ready(site),
+        ready=project.failover_ready(site, thresholds),
         assigned_vm_count=project.failover_assigned_vm_count(site),
         failover_vcpu_demand=project.failover_vcpu_demand(site),
         failover_ram_demand_gb=project.failover_ram_demand_gb(site),

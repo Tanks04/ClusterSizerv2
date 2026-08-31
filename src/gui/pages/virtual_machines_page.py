@@ -345,6 +345,14 @@ class VirtualMachinesPage(QWidget):
         self._apply_cluster_prep_site(
             "DR", dialog.new_dr_servers, dialog.new_dr_storage,
         )
+        for site, (servers, storages) in dialog.new_site_clusters.items():
+            self._apply_cluster_prep_site(site, servers, storages)
+
+        for assignment in dialog.new_failover_assignments:
+            self.service.add_failover_assignment(assignment)
+
+        if dialog.new_backup_destinations:
+            self.service.add_backup_destinations(dialog.new_backup_destinations)
 
     def _apply_cluster_prep_site(self, site: str, servers: list, storages: list) -> None:
         if not servers and not storages:
