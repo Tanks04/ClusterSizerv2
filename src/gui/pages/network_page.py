@@ -25,6 +25,7 @@ from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.gui.dialogs.connection_dialog import ConnectionDialog
 from src.gui.dialogs.vlan_dialog import VlanDialog
 from src.gui.models.switch_table_model import SwitchTableModel
+from src.gui.widgets.redundancy_border_delegate import RedundancyBorderDelegate
 from src.gui.models.connection_table_model import ConnectionTableModel
 from src.gui.models.vlan_table_model import VlanTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
@@ -150,6 +151,7 @@ class NetworkPage(QWidget):
 
         self.switch_table = MultiSelectTableView()
         self.switch_table.set_source_model(self.switch_model)
+        self.switch_table.setItemDelegate(RedundancyBorderDelegate(self.switch_table))
         self.switch_table.edit_requested.connect(self._edit_switch)
         self.switch_table.delete_requested.connect(self._delete_switches)
         self.switch_table.copy_requested.connect(self._duplicate_switches)

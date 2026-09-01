@@ -1,13 +1,20 @@
 from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
-from src.models.network_switch import NetworkSwitch
+from PySide6.QtGui import QColor
+from src.models.network_switch import NetworkSwitch, redundancy_group_color
 from src.calculations.networking import switch_port_usage, format_usage, any_over_committed
+
+# Custom role carrying the redundancy border color (or None) for a row -
+# read by RedundancyBorderDelegate via index.data(...), which Qt
+# resolves correctly whether the view goes through this model directly
+# or through a QSortFilterProxyModel wrapping it.
+REDUNDANCY_BORDER_COLOR_ROLE = Qt.ItemDataRole.UserRole
 
 
 class SwitchTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "Vendor", "Model", "Type", "Ports (declared)", "Used/Free", "Rack (U)", "Power (W)", "Notes"]
+    HEADERS = ["Name", "Site", "Vendor", "Model", "Type", "Redundancy", "Ports (declared)", "Used/Free", "Rack (U)", "Power (W)", "Notes"]
 
     def __init__(
         self,
@@ -37,11 +44,18 @@ class SwitchTableModel(QAbstractTableModel):
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
     def data(self, index, role):
-        if not index.isValid() or role != Qt.ItemDataRole.DisplayRole:
+        if not index.isValid():
             return None
 
         switch = self._switches[index.row()]
         column = index.column()
+
+        if role == REDUNDANCY_BORDER_COLOR_ROLE:
+            color = redundancy_group_color(switch.redundancy_group)
+            return QColor(color) if color else None
+
+        if role != Qt.ItemDataRole.DisplayRole:
+            return None
 
         match column:
             case 0:
@@ -55,6 +69,11 @@ class SwitchTableModel(QAbstractTableModel):
             case 4:
                 return switch.switch_type
             case 5:
+                if not switch.redundancy_group:
+                    return "-"
+                role_suffix = f" ({switch.redundancy_role})" if switch.redundancy_role else ""
+                return f"{switch.redundancy_group}{role_suffix}"
+            case 6:
                 parts = []
                 if switch.ports_1g:
                     parts.append(f"1G:{switch.ports_1g}")
@@ -69,15 +88,15 @@ class SwitchTableModel(QAbstractTableModel):
                 if switch.ports_fc:
                     parts.append(f"FC:{switch.ports_fc}")
                 return " ".join(parts) if parts else "-"
-            case 6:
+            case 7:
                 usage = switch_port_usage(switch, self._connections_provider())
                 text = format_usage(usage)
                 return f"⚠ {text}" if any_over_committed(usage) else text
-            case 7:
-                return switch.rack_units if switch.rack_units else "-"
             case 8:
-                return switch.power_watts if switch.power_watts else "-"
+                return switch.rack_units if switch.rack_units else "-"
             case 9:
+                return switch.power_watts if switch.power_watts else "-"
+            case 10:
                 return switch.notes or "-"
 
         return None

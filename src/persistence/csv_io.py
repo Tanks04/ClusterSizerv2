@@ -67,6 +67,7 @@ VM_CORE_FIELDS = ["name", "site", "vcpu", "ram_gb", "disk_gb"]
 SWITCH_FIELDS = [
     "name", "site", "vendor", "model", "switch_type",
     "ports_1g", "ports_10g", "ports_25g", "ports_40g", "ports_100g", "ports_fc", "ports_sas",
+    "redundancy_group", "redundancy_role",
     "rack_units", "power_watts", "price",
     "notes",
 ]
@@ -87,8 +88,8 @@ VLAN_CORE_FIELDS = ["name", "site", "network"]
 # should be filled per row - which two determines the connection kind
 # (Server<->Switch, Storage<->Switch, or Server<->Storage direct-attach).
 CONNECTION_FIELDS = [
-    "server_name", "switch_name", "storage_name", "speed", "media",
-    "switch_port_label", "purpose", "notes",
+    "server_name", "switch_name", "storage_name", "switch_b_name", "speed", "media",
+    "switch_port_label", "purpose", "dedicated_link", "notes",
 ]
 CONNECTION_CORE_FIELDS = ["server_name", "switch_name", "storage_name", "speed"]
 
@@ -370,6 +371,8 @@ def import_switches(path: str | Path) -> list[NetworkSwitch]:
                 ports_100g=int(float(row.get("ports_100g") or 0)),
                 ports_fc=int(float(row.get("ports_fc") or 0)),
                 ports_sas=int(float(row.get("ports_sas") or 0)),
+                redundancy_group=row.get("redundancy_group", "") or "",
+                redundancy_role=row.get("redundancy_role", "") or "",
                 rack_units=int(float(row.get("rack_units") or 0)),
                 power_watts=float(row.get("power_watts") or 0),
                 price=float(row.get("price") or 0),
@@ -411,8 +414,9 @@ def import_connections(
         server_uid = server_by_name.get(row.get("server_name", "") or "")
         switch_uid = switch_by_name.get(row.get("switch_name", "") or "")
         storage_uid = storage_by_name.get(row.get("storage_name", "") or "")
+        switch_b_uid = switch_by_name.get(row.get("switch_b_name", "") or "")
 
-        endpoints_filled = sum(1 for u in (server_uid, switch_uid, storage_uid) if u)
+        endpoints_filled = sum(1 for u in (server_uid, switch_uid, storage_uid, switch_b_uid) if u)
         if endpoints_filled != 2:
             skipped += 1
             continue
@@ -424,10 +428,12 @@ def import_connections(
                 server_uid=server_uid or "",
                 switch_uid=switch_uid or "",
                 storage_uid=storage_uid or "",
+                switch_b_uid=switch_b_uid or "",
                 speed=row.get("speed") or "25G",
                 media=row.get("media") or "SFP28",
                 switch_port_label=row.get("switch_port_label", "") or "",
                 purpose=row.get("purpose") or "Data",
+                dedicated_link=_bool(row.get("dedicated_link"), default=False),
                 notes=row.get("notes", "") or "",
             )
         )
@@ -452,10 +458,12 @@ def export_connections(
             "server_name": server_name_by_uid.get(c.server_uid, "(unknown)") if c.server_uid else "",
             "switch_name": switch_name_by_uid.get(c.switch_uid, "(unknown)") if c.switch_uid else "",
             "storage_name": storage_name_by_uid.get(c.storage_uid, "(unknown)") if c.storage_uid else "",
+            "switch_b_name": switch_name_by_uid.get(c.switch_b_uid, "(unknown)") if c.switch_b_uid else "",
             "speed": c.speed,
             "media": c.media,
             "switch_port_label": c.switch_port_label,
             "purpose": c.purpose,
+            "dedicated_link": c.dedicated_link,
             "notes": c.notes,
         })
 

@@ -113,6 +113,10 @@ class SettingsPage(QWidget):
         add_site_row.addWidget(add_site_button)
         sites_layout.addLayout(add_site_row)
 
+        self.sites_list_layout = QHBoxLayout()
+        self.sites_list_layout.addWidget(QLabel("Current sites:"))
+        sites_layout.addLayout(self.sites_list_layout)
+
         layout.addWidget(sites_box)
 
         #
@@ -292,6 +296,13 @@ class SettingsPage(QWidget):
         self.deployment_combos.clear()
         self.rack_capacity_spins.clear()
 
+        # Clear the "Current sites" chip row, keeping only its leading
+        # "Current sites:" label (index 0).
+        while self.sites_list_layout.count() > 1:
+            item = self.sites_list_layout.takeAt(1)
+            if item.widget():
+                item.widget().deleteLater()
+
         for site in site_names:
             combo = QComboBox()
             combo.addItems(DEPLOYMENT_MODELS)
@@ -313,8 +324,30 @@ class SettingsPage(QWidget):
             self.rack_capacity_spins[site] = spin
             self.rack_capacity_form.addRow(self._site_row_label(site), spin)
 
+            self.sites_list_layout.addWidget(self._site_chip(site))
+
+        self.sites_list_layout.addStretch()
         self.site_names_shown = list(site_names)
         self._load_site_values()
+
+    def _site_chip(self, site: str) -> QWidget:
+        """Site name + inline Remove button for the "Current sites" row
+        right in the Sites box - so add and remove live in the same
+        place, instead of remove being buried in the Deployment Model
+        or Rack Capacity sections further down."""
+        chip = QWidget()
+        chip_layout = QHBoxLayout(chip)
+        chip_layout.setContentsMargins(4, 2, 4, 2)
+        chip_layout.setSpacing(4)
+        chip.setStyleSheet("background-color: #e0e0e0; border-radius: 4px;")
+        chip_layout.addWidget(QLabel(site))
+        if site != PRIMARY:
+            remove_button = QPushButton("\u2715")
+            remove_button.setFixedWidth(20)
+            remove_button.setToolTip(f'Remove "{site}"')
+            remove_button.clicked.connect(lambda: self._remove_site(site))
+            chip_layout.addWidget(remove_button)
+        return chip
 
     def _site_row_label(self, site: str) -> QWidget:
         """Site name + a Remove button for anything but Primary, so

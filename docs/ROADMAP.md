@@ -1,5 +1,57 @@
 # ROADMAP
 
+## v4.8.0 (Site removal made discoverable; switch/firewall redundancy pairing with colored borders)
+
+- **Fixed**: removing a site required scrolling down to the Deployment
+  Model or Rack Capacity section and noticing a small "\u2715" button
+  buried in one of those rows - reported directly as "gdje se briše?"
+  since Add Site and Remove Site weren't symmetrically placed. Now a
+  "Current sites" chip row sits right in the Sites box, directly below
+  Add Site - each site shows as a small chip with its own inline
+  remove button (Primary has none, matching the existing rule that it
+  can never be removed).
+- **New: switch/firewall redundancy pairing.** Two (or more) devices
+  that form a redundant set - an HSRP/VRRP switch pair, an Active/
+  Passive firewall HA pair (Palo Alto, Fortinet, Cisco ASA, etc. -
+  "Firewall" and "Load Balancer" are just `switch_type` values on the
+  same `NetworkSwitch` entity, so this works for those identically),
+  or an MLAG/VPC stack - can now be tagged with a shared
+  `redundancy_group` name and each given their own `redundancy_role`
+  (Active / Standby / Passive / Member - the admin's own call, offering
+  every common vendor's term rather than picking one canonical word,
+  never auto-detected).
+  - **Colored border, not a background fill**, per direct request:
+    devices sharing the same redundancy_group get a matching-colored
+    OUTLINE around their entire row on the Switches table - built a
+    custom `QStyledItemDelegate` for this, since standard Qt model
+    roles only support cell background/text color, not a border.
+    Verified with a real rendered screenshot showing two different
+    pairs in two different colors. The color itself is derived
+    deterministically from the group name (same rotating palette
+    Clusters use) - two switches sharing a group name always match, no
+    need to set a color per switch. Caught a real bug before it
+    shipped: Python's built-in `hash()` is salted per process
+    (`PYTHONHASHSEED`), so the same group name would have gotten a
+    different color every time the app restarted - switched to
+    `zlib.crc32`, verified stable across actual separate subprocesses
+    with different hash seeds.
+  - **New: Switch\u2194Switch connections** - `NetworkConnection` only
+    supported Server/Storage\u2194Switch before; added an optional
+    `switch_b_uid` so the physical/logical link between a redundant
+    pair (or a plain inter-switch uplink) can be recorded like any
+    other connection, reusing the exact same dialog and port-usage
+    machinery.
+  - **New: "Dedicated/Proprietary link" checkbox** on a connection -
+    for a stacking cable (Cisco StackWise), an HA-sync port, or any
+    dedicated interconnect that does NOT consume one of the device's
+    declared 1G/10G/etc ports. Excluded from the port-usage/over-commit
+    counting, even though Speed/Media can still be filled in for
+    reference.
+- 24 new tests across the model, persistence (.clsz and CSV, both
+  fresh and backward-compatible with older files), the calculation
+  layer, both dialogs, and the table's border rendering - 612 passed
+  total.
+
 ## v4.7.2 (VMs toolbar: clearer labels, one row for both bulk-move actions, the confusing "Assigned" checkbox replaced)
 
 Direct feedback right after using the new Bulk move (Cluster) row from

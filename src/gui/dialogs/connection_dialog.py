@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -16,6 +17,7 @@ from src.models.network_connection import (
     KIND_SERVER_SWITCH,
     KIND_STORAGE_SWITCH,
     KIND_SERVER_STORAGE,
+    KIND_SWITCH_SWITCH,
 )
 from src.calculations.networking import server_nic_usage, switch_port_usage, storage_port_usage, format_usage
 
@@ -37,9 +39,13 @@ _KIND_SPECS = {
         "a": ("Server", "servers", "server_uid", server_nic_usage),
         "b": ("Storage", "storages", "storage_uid", storage_port_usage),
     },
+    KIND_SWITCH_SWITCH: {
+        "a": ("Switch", "switches", "switch_uid", switch_port_usage),
+        "b": ("Switch (2nd)", "switches", "switch_b_uid", switch_port_usage),
+    },
 }
 
-_ALL_UID_FIELDS = ["server_uid", "switch_uid", "storage_uid"]
+_ALL_UID_FIELDS = ["server_uid", "switch_uid", "storage_uid", "switch_b_uid"]
 
 
 class ConnectionDialog(QDialog):
@@ -94,6 +100,16 @@ class ConnectionDialog(QDialog):
         self.media_combo = QComboBox()
         self.media_combo.addItems(MEDIA_OPTIONS)
         layout.addRow("Media", self.media_combo)
+
+        self.dedicated_link_check = QCheckBox("Dedicated/Proprietary link (e.g. a stacking cable, HA-sync port)")
+        self.dedicated_link_check.setToolTip(
+            "Check this for a proprietary or dedicated cable (Cisco StackWise, a "
+            "firewall HA-sync port, a cluster heartbeat link) that does NOT "
+            "consume one of the device's declared 1G/10G/etc ports - excluded "
+            "from the port-usage/over-commit counting below, even though "
+            "Speed/Media above can still be filled in for reference."
+        )
+        layout.addRow("", self.dedicated_link_check)
 
         self.port_label_edit = QLineEdit()
         self.port_label_edit.setPlaceholderText("e.g. Gi1/0/3, Uplink #1 (optional)")
@@ -216,6 +232,7 @@ class ConnectionDialog(QDialog):
 
         self.speed_combo.setCurrentText(connection.speed)
         self.media_combo.setCurrentText(connection.media)
+        self.dedicated_link_check.setChecked(connection.dedicated_link)
         self.port_label_edit.setText(connection.switch_port_label)
         self.purpose_combo.setCurrentText(connection.purpose)
         self.notes_edit.setText(connection.notes)
@@ -242,6 +259,7 @@ class ConnectionDialog(QDialog):
 
         connection.speed = self.speed_combo.currentText()
         connection.media = self.media_combo.currentText()
+        connection.dedicated_link = self.dedicated_link_check.isChecked()
         connection.switch_port_label = self.port_label_edit.text()
         connection.purpose = self.purpose_combo.currentText()
         connection.notes = self.notes_edit.text()

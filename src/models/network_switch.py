@@ -3,6 +3,14 @@ import uuid
 
 SWITCH_TYPES = ["LAN", "SAN/FC", "Unified", "Firewall", "Load Balancer"]
 
+# Deliberately offers every common vendor's own term rather than picking
+# one canonical word - Cisco HSRP/VRRP/GLBP say "Standby", Palo Alto/
+# Fortinet/most firewall HA pairs say "Passive", and MLAG/VPC/stacking
+# setups have no active/standby distinction at all ("Member" - both
+# forward traffic as peers). The admin picks whichever matches their
+# actual setup; nothing here is auto-detected.
+REDUNDANCY_ROLES = ["", "Active", "Standby", "Passive", "Member"]
+
 
 @dataclass
 class NetworkSwitch:
@@ -32,6 +40,18 @@ class NetworkSwitch:
     ports_100g: int = 0
     ports_fc: int = 0
     ports_sas: int = 0
+
+    # Optional - a shared tag linking two (or more) devices into the
+    # same redundant pair/set, e.g. an HSRP pair, a Palo Alto Active/
+    # Passive HA pair, or an MLAG/VPC stack. Any devices sharing the
+    # same non-empty group get the SAME colored border on the table
+    # (color auto-derived from the group name), so a redundant pair is
+    # visually obvious at a glance. Works identically for switches,
+    # firewalls, and load balancers - they're all NetworkSwitch here,
+    # just a different switch_type. Blank = standalone, not part of
+    # any group.
+    redundancy_group: str = ""
+    redundancy_role: str = ""  # one of REDUNDANCY_ROLES - the admin's own call, never auto-detected
 
     # Rack sizing - 0 = not entered, excluded from the Summary tab's rack
     # totals rather than counted as a real zero.
@@ -67,3 +87,27 @@ class NetworkSwitch:
             ports_fc=0,
             ports_sas=0,
         )
+
+
+# Same 8-color palette as Cluster's DEFAULT_CLUSTER_COLORS, reused here
+# for visual consistency between the two "colored grouping" features.
+_REDUNDANCY_GROUP_COLORS = [
+    "#e57373", "#64b5f6", "#81c784", "#ffb74d",
+    "#ba68c8", "#4db6ac", "#f06292", "#a1887f",
+]
+
+
+def redundancy_group_color(group: str) -> str | None:
+    """Deterministic color for a redundancy_group name - any two
+    switches sharing the same group name always get the same color,
+    with no need to store a color per switch or manage a separate
+    "redundancy group" entity just to hold one. Returns None for a
+    blank group (nothing to color). Uses zlib.crc32 rather than
+    Python's built-in hash() - the latter is salted per-process
+    (PYTHONHASHSEED), so the same group name would otherwise get a
+    different color every time the app restarts."""
+    if not group:
+        return None
+    import zlib
+    index = zlib.crc32(group.encode("utf-8")) % len(_REDUNDANCY_GROUP_COLORS)
+    return _REDUNDANCY_GROUP_COLORS[index]

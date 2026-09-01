@@ -44,6 +44,8 @@ def _usage_by_speed(
     device_uid = device.uid
     used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
     for conn in connections:
+        if conn.dedicated_link:
+            continue
         if getattr(conn, uid_attr) == device_uid and conn.speed in used_by_speed:
             used_by_speed[conn.speed] += 1
 

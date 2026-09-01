@@ -255,3 +255,54 @@ def test_status_label_clears_when_preset_selection_changes_again():
     page.preset_combo.setCurrentIndex(0)
 
     assert page.preset_status_label.text() == ""
+
+
+def test_current_sites_chips_shown_right_below_add_site():
+    """Reported directly - couldn't find where to remove a site, since
+    the only remove button lived buried in Deployment Model/Rack
+    Capacity further down. Now a "Current sites" row with inline
+    remove buttons sits right in the Sites box, next to Add Site."""
+    service = ProjectService()
+    service.project.add_site("DR2")
+
+    page = SettingsPage(service)
+
+    # 1 leading "Current sites:" label + 3 site chips + 1 trailing stretch
+    assert page.sites_list_layout.count() == 5
+
+
+def test_primary_chip_has_no_remove_button():
+    from PySide6.QtWidgets import QPushButton
+
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    primary_chip = page.sites_list_layout.itemAt(1).widget()
+
+    assert len(primary_chip.findChildren(QPushButton)) == 0
+
+
+def test_non_primary_chip_has_a_remove_button():
+    from PySide6.QtWidgets import QPushButton
+
+    service = ProjectService()
+    service.project.add_site("DR2")
+    page = SettingsPage(service)
+
+    dr2_chip = page.sites_list_layout.itemAt(3).widget()
+
+    assert len(dr2_chip.findChildren(QPushButton)) == 1
+
+
+def test_removing_a_site_via_its_chip_updates_the_list(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+
+    service = ProjectService()
+    service.project.add_site("DR2")
+    page = SettingsPage(service)
+
+    page._remove_site("DR2")
+
+    assert "DR2" not in service.project.site_names
+    assert page.sites_list_layout.count() == 4  # label + 2 sites + stretch

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.network_switch import NetworkSwitch, SWITCH_TYPES
+from src.models.network_switch import NetworkSwitch, SWITCH_TYPES, REDUNDANCY_ROLES
 
 
 class SwitchDialog(QDialog):
@@ -47,6 +47,28 @@ class SwitchDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItems(SWITCH_TYPES)
         layout.addRow("Type", self.type_combo)
+
+        self.redundancy_group_edit = QLineEdit()
+        self.redundancy_group_edit.setPlaceholderText("e.g. core-pair-01, fw-ha-01... (optional)")
+        self.redundancy_group_edit.setToolTip(
+            "A shared tag linking two (or more) devices into the same redundant "
+            "set (an HSRP/VRRP pair, an Active/Passive firewall HA pair, an "
+            "MLAG/VPC stack). Devices sharing this same tag get the same colored "
+            "border on the table - color is derived automatically from the name."
+        )
+        layout.addRow("Redundancy Group", self.redundancy_group_edit)
+
+        self.redundancy_role_combo = QComboBox()
+        self.redundancy_role_combo.addItem("(none)", userData="")
+        for role in REDUNDANCY_ROLES[1:]:
+            self.redundancy_role_combo.addItem(role, userData=role)
+        self.redundancy_role_combo.setToolTip(
+            "Your own call - never auto-detected. Active/Standby is Cisco HSRP/"
+            "VRRP/GLBP terminology, Active/Passive is common for firewall HA "
+            "pairs (Palo Alto, Fortinet, etc.), Member is for MLAG/VPC/stacking "
+            "setups with no active-standby distinction."
+        )
+        layout.addRow("Redundancy Role", self.redundancy_role_combo)
 
         self.ports_1g_spin = QSpinBox()
         self.ports_1g_spin.setRange(0, 512)
@@ -120,6 +142,9 @@ class SwitchDialog(QDialog):
         self.vendor_edit.setText(switch.vendor)
         self.model_edit.setText(switch.model)
         self.type_combo.setCurrentText(switch.switch_type)
+        self.redundancy_group_edit.setText(switch.redundancy_group)
+        role_index = self.redundancy_role_combo.findData(switch.redundancy_role)
+        self.redundancy_role_combo.setCurrentIndex(role_index if role_index >= 0 else 0)
         self.ports_1g_spin.setValue(switch.ports_1g)
         self.ports_10g_spin.setValue(switch.ports_10g)
         self.ports_25g_spin.setValue(switch.ports_25g)
@@ -142,6 +167,8 @@ class SwitchDialog(QDialog):
         switch.vendor = self.vendor_edit.text()
         switch.model = self.model_edit.text()
         switch.switch_type = self.type_combo.currentText()
+        switch.redundancy_group = self.redundancy_group_edit.text()
+        switch.redundancy_role = self.redundancy_role_combo.currentData() or ""
         switch.ports_1g = self.ports_1g_spin.value()
         switch.ports_10g = self.ports_10g_spin.value()
         switch.ports_25g = self.ports_25g_spin.value()
