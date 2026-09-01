@@ -19,12 +19,15 @@ from PySide6.QtWidgets import (
 
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
+from src.persistence import csv_io
+from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 from src.models.workload_tier import WORKLOAD_TIER_NAMES
 
 from src.gui.dialogs.vm_dialog import VMDialog
 from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
 from src.gui.dialogs.failover_assignment_dialog import FailoverAssignmentDialog
+from src.models.failover_assignment import FailoverAssignment
 from src.gui.models.vm_table_model import VMTableModel
 from src.gui.models.failover_assignment_table_model import FailoverAssignmentTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
@@ -42,6 +45,7 @@ class VirtualMachinesPage(QWidget):
             on_change=self.service.touch_vms,
             vlans_provider=lambda: self.service.project.vlans,
             failover_assignments_provider=lambda: self.service.project.failover_assignments,
+            clusters_provider=lambda: self.service.project.clusters,
         )
         self.failover_model = FailoverAssignmentTableModel(
             vms_provider=lambda: self.service.project.vms,
@@ -263,7 +267,7 @@ class VirtualMachinesPage(QWidget):
         return [self.model.vm_at(row) for row in self.table.selected_rows()]
 
     def _add_vm(self):
-        dialog = VMDialog(vlans=self.service.project.vlans, storages=self.service.project.storages, sites=self.service.project.site_names, parent=self)
+        dialog = VMDialog(vlans=self.service.project.vlans, storages=self.service.project.storages, clusters=self.service.project.clusters, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_vm(dialog.get_vm())
 
@@ -275,7 +279,7 @@ class VirtualMachinesPage(QWidget):
 
         row = rows[0]
         vm = self.model.vm_at(row)
-        dialog = VMDialog(vm, vlans=self.service.project.vlans, storages=self.service.project.storages, sites=self.service.project.site_names, parent=self)
+        dialog = VMDialog(vm, vlans=self.service.project.vlans, storages=self.service.project.storages, clusters=self.service.project.clusters, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_vm(row, dialog.get_vm())
 
@@ -309,10 +313,18 @@ class VirtualMachinesPage(QWidget):
         if not path:
             return
         try:
-            count = self.service.import_vms_csv(path)
-            QMessageBox.information(self, "Import", f"Imported {count} VM(s).")
+            new_vms = csv_io.import_vms(path)
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
+            return
+        choice = confirm_import_conflict(
+            self, "VM", len(self.service.project.vms), len(new_vms),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+        try:
+            count = self.service.import_vms_csv(path, replace=choice == ImportConflictChoice.REPLACE)
+            QMessageBox.information(self, "Import", f"Imported {count} VM(s).")
         except Exception as exc:
             report_error(self, "Import Error", exc)
 
@@ -328,7 +340,12 @@ class VirtualMachinesPage(QWidget):
         if dialog.exec():
             vms = dialog.get_imported_vms()
             if vms:
-                self.service.add_vms(vms)
+                choice = confirm_import_conflict(
+                    self, "VM", len(self.service.project.vms), len(vms),
+                )
+                if choice == ImportConflictChoice.CANCEL:
+                    return
+                self.service.add_vms(vms, replace=choice == ImportConflictChoice.REPLACE)
                 skipped = dialog.get_skipped_count()
                 msg = f"Imported {len(vms)} VM(s)."
                 if skipped:
@@ -442,6 +459,27 @@ class VirtualMachinesPage(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.service.set_site_for_vms(self.service.project.vms, site)
 
+    def _assign_selected_to_failover(self, site: str):
+        vms = self._selected_vms()
+        if not vms:
+            return
+        assignments = []
+        for vm in vms:
+            assignment = FailoverAssignment.create_default()
+            assignment.vm_uid = vm.uid
+            assignment.target_site = site
+            assignment.vcpu = vm.vcpu
+            assignment.ram_gb = vm.ram_gb
+            assignment.disk_gb = vm.disk_gb
+            assignments.append(assignment)
+        self.service.add_failover_assignments(assignments)
+        QMessageBox.information(
+            self, "Assign to Failover",
+            f"{len(assignments)} VM(s) assigned to fail over to {site}, each defaulting "
+            "to its own current vCPU/RAM/disk - adjust individually in the Failover "
+            "Assignments table below if needed.",
+        )
+
     def _set_site_for_selected_from_combo(self):
         vms = self._selected_vms()
         if not vms:
@@ -540,6 +578,10 @@ class VirtualMachinesPage(QWidget):
             (f"\U0001f4cd Move to {site}", lambda checked=False, s=site: self._set_site_for_selected(s))
             for site in site_names
         ]
+        actions.extend(
+            (f"\u2708 Assign to Failover ({site})", lambda checked=False, s=site: self._assign_selected_to_failover(s))
+            for site in site_names
+        )
         self.table.set_custom_actions(actions)
 
     # ------------------------------------------------------------------

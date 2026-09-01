@@ -21,11 +21,12 @@ from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAUL
 
 class VMDialog(QDialog):
 
-    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, storages: list | None = None, sites: list | None = None, parent=None):
+    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, storages: list | None = None, clusters: list | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self._vlans = vlans or []
         self._storages = storages or []
+        self._clusters = clusters or []
 
         self.setWindowTitle("Virtual Machine")
 
@@ -125,6 +126,18 @@ class VMDialog(QDialog):
         )
         layout.addRow("Storage Pool", self.storage_combo)
 
+        self.cluster_combo = QComboBox()
+        self.cluster_combo.addItem("(none)", userData="")
+        for cluster in self._clusters:
+            self.cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
+        self.cluster_combo.setToolTip(
+            "Which isolated cluster (a vSphere Cluster, a Nutanix cluster, a Proxmox "
+            "cluster, one of several independent Hyper-V Failover Clusters) this VM "
+            "runs in, if you want to track per-cluster CPU/RAM separately from the "
+            "site-wide totals. Manage the list of Clusters on the Servers tab."
+        )
+        layout.addRow("Cluster", self.cluster_combo)
+
         self.dr_category_combo = QComboBox()
         self.dr_category_combo.setEditable(True)
         self.dr_category_combo.addItems(DR_CATEGORIES)
@@ -176,6 +189,8 @@ class VMDialog(QDialog):
         self.vlan_combo.setCurrentIndex(vlan_index if vlan_index >= 0 else 0)
         storage_index = self.storage_combo.findData(vm.storage_uid)
         self.storage_combo.setCurrentIndex(storage_index if storage_index >= 0 else 0)
+        cluster_index = self.cluster_combo.findData(vm.cluster_uid)
+        self.cluster_combo.setCurrentIndex(cluster_index if cluster_index >= 0 else 0)
         self.notes_edit.setPlainText(vm.notes)
 
         self.workload_combo.setCurrentText(vm.workload_tier)
@@ -199,6 +214,7 @@ class VMDialog(QDialog):
         vm.os = self.os_edit.text()
         vm.vlan_uid = self.vlan_combo.currentData() or ""
         vm.storage_uid = self.storage_combo.currentData() or ""
+        vm.cluster_uid = self.cluster_combo.currentData() or ""
         vm.notes = self.notes_edit.toPlainText()
         vm.workload_tier = self.workload_combo.currentText()
         vm.dr_category = self.dr_category_combo.currentText()

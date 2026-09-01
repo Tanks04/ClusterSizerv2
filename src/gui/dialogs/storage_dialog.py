@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.storage import Storage, StorageShelf, RAID_LEVELS, raid_usable_disk_count
+from src.models.storage import Storage, StorageShelf, RAID_LEVELS, raid_usable_disk_count, FTT_LEVELS, ftt_usable_factor
 from src.calculations.hci_storage import compute_hci_raw_capacity
 
 
@@ -142,6 +142,29 @@ class StorageDialog(QDialog):
         calc_layout.addLayout(raid_row)
 
         layout.addRow("Disk Calculator", calc_container)
+
+        ftt_row = QHBoxLayout()
+        ftt_row.addWidget(QLabel("FTT:"))
+        self.ftt_level_combo = QComboBox()
+        self.ftt_level_combo.addItem("(none - Usable stays manual)", userData="")
+        for level in FTT_LEVELS[1:]:
+            self.ftt_level_combo.addItem(level, userData=level)
+        ftt_row.addWidget(self.ftt_level_combo)
+        self.ftt_calc_button = QPushButton("Calc Usable")
+        self.ftt_calc_button.setToolTip(
+            "Fills Usable Capacity below with Raw Capacity \u00d7 this FTT level's "
+            "estimated overhead (e.g. FTT=1 Mirroring = 50% usable) - Usable stays "
+            "independently editable afterward, this is a starting estimate, not "
+            "the final word."
+        )
+        self.ftt_calc_button.clicked.connect(self._calculate_hci_usable)
+        ftt_row.addWidget(self.ftt_calc_button)
+        ftt_row.addStretch()
+        ftt_container = QWidget()
+        ftt_container.setLayout(ftt_row)
+        self.ftt_container = ftt_container
+        layout.addRow("HCI Usable Calculator", ftt_container)
+        layout.setRowVisible(ftt_container, False)
 
         self.usable_spin = QDoubleSpinBox()
         self.usable_spin.setDecimals(2)
@@ -316,6 +339,7 @@ class StorageDialog(QDialog):
         # checked. setEnabled() properly blocks all of that.
         self.raw_spin.setEnabled(not checked)
         self.form_layout.setRowVisible(self.disk_calc_button.parentWidget(), not checked)
+        self.form_layout.setRowVisible(self.ftt_container, checked)
         self.raw_spin.setToolTip(
             "Auto-summed from the checked servers' Local Disk (Raw) - "
             "uncheck HCI above to type a value directly." if checked else ""
@@ -396,6 +420,12 @@ class StorageDialog(QDialog):
             usable_disks = raid_usable_disk_count(raid_level, count)
             self.usable_spin.setValue(usable_disks * size)
 
+    def _calculate_hci_usable(self) -> None:
+        ftt_level = self.ftt_level_combo.currentData()
+        if ftt_level and self.raw_spin.value() > 0:
+            factor = ftt_usable_factor(ftt_level)
+            self.usable_spin.setValue(self.raw_spin.value() * factor)
+
     def load(self, storage: Storage) -> None:
         self._uid = storage.uid
         self.name_edit.setText(storage.name)
@@ -412,6 +442,8 @@ class StorageDialog(QDialog):
         self.disk_size_spin.setValue(storage.disk_size_tb)
         raid_index = self.raid_level_combo.findData(storage.raid_level)
         self.raid_level_combo.setCurrentIndex(raid_index if raid_index >= 0 else 0)
+        ftt_index = self.ftt_level_combo.findData(storage.ftt_level)
+        self.ftt_level_combo.setCurrentIndex(ftt_index if ftt_index >= 0 else 0)
         self.usable_spin.setValue(storage.usable_capacity_tb)
         self._recalc_overhead()
 
@@ -459,6 +491,7 @@ class StorageDialog(QDialog):
         storage.disk_count = self.disk_count_spin.value()
         storage.disk_size_tb = self.disk_size_spin.value()
         storage.raid_level = self.raid_level_combo.currentData() or ""
+        storage.ftt_level = self.ftt_level_combo.currentData() or ""
 
         storage.ports_1g = self.ports_1g_spin.value()
         storage.ports_10g = self.ports_10g_spin.value()

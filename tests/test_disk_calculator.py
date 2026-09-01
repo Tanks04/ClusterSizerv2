@@ -180,3 +180,88 @@ def test_stale_raid_level_falls_back_to_none():
     dialog = StorageDialog(existing, servers=[])
 
     assert dialog.raid_level_combo.currentIndex() == 0
+
+
+# ----------------------------------------------------------------------
+# FTT-based HCI Usable estimate - reversed gating from the RAID/disk-
+# count calculator: shown ONLY when HCI is checked, since Raw comes
+# from linked servers rather than a manual disk count in that mode.
+# ----------------------------------------------------------------------
+
+def test_ftt_row_hidden_by_default_non_hci():
+    dialog = StorageDialog(servers=[])
+
+    assert dialog.form_layout.isRowVisible(dialog.ftt_container) is False
+
+
+def test_ftt_row_shown_when_hci_checked():
+    dialog = StorageDialog(servers=[])
+
+    dialog.is_hci_check.setChecked(True)
+
+    assert dialog.form_layout.isRowVisible(dialog.ftt_container) is True
+    assert dialog.form_layout.isRowVisible(dialog.disk_calc_button.parentWidget()) is False
+
+
+def test_ftt_row_hidden_again_when_hci_unchecked():
+    dialog = StorageDialog(servers=[])
+    dialog.is_hci_check.setChecked(True)
+
+    dialog.is_hci_check.setChecked(False)
+
+    assert dialog.form_layout.isRowVisible(dialog.ftt_container) is False
+    assert dialog.form_layout.isRowVisible(dialog.disk_calc_button.parentWidget()) is True
+
+
+def test_ftt1_mirroring_usable_estimate():
+    dialog = StorageDialog(servers=[])
+    dialog.raw_spin.setValue(96.0)
+    dialog.ftt_level_combo.setCurrentText("FTT=1 Mirroring")
+
+    dialog._calculate_hci_usable()
+
+    assert dialog.usable_spin.value() == 48.0
+
+
+def test_ftt1_erasure_coding_usable_estimate():
+    dialog = StorageDialog(servers=[])
+    dialog.raw_spin.setValue(100.0)
+    dialog.ftt_level_combo.setCurrentText("FTT=1 Erasure Coding")
+
+    dialog._calculate_hci_usable()
+
+    assert dialog.usable_spin.value() == 75.0
+
+
+def test_no_ftt_selected_leaves_usable_untouched():
+    dialog = StorageDialog(servers=[])
+    dialog.usable_spin.setValue(42.0)
+    dialog.raw_spin.setValue(96.0)
+    # ftt_level_combo left at default "(none)"
+
+    dialog._calculate_hci_usable()
+
+    assert dialog.usable_spin.value() == 42.0
+
+
+def test_usable_stays_editable_after_ftt_estimate():
+    dialog = StorageDialog(servers=[])
+    dialog.raw_spin.setValue(96.0)
+    dialog.ftt_level_combo.setCurrentText("FTT=1 Mirroring")
+    dialog._calculate_hci_usable()
+
+    dialog.usable_spin.setValue(45.0)
+
+    storage = dialog.get_storage()
+    assert storage.usable_capacity_tb == 45.0
+
+
+def test_ftt_level_persists_through_load():
+    from src.models.storage import Storage
+
+    existing = Storage.create_default()
+    existing.ftt_level = "FTT=2 Mirroring"
+
+    dialog = StorageDialog(existing, servers=[])
+
+    assert dialog.ftt_level_combo.currentData() == "FTT=2 Mirroring"

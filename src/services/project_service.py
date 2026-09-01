@@ -10,6 +10,7 @@ from src.models.storage import Storage
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
+from src.models.cluster import Cluster
 from src.models.failover_assignment import FailoverAssignment
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
@@ -53,6 +54,7 @@ class ProjectService(QObject):
     storages_changed = Signal()
     vms_changed = Signal()
     network_changed = Signal()  # switches + connections together
+    clusters_changed = Signal()
     backup_changed = Signal()
     pricing_changed = Signal()
 
@@ -233,16 +235,26 @@ class ProjectService(QObject):
 
     def add_servers_and_vms(
         self, servers: list[Server], vms: list[VirtualMachine],
-        switches: list[NetworkSwitch] | None = None,
+        switches: list[NetworkSwitch] | None = None, replace: bool = False,
     ) -> None:
         """Same idea as add_servers_and_storages, for RVTools import -
         one file can produce hosts, VMs, and (optionally) switches, one
-        undo step for the whole import."""
+        undo step for the whole import. replace=True clears all three
+        existing lists first - cascades to FailoverAssignment records
+        the same way clear_vms() does, since an assignment pointing at
+        a VM that no longer exists would be orphaned."""
         self._push_undo_snapshot()
-        self._project.servers.extend(servers)
-        self._project.vms.extend(vms)
-        if switches:
-            self._project.switches.extend(switches)
+        if replace:
+            self._project.servers = list(servers)
+            self._project.vms = list(vms)
+            self._project.failover_assignments = []
+            if switches:
+                self._project.switches = list(switches)
+        else:
+            self._project.servers.extend(servers)
+            self._project.vms.extend(vms)
+            if switches:
+                self._project.switches.extend(switches)
         self.servers_changed.emit()
         self.vms_changed.emit()
         if switches:
@@ -358,10 +370,10 @@ class ProjectService(QObject):
     def server_count(self) -> int:
         return len(self._project.servers)
 
-    def import_servers_csv(self, path: str | Path) -> int:
+    def import_servers_csv(self, path: str | Path, replace: bool = False) -> int:
         new_servers = csv_io.import_servers(path)
         self._push_undo_snapshot()
-        self._project.servers.extend(new_servers)
+        self._project.servers = new_servers if replace else self._project.servers + new_servers
         self._notify(self.servers_changed)
         return len(new_servers)
 
@@ -432,10 +444,10 @@ class ProjectService(QObject):
         self._project.backup_destinations = []
         self._notify(self.backup_changed)
 
-    def import_backup_destinations_csv(self, path: str | Path) -> int:
+    def import_backup_destinations_csv(self, path: str | Path, replace: bool = False) -> int:
         new_destinations = csv_io.import_backup_destinations(path)
         self._push_undo_snapshot()
-        self._project.backup_destinations.extend(new_destinations)
+        self._project.backup_destinations = new_destinations if replace else self._project.backup_destinations + new_destinations
         self._notify(self.backup_changed)
         return len(new_destinations)
 
@@ -472,10 +484,10 @@ class ProjectService(QObject):
     def touch_pricing(self) -> None:
         QTimer.singleShot(0, lambda: self._notify(self.pricing_changed))
 
-    def import_maintenance_items_csv(self, path: str | Path) -> int:
+    def import_maintenance_items_csv(self, path: str | Path, replace: bool = False) -> int:
         new_items = csv_io.import_maintenance_items(path)
         self._push_undo_snapshot()
-        self._project.maintenance_items.extend(new_items)
+        self._project.maintenance_items = new_items if replace else self._project.maintenance_items + new_items
         self._notify(self.pricing_changed)
         return len(new_items)
 
@@ -519,20 +531,60 @@ class ProjectService(QObject):
         self.vms_changed.emit()
         self._notify()
 
-    def import_vlans_csv(self, path: str | Path) -> int:
+    def add_cluster(self, cluster: Cluster) -> None:
+        self._push_undo_snapshot()
+        self._project.clusters.append(cluster)
+        self._notify(self.clusters_changed)
+
+    def update_cluster(self, index: int, cluster: Cluster) -> None:
+        self._push_undo_snapshot()
+        self._project.clusters[index] = cluster
+        self._notify(self.clusters_changed)
+
+    def remove_clusters(self, clusters: list[Cluster]) -> None:
+        """Also clears cluster_uid on any Server or VM that referenced
+        one of the removed clusters - neither should silently keep
+        pointing at a deleted cluster's uid."""
+        self._push_undo_snapshot()
+        removed_uids = {c.uid for c in clusters}
+        self._project.clusters = [c for c in self._project.clusters if c.uid not in removed_uids]
+        for server in self._project.servers:
+            if server.cluster_uid in removed_uids:
+                server.cluster_uid = ""
+        for vm in self._project.vms:
+            if vm.cluster_uid in removed_uids:
+                vm.cluster_uid = ""
+        self.clusters_changed.emit()
+        self.servers_changed.emit()
+        self.vms_changed.emit()
+        self._notify()
+
+    def clear_clusters(self) -> None:
+        self._push_undo_snapshot()
+        self._project.clusters = []
+        for server in self._project.servers:
+            server.cluster_uid = ""
+        for vm in self._project.vms:
+            vm.cluster_uid = ""
+        self.clusters_changed.emit()
+        self.servers_changed.emit()
+        self.vms_changed.emit()
+        self._notify()
+
+    def import_vlans_csv(self, path: str | Path, replace: bool = False) -> int:
         new_vlans = csv_io.import_vlans(path)
         self._push_undo_snapshot()
-        self._project.vlans.extend(new_vlans)
+        self._project.vlans = new_vlans if replace else self._project.vlans + new_vlans
         self._notify(self.network_changed)
         return len(new_vlans)
 
     def export_vlans_csv(self, path: str | Path) -> None:
         csv_io.export_vlans(path, self._project.vlans)
 
-    def import_storages_csv(self, path: str | Path) -> int:
+    def import_storages_csv(self, path: str | Path, replace: bool = False) -> int:
         new_storages = csv_io.import_storages(path)
         self._push_undo_snapshot()
-        self._project.storages.extend(new_storages)
+        self._project.storages = new_storages if replace else self._project.storages + new_storages
         self._notify(self.storages_changed)
         return len(new_storages)
 
@@ -548,11 +600,18 @@ class ProjectService(QObject):
         self._project.vms.append(vm)
         self._notify(self.vms_changed)
 
-    def add_vms(self, vms: list[VirtualMachine]) -> None:
+    def add_vms(self, vms: list[VirtualMachine], replace: bool = False) -> None:
         """Batch add - a single changed signal for the whole group (used by
-        the Smart Import wizard and CSV import)."""
+        the Smart Import wizard and CSV import). replace=True clears every
+        existing VM first - cascades to FailoverAssignment records the
+        same way clear_vms() does, since an assignment pointing at a VM
+        that no longer exists would be orphaned."""
         self._push_undo_snapshot()
-        self._project.vms.extend(vms)
+        if replace:
+            self._project.vms = list(vms)
+            self._project.failover_assignments = []
+        else:
+            self._project.vms.extend(vms)
         self._notify(self.vms_changed)
 
     def update_vm(self, index: int, vm: VirtualMachine) -> None:
@@ -580,10 +639,45 @@ class ProjectService(QObject):
         """Bulk-sets workload_tier on every VM at once - one undo snapshot
         for the whole action, not one per VM, so a single Ctrl+Z reverts
         it all. A quick way to size a whole cluster without editing VMs
-        one by one first."""
+        one by one first.
+
+        See bulk_set_vm_fields below for the general-purpose version."""
         self._push_undo_snapshot()
         for vm in self._project.vms:
             vm.workload_tier = tier
+        self._notify(self.vms_changed)
+
+    def bulk_set_server_fields(self, servers: list[Server], updates: dict) -> None:
+        """Sets one or more fields to given values on every given
+        server - one undo snapshot for the whole selection, however
+        many servers and fields are involved. Lets a mis-entered value
+        (e.g. disk count/size typed wrong on several identical servers)
+        be fixed in one action instead of editing each server's dialog
+        separately."""
+        if not servers or not updates:
+            return
+        self._push_undo_snapshot()
+        for server in servers:
+            for field, value in updates.items():
+                setattr(server, field, value)
+        self._notify(self.servers_changed)
+
+    def bulk_set_storage_fields(self, storages: list[Storage], updates: dict) -> None:
+        if not storages or not updates:
+            return
+        self._push_undo_snapshot()
+        for storage in storages:
+            for field, value in updates.items():
+                setattr(storage, field, value)
+        self._notify(self.storages_changed)
+
+    def bulk_set_vm_fields(self, vms: list[VirtualMachine], updates: dict) -> None:
+        if not vms or not updates:
+            return
+        self._push_undo_snapshot()
+        for vm in vms:
+            for field, value in updates.items():
+                setattr(vm, field, value)
         self._notify(self.vms_changed)
 
     def set_failover_assignment_for_vms(
@@ -631,6 +725,17 @@ class ProjectService(QObject):
     def add_failover_assignment(self, assignment: FailoverAssignment) -> None:
         self._push_undo_snapshot()
         self._project.failover_assignments.append(assignment)
+        self._notify(self.vms_changed)
+
+    def add_failover_assignments(self, assignments: list[FailoverAssignment]) -> None:
+        """Batch add - one undo step for the whole group, used by the
+        VMs table's right-click 'Assign to Failover' action so
+        assigning several VMs at once to the same target site reverts
+        as a single Ctrl+Z."""
+        if not assignments:
+            return
+        self._push_undo_snapshot()
+        self._project.failover_assignments.extend(assignments)
         self._notify(self.vms_changed)
 
     def update_failover_assignment(self, index: int, assignment: FailoverAssignment) -> None:
@@ -691,10 +796,10 @@ class ProjectService(QObject):
             vm.site = site
         self._notify(self.vms_changed)
 
-    def import_vms_csv(self, path: str | Path) -> int:
+    def import_vms_csv(self, path: str | Path, replace: bool = False) -> int:
         new_vms = csv_io.import_vms(path)
         self._push_undo_snapshot()
-        self._project.vms.extend(new_vms)
+        self._project.vms = new_vms if replace else self._project.vms + new_vms
         self._notify(self.vms_changed)
         return len(new_vms)
 
@@ -735,10 +840,10 @@ class ProjectService(QObject):
         self._project.switches = []
         self._notify(self.network_changed)
 
-    def import_switches_csv(self, path: str | Path) -> int:
+    def import_switches_csv(self, path: str | Path, replace: bool = False) -> int:
         new_switches = csv_io.import_switches(path)
         self._push_undo_snapshot()
-        self._project.switches.extend(new_switches)
+        self._project.switches = new_switches if replace else self._project.switches + new_switches
         self._notify(self.network_changed)
         return len(new_switches)
 

@@ -117,3 +117,11 @@ def test_server_disk_calculator_csv_round_trip(tmp_path):
     loaded = csv_io.import_servers(path)
     assert loaded[0].local_disk_count == 12
     assert abs(loaded[0].local_disk_size_tb - 1.09) < 0.001
+
+
+def test_hyperthreading_defaults_to_off():
+    """HT gains vary by workload and aren't guaranteed - defaulting off
+    matches the same conservative default already used in the Cluster
+    Preparation wizard. Reported directly as still being on."""
+    s = Server.create_default()
+    assert s.hyperthreading_enabled is False

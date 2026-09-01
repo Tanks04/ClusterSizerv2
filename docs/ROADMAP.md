@@ -1,5 +1,98 @@
 # ROADMAP
 
+## v4.7.0 (Isolated Clusters within a site; generalized import conflicts; HCI workflow; bulk edit)
+
+A large batch of direct feedback, closing out several longstanding
+threads at once.
+
+- **New: `Cluster` entity** - an isolated compute failure domain (a
+  vSphere Cluster, a Nutanix cluster, a Proxmox cluster, one of several
+  independent Hyper-V Failover Clusters) that a single site can host
+  several of side by side (e.g. 6 hosts at Primary split into two
+  3-node clusters). Colored, site-scoped, managed from a new "Clusters"
+  section above the Servers table (Add/Edit/Delete/Clear All, with a
+  real color picker). `Server.cluster_uid` and `VirtualMachine.
+  cluster_uid` are new, fully optional references - completely
+  separate from Server's existing free-text `cluster_name` field,
+  which is unchanged and still what RVTools import populates.
+  - Per-cluster CPU/RAM tracking (`cluster_cpu_ratio`, `cluster_ram_ratio`,
+    etc.) mirrors the Storage Pool pattern exactly: a site's aggregate
+    can look perfectly healthy (proven with a 1:1 site ratio) while one
+    specific cluster is critically oversubscribed (8:1) - invisible
+    without this.
+  - New Attention Needed check flags an over-subscribed cluster by
+    name, using the same CPU/RAM thresholds as the ordinary site-wide
+    check.
+  - Cluster dropdowns on both ServerDialog and VMDialog (same pattern
+    as Storage Pool/VLAN assignment), and a new colored "Cluster"
+    column on both the Servers and VMs tables (Server's table also
+    keeps its original free-text column, now labeled "Cluster Name"
+    for clarity, right next to the new one).
+  - Fully backward compatible: old projects load with zero clusters
+    and empty cluster_uid everywhere, unaffected.
+- **New: generalized import-conflict (Add/Replace/Cancel) prompt**,
+  extending the pattern already built for Cluster Preparation's
+  per-site Add button to every import path in the app: all 7 CSV
+  imports (Servers, Storage, VMs, Backup, Maintenance, Switches,
+  VLANs), Smart Import, and the actual RVTools import. Replacing VMs
+  now correctly cascades to clear any FailoverAssignment records that
+  would otherwise point at a deleted VM.
+- **New: HCI disk workflow.**
+  - FTT-based Usable estimate on StorageDialog (FTT=0/1/2 Mirroring/
+    Erasure Coding) - shown only when HCI is checked (the disk-count
+    calculator's row disappears in that mode instead, since Raw comes
+    from linked servers there, not a manual count).
+  - "Create HCI Storage from Selected" on the Servers table - select
+    the servers that make up an HCI cluster, one action creates the
+    linked Storage entity with Raw auto-computed, validated to reject
+    a selection spanning multiple sites.
+- **New: generic Bulk Edit** for Servers (right-click "Bulk Edit
+  Selected") - a reusable dialog with a checkbox+input per field, only
+  checked fields get applied, one undo step for the whole selection
+  and however many fields. Fixes the exact reported pain point (wrong
+  disk count/size entered on several identical servers) in one action
+  instead of editing each server's dialog separately.
+- **New: right-click "Assign to Failover"** on the VMs table - select
+  one or more VMs, assign them all to a target site's failover pool in
+  one action (footprint defaulting to each VM's own current size),
+  instead of using the Add Failover Assignment dialog per VM.
+- **Fixed**: `Server.hyperthreading_enabled` still defaulted to True -
+  now False, consistent with the Cluster Preparation wizard's own HT
+  question.
+- **Fixed**: the "Show Rack Sizing" toggle on Summary was easy to miss
+  - now light green, matching Preview Failover's earlier fix.
+- **New: live preset preview** on Settings - selecting a different
+  preset immediately fills in the threshold values below, instead of
+  only after clicking "Use This Preset."
+- 129 new tests across every layer of this batch - 568 passed total.
+
+## v4.6.0 (Quick polish round: HT default, Rack Sizing visibility, live preset preview)
+
+First 3 items from a larger batch of direct feedback - the rest (bulk
+edit, generic import-conflict prompts, HCI disk workflow, drag-and-drop
+Failover Assignments, a microsegmentation VLAN example) are larger and
+follow in subsequent passes.
+
+- **Fixed**: `Server.hyperthreading_enabled` still defaulted to True -
+  reported directly as still on despite the Cluster Preparation
+  wizard's own HT question already defaulting to off. Now False in
+  both the dataclass default and `create_default()`, consistent with
+  the wizard.
+- **Fixed**: the "Show Rack Sizing" toggle on Summary was easy to miss
+  - now light green, matching the same visibility fix already applied
+  to Preview Failover.
+- **New: live preset preview** on Settings - selecting a different
+  preset in the dropdown now immediately fills in the threshold
+  spinboxes below, instead of only after clicking "Use This Preset".
+  That button now just confirms the already-shown selection (shows the
+  "loaded below - click Apply to save" status). Found and fixed a
+  real construction-order bug while building this: the initial preset-
+  description call ran before the threshold spinboxes existed yet,
+  and separately verified the real project's saved threshold values
+  still win over any preset preview when the page first opens.
+- 6 new tests (HT default, button styling, preset preview across
+  construction/selection/confirmation/re-selection) - 468 passed total.
+
 ## v4.5.1 (Disk calculator GUI polish, RAID-level Usable estimate, white input fields)
 
 Direct hands-on feedback on v4.5.0's new disk calculators.

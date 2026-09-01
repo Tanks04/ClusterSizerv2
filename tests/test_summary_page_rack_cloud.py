@@ -116,3 +116,15 @@ def test_rack_cards_are_dynamic_for_a_third_site():
     assert "DR2" in page.rack_cards
     units, power = page.rack_cards["DR2"]
     assert units.value_label.text() == "-"
+
+
+def test_rack_toggle_button_has_visible_styling():
+    """Reported as not very visible - now light green, matching the
+    same pattern already applied to Preview Failover."""
+    service = ProjectService()
+    page = SummaryPage(service)
+
+    style = page.rack_toggle_button.styleSheet()
+
+    assert "background-color" in style
+    assert style.strip() != ""

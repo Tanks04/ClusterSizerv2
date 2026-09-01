@@ -204,3 +204,54 @@ def test_setting_value_directly_still_works_normally():
 
     assert page.deployment_combos["DR"].currentText() == "Cloud"
     assert service.project.deployment_model_for("DR") == "Cloud"
+
+
+def test_construction_preserves_real_project_threshold_values():
+    """Reported bug found while implementing preset live-preview:
+    _update_preset_description() runs once during _create_ui(), before
+    the threshold spinboxes even exist if called too early - and even
+    once fixed, must not let a preset preview leak into the initial
+    display, overwriting the real project's saved values."""
+    service = ProjectService()
+    service.thresholds.cpu_warning_ratio = 3.33
+
+    page = SettingsPage(service)
+
+    assert page.cpu_warning_spin.value() == 3.33
+
+
+def test_changing_preset_combo_immediately_fills_values_without_button_click():
+    from src.calculations.thresholds import PRESETS
+
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    page.preset_combo.setCurrentIndex(1)
+
+    selected = PRESETS[1]
+    assert page.cpu_warning_spin.value() == selected.thresholds.cpu_warning_ratio
+    assert page.ram_warning_spin.value() == selected.thresholds.ram_warning_ratio * 100
+
+
+def test_use_this_preset_only_shows_confirmation_values_already_set():
+    service = ProjectService()
+    page = SettingsPage(service)
+    page.preset_combo.setCurrentIndex(1)
+    value_before = page.cpu_warning_spin.value()
+
+    page._use_preset()
+
+    assert page.cpu_warning_spin.value() == value_before  # unchanged by the click itself
+    assert "loaded below" in page.preset_status_label.text()
+
+
+def test_status_label_clears_when_preset_selection_changes_again():
+    service = ProjectService()
+    page = SettingsPage(service)
+    page.preset_combo.setCurrentIndex(1)
+    page._use_preset()
+    assert page.preset_status_label.text() != ""
+
+    page.preset_combo.setCurrentIndex(0)
+
+    assert page.preset_status_label.text() == ""

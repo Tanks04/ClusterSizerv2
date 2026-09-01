@@ -24,6 +24,33 @@ def raid_usable_disk_count(raid_level: str, disk_count: int) -> float:
     return 0  # "" or anything unrecognized - no estimate offered
 
 
+# FTT (Failures To Tolerate) levels for HCI/vSAN-style storage - the
+# Calc button's optional Usable estimate when is_hci is checked
+# (mirrors raid_usable_disk_count for traditional arrays, just
+# expressed as an overhead FACTOR on raw capacity rather than a disk-
+# count formula, since HCI's raw already comes from linked servers
+# rather than a manual disk count).
+FTT_LEVELS = [
+    "", "FTT=0 (No tolerance)", "FTT=1 Mirroring", "FTT=1 Erasure Coding",
+    "FTT=2 Mirroring", "FTT=2 Erasure Coding",
+]
+
+
+def ftt_usable_factor(ftt_level: str) -> float:
+    """Fraction of raw capacity that survives this FTT level's
+    redundancy overhead - a common, rough estimate (real overhead
+    varies by cluster size, object policy, slack space reserved by
+    the platform, etc.), same spirit as raid_usable_disk_count."""
+    factors = {
+        "FTT=0 (No tolerance)": 1.0,
+        "FTT=1 Mirroring": 0.5,
+        "FTT=1 Erasure Coding": 0.75,  # RAID5-like, needs 4+ nodes
+        "FTT=2 Mirroring": 1 / 3,
+        "FTT=2 Erasure Coding": 2 / 3,  # RAID6-like, needs 6+ nodes
+    }
+    return factors.get(ftt_level, 0.0)
+
+
 @dataclass
 class StorageShelf:
     """One expansion shelf/tray attached to a Storage system - embedded
@@ -88,6 +115,12 @@ class Storage:
     # authoritative computation, same spirit as raid_overhead_percent
     # being informational rather than binding.
     raid_level: str = ""
+
+    # Same idea as raid_level, but for HCI (is_hci checked) - FTT
+    # (Failures To Tolerate) level, applied as a factor on the auto-
+    # summed raw_capacity_tb to estimate Usable when the Calc button
+    # is clicked. Also just a starting estimate, independently editable.
+    ftt_level: str = ""
 
     # Connectivity port inventory - same pattern as Server.nic_* and
     # NetworkSwitch.ports_*. Used on the Network tab to track free/used

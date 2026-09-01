@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
+from src.persistence import csv_io
+from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 
 from src.gui.dialogs.storage_dialog import StorageDialog
 from src.gui.models.storage_table_model import StorageTableModel
@@ -152,10 +154,18 @@ class StoragePage(QWidget):
         if not path:
             return
         try:
-            count = self.service.import_storages_csv(path)
-            QMessageBox.information(self, "Import", f"Imported {count} storage system(s).")
+            new_storages = csv_io.import_storages(path)
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
+            return
+        choice = confirm_import_conflict(
+            self, "storage system", len(self.service.project.storages), len(new_storages),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+        try:
+            count = self.service.import_storages_csv(path, replace=choice == ImportConflictChoice.REPLACE)
+            QMessageBox.information(self, "Import", f"Imported {count} storage system(s).")
         except Exception as exc:
             report_error(self, "Import Error", exc)
 

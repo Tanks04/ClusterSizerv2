@@ -22,8 +22,9 @@ from src.models.server import Server, HYPERVISOR_VENDORS
 
 class ServerDialog(QDialog):
 
-    def __init__(self, server: Server | None = None, sites: list | None = None, parent=None):
+    def __init__(self, server: Server | None = None, sites: list | None = None, clusters: list | None = None, parent=None):
         super().__init__(parent)
+        self._clusters = clusters or []
 
         self.setWindowTitle("Server")
 
@@ -214,6 +215,19 @@ class ServerDialog(QDialog):
         self.cluster_name_edit = QLineEdit()
         self.cluster_name_edit.setPlaceholderText("e.g. vSAN_HPM - informational, several servers can share one")
         layout.addRow("Cluster Name", self.cluster_name_edit)
+
+        self.cluster_combo = QComboBox()
+        self.cluster_combo.addItem("(none)", userData="")
+        for cluster in self._clusters:
+            self.cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
+        self.cluster_combo.setToolTip(
+            "Which isolated cluster (a vSphere Cluster, a Nutanix cluster, a Proxmox "
+            "cluster, one of several independent Hyper-V Failover Clusters) this "
+            "server belongs to, if you want to track per-cluster CPU/RAM separately "
+            "from the site-wide totals. Independent of Cluster Name above. Manage "
+            "the list of Clusters above the servers table."
+        )
+        layout.addRow("Cluster", self.cluster_combo)
 
         self.serial_number_edit = QLineEdit()
         self.serial_number_edit.setPlaceholderText("Asset/service tag - for support tickets and RMA tracking")
@@ -422,6 +436,8 @@ class ServerDialog(QDialog):
         self.warranty_edit.setText(server.warranty_expiry)
         self.ip_address_edit.setText(server.ip_address)
         self.cluster_name_edit.setText(server.cluster_name)
+        cluster_index = self.cluster_combo.findData(server.cluster_uid)
+        self.cluster_combo.setCurrentIndex(cluster_index if cluster_index >= 0 else 0)
         self.serial_number_edit.setText(server.serial_number)
         self.bmc_ip_edit.setText(server.bmc_ip)
         hv_index = self.hypervisor_vendor_combo.findText(server.hypervisor_vendor)
@@ -458,6 +474,7 @@ class ServerDialog(QDialog):
         server.warranty_expiry = self.warranty_edit.text()
         server.ip_address = self.ip_address_edit.text()
         server.cluster_name = self.cluster_name_edit.text()
+        server.cluster_uid = self.cluster_combo.currentData() or ""
         server.serial_number = self.serial_number_edit.text()
         server.bmc_ip = self.bmc_ip_edit.text()
         server.hypervisor_vendor = self.hypervisor_vendor_combo.currentText()

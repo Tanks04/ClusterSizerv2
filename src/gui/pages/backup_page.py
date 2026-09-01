@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
+from src.persistence import csv_io
+from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 from src.calculations.backup import compute_compliance
 
 from src.gui.dialogs.backup_destination_dialog import BackupDestinationDialog
@@ -170,10 +172,18 @@ class BackupPage(QWidget):
         if not path:
             return
         try:
-            count = self.service.import_backup_destinations_csv(path)
-            QMessageBox.information(self, "Import", f"Imported {count} backup destination(s).")
+            new_destinations = csv_io.import_backup_destinations(path)
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
+            return
+        choice = confirm_import_conflict(
+            self, "backup destination", len(self.service.project.backup_destinations), len(new_destinations),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+        try:
+            count = self.service.import_backup_destinations_csv(path, replace=choice == ImportConflictChoice.REPLACE)
+            QMessageBox.information(self, "Import", f"Imported {count} backup destination(s).")
         except Exception as exc:
             report_error(self, "Import Error", exc)
 

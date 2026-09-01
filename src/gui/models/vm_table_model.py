@@ -6,7 +6,7 @@ from src.models.virtual_machine import VirtualMachine
 
 class VMTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Category", "Failover Sites", "IP Address", "OS", "VLAN", "Notes"]
+    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Category", "Failover Sites", "IP Address", "OS", "VLAN", "Cluster", "Notes"]
 
     EDITABLE_COLUMNS = {2, 4, 5}  # vCPU, RAM, Disk
 
@@ -16,12 +16,14 @@ class VMTableModel(QAbstractTableModel):
         on_change: Callable[[], None] | None = None,
         vlans_provider: Callable[[], list] | None = None,
         failover_assignments_provider: Callable[[], list] | None = None,
+        clusters_provider: Callable[[], list] | None = None,
     ):
         super().__init__()
         self._vms = list(vms) if vms else []
         self._on_change = on_change
         self._vlans_provider = vlans_provider or (lambda: [])
         self._failover_assignments_provider = failover_assignments_provider or (lambda: [])
+        self._clusters_provider = clusters_provider or (lambda: [])
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self._vms)
@@ -45,11 +47,18 @@ class VMTableModel(QAbstractTableModel):
     def data(self, index, role):
         if not index.isValid():
             return None
-        if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
-            return None
 
         vm = self._vms[index.row()]
         column = index.column()
+
+        if role == Qt.ItemDataRole.BackgroundRole and column == 12 and vm.cluster_uid:
+            from PySide6.QtGui import QColor
+            cluster = next((c for c in self._clusters_provider() if c.uid == vm.cluster_uid), None)
+            if cluster:
+                return QColor(cluster.color)
+
+        if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
+            return None
 
         match column:
             case 0:
@@ -84,6 +93,11 @@ class VMTableModel(QAbstractTableModel):
                 vlan = next((v for v in self._vlans_provider() if v.uid == vm.vlan_uid), None)
                 return vlan.name if vlan else "-"
             case 12:
+                if not vm.cluster_uid:
+                    return "-"
+                cluster = next((c for c in self._clusters_provider() if c.uid == vm.cluster_uid), None)
+                return cluster.name if cluster else "-"
+            case 13:
                 return vm.notes or "-"
 
         return None

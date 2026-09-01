@@ -118,6 +118,34 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
                     f"{pool_ratio * 100:.0f}% of its usable capacity ({pool_status.value})",
                 ))
 
+    for cluster in project.clusters:
+        # Same "aggregate can hide a real problem" pattern as storage
+        # pools above: a site's overall CPU/RAM can look perfectly
+        # healthy while one specific isolated cluster (a vSphere
+        # Cluster, a Nutanix cluster, one of several independent
+        # Hyper-V clusters at the same site) is over-subscribed - the
+        # site-wide check earlier in this function would never catch
+        # that on its own.
+        cpu_ratio = project.cluster_cpu_ratio(cluster.uid)
+        if cpu_ratio is not None:
+            cpu_status = thresholds.cpu_status(cpu_ratio)
+            if cpu_status in (Status.WARNING, Status.CRITICAL):
+                items.append(AttentionItem(
+                    cpu_status,
+                    f"Cluster '{cluster.name}': CPU oversubscription is "
+                    f"{cpu_ratio:.1f}:1 ({cpu_status.value})",
+                ))
+
+        ram_ratio = project.cluster_ram_ratio(cluster.uid)
+        if ram_ratio is not None:
+            ram_status = thresholds.ram_status(ram_ratio)
+            if ram_status in (Status.WARNING, Status.CRITICAL):
+                items.append(AttentionItem(
+                    ram_status,
+                    f"Cluster '{cluster.name}': RAM utilization is "
+                    f"{ram_ratio * 100:.0f}% ({ram_status.value})",
+                ))
+
     # Skip nagging about backup compliance for a project with no VMs yet
     # (nothing to back up) - avoids noise on a brand new, still-empty project.
     if project.vms:

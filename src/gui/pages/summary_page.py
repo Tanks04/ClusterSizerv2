@@ -152,6 +152,14 @@ class SummaryPage(QWidget):
 
         self.rack_toggle_button = QPushButton("Show Rack Sizing")
         self.rack_toggle_button.setCheckable(True)
+        self.rack_toggle_button.setStyleSheet(
+            "QPushButton {"
+            "   background-color: #8bc34a; color: #1b2e0a; font-weight: bold;"
+            "   padding: 4px 14px; border-radius: 4px; border: none;"
+            "}"
+            "QPushButton:hover { background-color: #7cb342; }"
+            "QPushButton:checked { background-color: #558b2f; color: white; }"
+        )
         self.rack_toggle_button.toggled.connect(self._on_rack_toggle)
         rack_header.addWidget(self.rack_toggle_button)
 

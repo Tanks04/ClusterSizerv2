@@ -72,6 +72,15 @@ class VirtualMachine:
     # per-pool tracking, same spirit as vlan_uid above.
     storage_uid: str = ""
 
+    # Optional reference to a Cluster.uid - which specific isolated
+    # cluster (a vSphere Cluster, a Nutanix cluster, a Proxmox cluster,
+    # one of several independent Hyper-V Failover Clusters) this VM
+    # runs in, if you want to track that. A single site commonly hosts
+    # several separate clusters side by side. Same opt-in spirit as
+    # storage_uid above - when empty, this VM's demand only counts
+    # toward the site-wide aggregate as it always has.
+    cluster_uid: str = ""
+
     notes: str = ""
 
     @staticmethod

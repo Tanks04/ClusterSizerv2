@@ -16,6 +16,8 @@ from PySide6.QtCore import Qt
 
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
+from src.persistence import csv_io
+from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 from src.calculations.networking import site_port_usage, format_usage, any_over_committed
 from src.models.cluster_project import PRIMARY, DR
 
@@ -324,10 +326,18 @@ class NetworkPage(QWidget):
         if not path:
             return
         try:
-            count = self.service.import_switches_csv(path)
-            QMessageBox.information(self, "Import", f"Imported {count} switch(es).")
+            new_switches = csv_io.import_switches(path)
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
+            return
+        choice = confirm_import_conflict(
+            self, "switch", len(self.service.project.switches), len(new_switches),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+        try:
+            count = self.service.import_switches_csv(path, replace=choice == ImportConflictChoice.REPLACE)
+            QMessageBox.information(self, "Import", f"Imported {count} switch(es).")
         except Exception as exc:
             report_error(self, "Import Error", exc)
 
@@ -496,10 +506,18 @@ class NetworkPage(QWidget):
         if not path:
             return
         try:
-            count = self.service.import_vlans_csv(path)
-            QMessageBox.information(self, "Import", f"Imported {count} VLAN(s).")
+            new_vlans = csv_io.import_vlans(path)
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
+            return
+        choice = confirm_import_conflict(
+            self, "VLAN", len(self.service.project.vlans), len(new_vlans),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+        try:
+            count = self.service.import_vlans_csv(path, replace=choice == ImportConflictChoice.REPLACE)
+            QMessageBox.information(self, "Import", f"Imported {count} VLAN(s).")
         except Exception as exc:
             report_error(self, "Import Error", exc)
 

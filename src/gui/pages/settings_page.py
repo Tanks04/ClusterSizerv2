@@ -206,7 +206,6 @@ class SettingsPage(QWidget):
         preset_layout.addWidget(note)
 
         layout.addWidget(preset_box)
-        self._update_preset_description()
 
         #
         # Manual thresholds
@@ -250,6 +249,7 @@ class SettingsPage(QWidget):
         layout.addWidget(apply_button)
 
         layout.addStretch()
+        self._update_preset_description()
 
     def _add_site(self):
         name = self.new_site_edit.text().strip()
@@ -347,17 +347,21 @@ class SettingsPage(QWidget):
         return next((p for p in PRESETS if p.key == key), PRESETS[0])
 
     def _update_preset_description(self):
-        self.preset_description_label.setText(self._selected_preset().description)
-        self.preset_status_label.setText("")
-
-    def _use_preset(self):
-        t = self._selected_preset().thresholds
+        preset = self._selected_preset()
+        self.preset_description_label.setText(preset.description)
+        # Show the values immediately on selection, not only after
+        # clicking "Use This Preset" - that button now just confirms
+        # the already-shown selection (see its own status message).
+        t = preset.thresholds
         self.cpu_warning_spin.setValue(t.cpu_warning_ratio)
         self.cpu_critical_spin.setValue(t.cpu_critical_ratio)
         self.ram_warning_spin.setValue(t.ram_warning_ratio * 100)
         self.ram_critical_spin.setValue(t.ram_critical_ratio * 100)
         self.storage_warning_spin.setValue(t.storage_warning_ratio * 100)
         self.storage_critical_spin.setValue(t.storage_critical_ratio * 100)
+        self.preset_status_label.setText("")
+
+    def _use_preset(self):
         self.preset_status_label.setText(
             f"\u2713 {self._selected_preset().label} values loaded below - click Apply to save."
         )

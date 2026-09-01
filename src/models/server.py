@@ -37,6 +37,13 @@ class Server:
 
     cluster_name: str = ""  # informational tag, e.g. a VMware/Hyper-V cluster name - several servers can share one, an environment can have several clusters
 
+    # Optional reference to a Cluster.uid - the structured, colored
+    # version of the plain cluster_name text above (which stays
+    # exactly as-is, unaffected - e.g. still populated by RVTools
+    # import). Lets per-cluster CPU/RAM be tracked explicitly, the
+    # same spirit as VirtualMachine.storage_uid for storage pools.
+    cluster_uid: str = ""
+
     serial_number: str = ""  # asset tag / service tag - for support tickets and RMA tracking
     bmc_ip: str = ""  # out-of-band management IP (iLO/iDRAC/BMC) - separate from ip_address, which is the main OS-facing IP
     hypervisor_vendor: str = ""  # one of HYPERVISOR_VENDORS - matches the Settings page's oversubscription presets
@@ -51,8 +58,10 @@ class Server:
     # (2 for typical x86 HT, could be higher on other architectures), but
     # it only counts toward CPU capacity math when this is True. Lets
     # someone flip HT off for a specific server (e.g. a latency-sensitive
-    # host) without losing their threads_per_core setting.
-    hyperthreading_enabled: bool = True
+    # host) without losing their threads_per_core setting. Defaults to
+    # False - HT gains vary by workload and aren't guaranteed, matching
+    # the same default already used in the Cluster Preparation wizard.
+    hyperthreading_enabled: bool = False
 
     # NIC inventory - number of physical ports per speed. Used on the
     # Network tab to track free/used ports. Fully optional - if left at 0,
@@ -127,7 +136,7 @@ class Server:
             threads_per_core=2,
             ram_gb=256,
             cpu_frequency=2.5,
-            hyperthreading_enabled=True,
+            hyperthreading_enabled=False,
             nic_1g=2,
             nic_10g=0,
             nic_25g=2,

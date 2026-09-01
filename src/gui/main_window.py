@@ -18,6 +18,7 @@ from src.version import VERSION as APP_VERSION
 from src.persistence.csv_io import CsvSchemaError
 
 from src.gui.pages.servers_page import ServersPage
+from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 from src.gui.pages.storage_page import StoragePage
 from src.gui.pages.backup_page import BackupPage
 from src.gui.pages.pricing_page import PricingPage
@@ -380,7 +381,16 @@ class MainWindow(QMainWindow):
         if not servers and not vms:
             return
 
-        self.project_service.add_servers_and_vms(servers, vms, switches)
+        existing_count = len(self.project_service.project.servers) + len(self.project_service.project.vms)
+        choice = confirm_import_conflict(
+            self, "server/VM", existing_count, len(servers) + len(vms),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+
+        self.project_service.add_servers_and_vms(
+            servers, vms, switches, replace=choice == ImportConflictChoice.REPLACE,
+        )
         message = (
             f"Imported {len(servers)} server(s) and {len(vms)} VM(s)"
             + (f" and {len(switches)} switch(es)" if switches else "")

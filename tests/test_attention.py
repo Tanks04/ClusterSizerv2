@@ -439,3 +439,70 @@ def test_pool_utilization_severity_matches_storage_thresholds():
     pool_items = [i for i in items if "assigned VMs are using" in i.message]
     assert len(pool_items) == 1
     assert pool_items[0].severity == Status.CRITICAL
+
+
+def test_oversubscribed_cluster_is_flagged_even_though_site_aggregate_is_healthy():
+    """The exact scenario this feature exists for: two isolated
+    clusters at one site, one badly oversubscribed, one nearly idle -
+    the site-wide aggregate looks perfectly healthy while Cluster A
+    specifically is critically oversubscribed."""
+    from src.models.cluster import Cluster
+
+    project = ClusterProject()
+    cluster_a = Cluster.create_default(0)
+    cluster_a.name = "Cluster-A"
+    cluster_a.site = PRIMARY
+    cluster_b = Cluster.create_default(1)
+    cluster_b.name = "Cluster-B"
+    cluster_b.site = PRIMARY
+    project.clusters.extend([cluster_a, cluster_b])
+
+    server_a = _server(sockets=1, cores_per_socket=8, ram_gb=64)
+    server_a.cluster_uid = cluster_a.uid
+    project.servers.append(server_a)
+    vm_a = _vm(vcpu=64, ram_gb=8)
+    vm_a.cluster_uid = cluster_a.uid
+    project.vms.append(vm_a)
+
+    server_b = _server(sockets=2, cores_per_socket=32, ram_gb=256)
+    server_b.cluster_uid = cluster_b.uid
+    project.servers.append(server_b)
+    vm_b = _vm(vcpu=8, ram_gb=8)
+    vm_b.cluster_uid = cluster_b.uid
+    project.vms.append(vm_b)
+
+    items = compute_attention_items(project, Thresholds())
+
+    cluster_items = [i for i in items if "Cluster '" in i.message]
+    assert any("Cluster-A" in i.message and i.severity == Status.CRITICAL for i in cluster_items)
+    assert not any("Cluster-B" in i.message for i in cluster_items)
+
+
+def test_cluster_with_no_servers_assigned_is_never_flagged():
+    from src.models.cluster import Cluster
+
+    project = ClusterProject()
+    project.clusters.append(Cluster.create_default(0))
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("Cluster '" in i.message for i in items)
+
+
+def test_healthy_cluster_is_never_flagged():
+    from src.models.cluster import Cluster
+
+    project = ClusterProject()
+    cluster = Cluster.create_default(0)
+    cluster.name = "Cluster-Healthy"
+    project.clusters.append(cluster)
+    server = _server(sockets=2, cores_per_socket=16, ram_gb=256)
+    server.cluster_uid = cluster.uid
+    project.servers.append(server)
+    vm = _vm(vcpu=16, ram_gb=32)
+    vm.cluster_uid = cluster.uid
+    project.vms.append(vm)
+
+    items = compute_attention_items(project, Thresholds())
+
+    assert not any("Cluster-Healthy" in i.message for i in items)

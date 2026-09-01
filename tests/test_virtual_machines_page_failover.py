@@ -144,3 +144,69 @@ def test_acknowledge_with_no_selection_shows_a_message(monkeypatch):
     page._set_failover_confirmed_for_selected(True)
 
     assert informed.get("called") is True
+
+
+def test_assign_selected_to_failover_creates_one_assignment_per_vm(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    service = ProjectService()
+    vm1 = VirtualMachine.create_default()
+    vm1.vcpu = 8
+    vm1.ram_gb = 32
+    vm1.disk_gb = 500
+    vm2 = VirtualMachine.create_default()
+    vm2.vcpu = 4
+    vm2.ram_gb = 16
+    vm2.disk_gb = 200
+    service.add_vm(vm1)
+    service.add_vm(vm2)
+    page = VirtualMachinesPage(service)
+    page.table.selectAll()
+
+    page._assign_selected_to_failover("DR")
+
+    assert len(service.project.failover_assignments) == 2
+    assignments_by_vm = {a.vm_uid: a for a in service.project.failover_assignments}
+    assert assignments_by_vm[vm1.uid].vcpu == 8
+    assert assignments_by_vm[vm1.uid].ram_gb == 32
+    assert assignments_by_vm[vm1.uid].disk_gb == 500
+    assert assignments_by_vm[vm2.uid].target_site == "DR"
+
+
+def test_assign_selected_to_failover_is_one_undo_step(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    service = ProjectService()
+    service.add_vm(VirtualMachine.create_default())
+    service.add_vm(VirtualMachine.create_default())
+    page = VirtualMachinesPage(service)
+    page.table.selectAll()
+
+    page._assign_selected_to_failover("DR")
+    assert len(service.project.failover_assignments) == 2
+
+    service.undo()
+    assert service.project.failover_assignments == []
+
+
+def test_assign_selected_to_failover_with_no_selection_does_nothing():
+    service = ProjectService()
+    service.add_vm(VirtualMachine.create_default())
+    page = VirtualMachinesPage(service)
+
+    page._assign_selected_to_failover("DR")
+
+    assert service.project.failover_assignments == []
+
+
+def test_custom_actions_include_assign_to_failover_per_site():
+    service = ProjectService()
+    service.project.add_site("DR2")
+    page = VirtualMachinesPage(service)
+
+    labels = [label for label, _ in page.table._custom_actions]
+
+    assert any("Assign to Failover (DR2)" in l for l in labels)
+    assert any("Assign to Failover (Primary)" in l for l in labels)

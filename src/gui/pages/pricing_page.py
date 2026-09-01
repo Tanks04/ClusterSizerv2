@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
 
 from src.services.project_service import ProjectService
 from src.persistence.csv_io import CsvSchemaError
+from src.persistence import csv_io
+from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 from src.calculations.pricing import compute_equipment_pricing, compute_maintenance_status
 
 from src.gui.dialogs.maintenance_item_dialog import MaintenanceItemDialog
@@ -178,10 +180,18 @@ class PricingPage(QWidget):
         if not path:
             return
         try:
-            count = self.service.import_maintenance_items_csv(path)
-            QMessageBox.information(self, "Import", f"Imported {count} item(s).")
+            new_items = csv_io.import_maintenance_items(path)
         except CsvSchemaError as exc:
             QMessageBox.warning(self, "Wrong file", str(exc))
+            return
+        choice = confirm_import_conflict(
+            self, "maintenance item", len(self.service.project.maintenance_items), len(new_items),
+        )
+        if choice == ImportConflictChoice.CANCEL:
+            return
+        try:
+            count = self.service.import_maintenance_items_csv(path, replace=choice == ImportConflictChoice.REPLACE)
+            QMessageBox.information(self, "Import", f"Imported {count} item(s).")
         except Exception as exc:
             report_error(self, "Import Error", exc)
 

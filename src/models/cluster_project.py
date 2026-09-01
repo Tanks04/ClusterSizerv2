@@ -9,6 +9,7 @@ from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
+from src.models.cluster import Cluster
 from src.models.failover_assignment import FailoverAssignment
 
 PRIMARY = "Primary"
@@ -75,6 +76,7 @@ class ClusterProject:
     backup_destinations: list[BackupDestination] = field(default_factory=list)
     maintenance_items: list[MaintenanceItem] = field(default_factory=list)
     vlans: list[Vlan] = field(default_factory=list)
+    clusters: list[Cluster] = field(default_factory=list)
     failover_assignments: list[FailoverAssignment] = field(default_factory=list)
 
     def add_site(self, name: str) -> None:
@@ -247,6 +249,41 @@ class ClusterProject:
         if usable_gb == 0:
             return None
         return self.storage_pool_demand_gb(storage.uid) / usable_gb
+
+    # ------------------------------------------------------------------
+    # Per-cluster CPU/RAM utilization - opt-in, only meaningful once a
+    # Server/VM is actually assigned to a SPECIFIC Cluster (both have
+    # a cluster_uid). Exactly the same "aggregate can hide a real
+    # problem" pattern as storage pools above: a site's overall CPU/RAM
+    # can look perfectly healthy while one specific isolated cluster
+    # (a vSphere Cluster, a Nutanix cluster, one of several independent
+    # Hyper-V clusters at the same site) is over-subscribed - the site
+    # aggregate alone can never reveal that.
+    # ------------------------------------------------------------------
+
+    def cluster_physical_cores(self, cluster_uid: str) -> int:
+        return sum(s.effective_cores for s in self.servers if s.cluster_uid == cluster_uid)
+
+    def cluster_physical_ram_gb(self, cluster_uid: str) -> float:
+        return sum(s.ram_gb for s in self.servers if s.cluster_uid == cluster_uid)
+
+    def cluster_vcpu_demand(self, cluster_uid: str) -> int:
+        return sum(v.vcpu for v in self.vms if v.cluster_uid == cluster_uid and v.powered_on)
+
+    def cluster_ram_demand_gb(self, cluster_uid: str) -> float:
+        return sum(v.ram_gb for v in self.vms if v.cluster_uid == cluster_uid and v.powered_on)
+
+    def cluster_cpu_ratio(self, cluster_uid: str) -> float | None:
+        cores = self.cluster_physical_cores(cluster_uid)
+        if cores == 0:
+            return None
+        return self.cluster_vcpu_demand(cluster_uid) / cores
+
+    def cluster_ram_ratio(self, cluster_uid: str) -> float | None:
+        ram = self.cluster_physical_ram_gb(cluster_uid)
+        if ram == 0:
+            return None
+        return self.cluster_ram_demand_gb(cluster_uid) / ram
 
     # ------------------------------------------------------------------
     # N+1 check (does the cluster survive losing one host at this site)

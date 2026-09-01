@@ -16,6 +16,7 @@ from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
+from src.models.cluster import Cluster
 
 FILE_EXTENSION = ".clsz"
 SCHEMA_VERSION = 8
@@ -52,6 +53,7 @@ def save_project(
         "backup_destinations": [asdict(d) for d in project.backup_destinations],
         "maintenance_items": [asdict(i) for i in project.maintenance_items],
         "vlans": [asdict(v) for v in project.vlans],
+        "clusters": [asdict(c) for c in project.clusters],
         "failover_assignments": [asdict(a) for a in project.failover_assignments],
         "thresholds": asdict(thresholds if thresholds is not None else Thresholds()),
     }
@@ -103,6 +105,7 @@ def load_project(path: str | Path) -> LoadedProject:
         _build(MaintenanceItem, row) for row in raw.get("maintenance_items", [])
     ]
     project.vlans = [_build(Vlan, row) for row in raw.get("vlans", [])]
+    project.clusters = [_build(Cluster, row) for row in raw.get("clusters", [])]
 
     if "failover_assignments" in raw:
         project.failover_assignments = [
