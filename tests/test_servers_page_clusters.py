@@ -123,3 +123,23 @@ def test_cluster_table_refreshes_when_a_server_is_assigned():
     service.add_server(server)
 
     assert page.cluster_model.data(page.cluster_model.index(0, 3), Qt.ItemDataRole.DisplayRole) == "1"
+
+
+def test_servers_table_appears_before_cluster_section_in_layout():
+    """Reported directly - the Clusters section had squeezed between
+    the toolbar and the servers table, pushing servers to the bottom.
+    Servers table must now come first, Clusters section after it."""
+    service = ProjectService()
+    page = ServersPage(service)
+
+    layout = page.layout()
+    widget_order = []
+    for i in range(layout.count()):
+        item = layout.itemAt(i)
+        w = item.widget()
+        if w is page.table:
+            widget_order.append("table")
+        elif w is not None and w.findChild(type(page.cluster_table)) is page.cluster_table:
+            widget_order.append("cluster_section")
+
+    assert widget_order == ["table", "cluster_section"]

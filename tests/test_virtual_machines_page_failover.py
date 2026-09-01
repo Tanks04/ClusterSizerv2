@@ -56,7 +56,7 @@ def test_bulk_toggle_and_table_agree():
 
     page.table.selectRow(0)
     page.bulk_failover_site_combo.setCurrentText("DR")
-    page.bulk_failover_check.setChecked(True)
+    page.bulk_failover_action_combo.setCurrentIndex(0)  # "Add"
     with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
         page._set_failover_for_selected_from_checkbox()
 
@@ -210,3 +210,74 @@ def test_custom_actions_include_assign_to_failover_per_site():
 
     assert any("Assign to Failover (DR2)" in l for l in labels)
     assert any("Assign to Failover (Primary)" in l for l in labels)
+
+
+def test_failover_action_combo_has_add_and_remove_options():
+    """Replaces the previously ambiguous 'Assigned' checkbox - reported
+    directly as confusing ('ne kuzim sta radi')."""
+    service = ProjectService()
+    page = VirtualMachinesPage(service)
+
+    items = [page.bulk_failover_action_combo.itemText(i) for i in range(page.bulk_failover_action_combo.count())]
+
+    assert items == ["Add", "Remove"]
+    assert page.bulk_failover_action_combo.itemData(0) is True
+    assert page.bulk_failover_action_combo.itemData(1) is False
+
+
+def test_add_action_creates_an_assignment():
+    service = ProjectService()
+    page = VirtualMachinesPage(service)
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+    page.table.selectRow(0)
+    page.bulk_failover_site_combo.setCurrentText("DR")
+    page.bulk_failover_action_combo.setCurrentIndex(0)  # Add
+
+    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+        page._set_failover_for_selected_from_checkbox()
+
+    assert len(service.project.failover_assignments) == 1
+
+
+def test_remove_action_deletes_an_existing_assignment():
+    service = ProjectService()
+    page = VirtualMachinesPage(service)
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+    page.table.selectRow(0)
+    page.bulk_failover_site_combo.setCurrentText("DR")
+    page.bulk_failover_action_combo.setCurrentIndex(0)
+    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), \
+         patch.object(QMessageBox, "information"):
+        page._set_failover_for_selected_from_checkbox()
+    assert len(service.project.failover_assignments) == 1
+
+    page.table.selectRow(0)  # refresh() reset the selection
+    page.bulk_failover_action_combo.setCurrentIndex(1)  # Remove
+    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), \
+         patch.object(QMessageBox, "information"):
+        page._set_failover_for_selected_from_checkbox()
+
+    assert len(service.project.failover_assignments) == 0
+
+
+def test_bulk_move_site_and_cluster_rows_coexist():
+    """Bulk move site and Bulk move Cluster now sit in the same row -
+    both dropdowns and their buttons must still work independently."""
+    from src.models.cluster import Cluster
+
+    service = ProjectService()
+    cluster = Cluster.create_default(0)
+    service.add_cluster(cluster)
+    page = VirtualMachinesPage(service)
+    vm = VirtualMachine.create_default()
+    service.add_vm(vm)
+
+    page.table.selectRow(0)
+    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+        page._set_site_for_selected(page.bulk_site_combo.currentText())
+    page.table.selectRow(0)
+    page._set_cluster_for_selected_from_combo()
+
+    assert service.project.vms[0].cluster_uid == cluster.uid

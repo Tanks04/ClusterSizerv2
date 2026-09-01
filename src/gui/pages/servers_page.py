@@ -111,11 +111,31 @@ class ServersPage(QWidget):
         main_layout.addWidget(toolbar)
 
         #
+        # Table
+        #
+
+        self.table = MultiSelectTableView()
+        self.table.set_source_model(self.model)
+        self.table.edit_requested.connect(self._edit_server)
+        self.table.delete_requested.connect(self._delete_selected)
+        self.table.copy_requested.connect(self._duplicate_selected)
+        self.table.set_custom_actions([
+            ("\U0001f6d1 Disable (exclude from capacity)", lambda: self._set_enabled_for_selected(False)),
+            ("\u2705 Enable", lambda: self._set_enabled_for_selected(True)),
+            ("\U0001f4be Create HCI Storage from Selected", self._create_hci_storage_from_selected),
+            ("\u270f\ufe0f Bulk Edit Selected", self._bulk_edit_selected),
+        ])
+
+        main_layout.addWidget(self.table)
+
+        #
         # Clusters - isolated compute failure domains a site can host
         # several of (see src/models/cluster.py for the full picture).
         # Purely optional - assign servers/VMs to one on their own
         # dialogs. Nothing here is required for the app to work as it
-        # always has.
+        # always has. Placed below the main servers table (not above
+        # it) so the servers list stays the first thing visible on
+        # this tab, matching every other page's layout.
         #
 
         cluster_section = QWidget()
@@ -163,24 +183,6 @@ class ServersPage(QWidget):
         cluster_layout.addWidget(self.cluster_table)
 
         main_layout.addWidget(cluster_section)
-
-        #
-        # Table
-        #
-
-        self.table = MultiSelectTableView()
-        self.table.set_source_model(self.model)
-        self.table.edit_requested.connect(self._edit_server)
-        self.table.delete_requested.connect(self._delete_selected)
-        self.table.copy_requested.connect(self._duplicate_selected)
-        self.table.set_custom_actions([
-            ("\U0001f6d1 Disable (exclude from capacity)", lambda: self._set_enabled_for_selected(False)),
-            ("\u2705 Enable", lambda: self._set_enabled_for_selected(True)),
-            ("\U0001f4be Create HCI Storage from Selected", self._create_hci_storage_from_selected),
-            ("\u270f\ufe0f Bulk Edit Selected", self._bulk_edit_selected),
-        ])
-
-        main_layout.addWidget(self.table)
 
         #
         # Summary

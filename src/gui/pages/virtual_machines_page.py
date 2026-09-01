@@ -126,68 +126,111 @@ class VirtualMachinesPage(QWidget):
         main_layout.addWidget(toolbar)
 
         bulk_row = QHBoxLayout()
-        bulk_row.addWidget(QLabel("Bulk edit:"))
+
+        set_tier_label = QLabel("Set Tier:")
+        set_tier_label.setToolTip("Sets the Workload Tier used for CPU oversubscription math.")
+        bulk_row.addWidget(set_tier_label)
 
         self.bulk_tier_combo = QComboBox()
         self.bulk_tier_combo.addItems(WORKLOAD_TIER_NAMES)
         bulk_row.addWidget(self.bulk_tier_combo)
 
-        bulk_tier_selected_button = QPushButton("Set Tier (Selected)")
+        bulk_tier_selected_button = QPushButton("Selected")
         bulk_tier_selected_button.setToolTip("Sets the Workload Tier on the SELECTED VM(s) only - one undo step.")
         bulk_tier_selected_button.clicked.connect(self._set_workload_tier_for_selected)
         bulk_row.addWidget(bulk_tier_selected_button)
 
-        bulk_tier_all_button = QPushButton("Set Tier (All)")
+        bulk_tier_all_button = QPushButton("All")
         bulk_tier_all_button.setToolTip("Sets the Workload Tier on EVERY VM at once - one undo step, adjust individually afterward if needed.")
         bulk_tier_all_button.clicked.connect(self._set_all_workload_tier)
         bulk_row.addWidget(bulk_tier_all_button)
 
         bulk_row.addSpacing(16)
 
-        bulk_row.addWidget(QLabel("Failover to:"))
+        set_failover_label = QLabel("Set failover:")
+        set_failover_label.setToolTip("Creates or removes a Failover Assignment to the chosen site.")
+        bulk_row.addWidget(set_failover_label)
+
         self.bulk_failover_site_combo = QComboBox()
         bulk_row.addWidget(self.bulk_failover_site_combo)
 
-        self.bulk_failover_check = QCheckBox("Assigned")
-        bulk_row.addWidget(self.bulk_failover_check)
+        self.bulk_failover_action_combo = QComboBox()
+        self.bulk_failover_action_combo.addItem("Add", userData=True)
+        self.bulk_failover_action_combo.addItem("Remove", userData=False)
+        self.bulk_failover_action_combo.setToolTip(
+            "Add = create a Failover Assignment to the chosen site. Remove = delete "
+            "an existing one, if there is one. Choose which, then click Selected/All."
+        )
+        bulk_row.addWidget(self.bulk_failover_action_combo)
 
-        bulk_failover_selected_button = QPushButton("Apply (Selected)")
+        bulk_failover_selected_button = QPushButton("Selected")
         bulk_failover_selected_button.setToolTip(
-            "Creates/removes a Failover Assignment to the chosen site for the "
-            "SELECTED VM(s) only - one undo step. Manage individual footprint "
-            "numbers (vCPU/RAM/disk per site) in the Failover Assignments table below."
+            "Applies the chosen Add/Remove action to the SELECTED VM(s) only - one "
+            "undo step. Manage individual footprint numbers (vCPU/RAM/disk per "
+            "site) in the Failover Assignments table below."
         )
         bulk_failover_selected_button.clicked.connect(self._set_failover_for_selected_from_checkbox)
         bulk_row.addWidget(bulk_failover_selected_button)
 
-        bulk_failover_all_button = QPushButton("Apply (All)")
-        bulk_failover_all_button.setToolTip(
-            "Creates/removes a Failover Assignment to the chosen site for EVERY VM at once - one undo step."
-        )
+        bulk_failover_all_button = QPushButton("All")
+        bulk_failover_all_button.setToolTip("Applies the chosen Add/Remove action to EVERY VM at once - one undo step.")
         bulk_failover_all_button.clicked.connect(self._set_failover_for_all_from_checkbox)
         bulk_row.addWidget(bulk_failover_all_button)
 
         bulk_row.addStretch()
         main_layout.addLayout(bulk_row)
 
-        site_row = QHBoxLayout()
-        site_row.addWidget(QLabel("Bulk move (Site \u2260 DR Protected - this actually relocates the VM):"))
+        move_row = QHBoxLayout()
+
+        site_label = QLabel("Bulk move site:")
+        site_label.setToolTip(
+            "Relocates the VM to a different site - separate from DR Protected/"
+            "Failover Assignment, which just flags a VM as replicated while it "
+            "stays on its current site."
+        )
+        move_row.addWidget(site_label)
 
         self.bulk_site_combo = QComboBox()
-        site_row.addWidget(self.bulk_site_combo)
+        move_row.addWidget(self.bulk_site_combo)
 
-        bulk_site_selected_button = QPushButton("Set Site (Selected)")
+        bulk_site_selected_button = QPushButton("Selected")
         bulk_site_selected_button.setToolTip("Moves the SELECTED VM(s) to the chosen site - one undo step. Same as right-click \u2192 Move to Primary/DR.")
         bulk_site_selected_button.clicked.connect(self._set_site_for_selected_from_combo)
-        site_row.addWidget(bulk_site_selected_button)
+        move_row.addWidget(bulk_site_selected_button)
 
-        bulk_site_all_button = QPushButton("Set Site (All)")
+        bulk_site_all_button = QPushButton("All")
         bulk_site_all_button.setToolTip("Moves EVERY VM to the chosen site at once - one undo step.")
         bulk_site_all_button.clicked.connect(self._set_all_vms_site)
-        site_row.addWidget(bulk_site_all_button)
+        move_row.addWidget(bulk_site_all_button)
 
-        site_row.addStretch()
-        main_layout.addLayout(site_row)
+        move_row.addSpacing(16)
+
+        cluster_label = QLabel("Bulk move Cluster:")
+        cluster_label.setToolTip(
+            "Assigns the VM to an isolated cluster (e.g. a separate vSphere/"
+            "Nutanix/Proxmox/Hyper-V cluster at the same site) - manage the list "
+            "of Clusters on the Servers tab."
+        )
+        move_row.addWidget(cluster_label)
+
+        self.bulk_cluster_combo = QComboBox()
+        move_row.addWidget(self.bulk_cluster_combo)
+
+        bulk_cluster_selected_button = QPushButton("Selected")
+        bulk_cluster_selected_button.setToolTip(
+            "Assigns the SELECTED VM(s) to the chosen cluster - one undo step. "
+            "Same as right-click \u2192 Add to Cluster."
+        )
+        bulk_cluster_selected_button.clicked.connect(self._set_cluster_for_selected_from_combo)
+        move_row.addWidget(bulk_cluster_selected_button)
+
+        bulk_cluster_all_button = QPushButton("All")
+        bulk_cluster_all_button.setToolTip("Assigns EVERY VM to the chosen cluster at once - one undo step.")
+        bulk_cluster_all_button.clicked.connect(self._set_all_vms_cluster)
+        move_row.addWidget(bulk_cluster_all_button)
+
+        move_row.addStretch()
+        main_layout.addLayout(move_row)
 
         self.table = MultiSelectTableView()
         self.table.set_source_model(self.model)
@@ -421,7 +464,7 @@ class VirtualMachinesPage(QWidget):
         site = self.bulk_failover_site_combo.currentText()
         if not site:
             return
-        self.service.set_failover_assignment_for_all_vms(site, self.bulk_failover_check.isChecked())
+        self.service.set_failover_assignment_for_all_vms(site, self.bulk_failover_action_combo.currentData())
 
     def _set_workload_tier_for_selected(self):
         vms = self._selected_vms()
@@ -439,7 +482,7 @@ class VirtualMachinesPage(QWidget):
         site = self.bulk_failover_site_combo.currentText()
         if not site:
             return
-        assigned = self.bulk_failover_check.isChecked()
+        assigned = self.bulk_failover_action_combo.currentData()
         verb = f"assigned to fail over to {site}" if assigned else f"un-assigned from {site}"
         reply = QMessageBox.question(
             self, "Failover Assignment",
@@ -458,6 +501,38 @@ class VirtualMachinesPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             self.service.set_site_for_vms(self.service.project.vms, site)
+
+    def _set_cluster_for_selected_from_combo(self):
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "Move to Cluster", "Select at least one VM in the table.")
+            return
+        cluster_uid = self.bulk_cluster_combo.currentData()
+        if not cluster_uid:
+            QMessageBox.information(self, "Move to Cluster", "Add a Cluster first (Servers tab).")
+            return
+        self.service.bulk_set_vm_fields(vms, {"cluster_uid": cluster_uid})
+
+    def _set_all_vms_cluster(self):
+        if not self.service.project.vms:
+            return
+        cluster_uid = self.bulk_cluster_combo.currentData()
+        if not cluster_uid:
+            QMessageBox.information(self, "Move to Cluster", "Add a Cluster first (Servers tab).")
+            return
+        cluster_name = self.bulk_cluster_combo.currentText()
+        reply = QMessageBox.question(
+            self, "Move to Cluster",
+            f"Assign ALL {len(self.service.project.vms)} VM(s) to {cluster_name}?",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.bulk_set_vm_fields(self.service.project.vms, {"cluster_uid": cluster_uid})
+
+    def _add_selected_to_cluster(self, cluster_uid: str):
+        vms = self._selected_vms()
+        if not vms:
+            return
+        self.service.bulk_set_vm_fields(vms, {"cluster_uid": cluster_uid})
 
     def _assign_selected_to_failover(self, site: str):
         vms = self._selected_vms()
@@ -553,7 +628,8 @@ class VirtualMachinesPage(QWidget):
         self.failover_table.auto_size_columns()
 
         self._refresh_site_combos(project.site_names)
-        self._refresh_custom_actions(project.site_names)
+        self._refresh_cluster_combo(project.clusters)
+        self._refresh_custom_actions(project.site_names, project.clusters)
 
         self.cluster_prep_action.setEnabled(len(project.vms) > 0)
 
@@ -573,7 +649,22 @@ class VirtualMachinesPage(QWidget):
                 combo.setCurrentText(current)
             combo.blockSignals(False)
 
-    def _refresh_custom_actions(self, site_names: list[str]) -> None:
+    def _refresh_cluster_combo(self, clusters: list) -> None:
+        current_uid = self.bulk_cluster_combo.currentData()
+        existing_uids = [self.bulk_cluster_combo.itemData(i) for i in range(self.bulk_cluster_combo.count())]
+        new_uids = [c.uid for c in clusters]
+        if existing_uids == new_uids:
+            return
+        self.bulk_cluster_combo.blockSignals(True)
+        self.bulk_cluster_combo.clear()
+        for cluster in clusters:
+            self.bulk_cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
+        restored = self.bulk_cluster_combo.findData(current_uid)
+        if restored >= 0:
+            self.bulk_cluster_combo.setCurrentIndex(restored)
+        self.bulk_cluster_combo.blockSignals(False)
+
+    def _refresh_custom_actions(self, site_names: list[str], clusters: list | None = None) -> None:
         actions = [
             (f"\U0001f4cd Move to {site}", lambda checked=False, s=site: self._set_site_for_selected(s))
             for site in site_names
@@ -581,6 +672,11 @@ class VirtualMachinesPage(QWidget):
         actions.extend(
             (f"\u2708 Assign to Failover ({site})", lambda checked=False, s=site: self._assign_selected_to_failover(s))
             for site in site_names
+        )
+        actions.extend(
+            (f"\U0001f517 Add to Cluster ({cluster.name or '(unnamed)'})",
+             lambda checked=False, uid=cluster.uid: self._add_selected_to_cluster(uid))
+            for cluster in (clusters or [])
         )
         self.table.set_custom_actions(actions)
 

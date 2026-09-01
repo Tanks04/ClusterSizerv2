@@ -1,6 +1,100 @@
 # ROADMAP
 
+## v4.7.2 (VMs toolbar: clearer labels, one row for both bulk-move actions, the confusing "Assigned" checkbox replaced)
+
+Direct feedback right after using the new Bulk move (Cluster) row from
+v4.7.1 - the toolbar area had grown into 4 separate rows with long,
+overlapping label text.
+
+- **Fixed the confusing "Assigned" checkbox**: paired with "Apply
+  (Selected/All)" buttons, it wasn't clear whether checking it BEFORE
+  clicking Apply would create or remove a Failover Assignment -
+  reported directly as "ne kužim šta radi." Replaced with an explicit
+  "Add" / "Remove" dropdown right next to the site combo - the action
+  it will take is stated in plain words, not implied by a checkbox
+  state.
+- **Combined "Bulk move site" and "Bulk move Cluster" into one row**
+  (previously two separate rows) - each keeps its own label, combo,
+  and Selected/All buttons, just side by side now instead of stacked.
+- **Renamed and shortened labels**: "Bulk edit:" \u2192 "Set Tier:",
+  "Failover to:" \u2192 "Set failover:", "Bulk move (Site \u2260 DR
+  Protected...)" \u2192 "Bulk move site:", "Bulk move (Cluster -
+  isolated failure domain...)" \u2192 "Bulk move Cluster:" - the long
+  explanatory text that used to sit inline now lives in each label's
+  tooltip instead, shown on hover rather than always taking up space.
+  Button text also shortened ("Set Tier (Selected)" \u2192 "Selected",
+  "Apply (Selected)" \u2192 "Selected", etc.) since the row's own label
+  already gives the context.
+- **Investigated, could not reproduce**: a separate report that adding
+  a Cluster made Summary's "Sites" count go from 1 to 2. Traced
+  `add_cluster()` end to end - it only touches `project.clusters`,
+  never `project.site_names` - and a direct reproduction attempt
+  showed no change. Most likely explanation: a new project's
+  `site_names` already defaults to `["Primary", "DR"]` independent of
+  any cluster action (in place since the multi-site work). Left as-is
+  pending exact repro steps if a real bug is still suspected.
+- 6 new/updated tests covering the Add/Remove combo in both directions
+  and the combined row's two independent dropdown+button groups - 584
+  passed total.
+
+## v4.7.1 (Fast VM-to-Cluster assignment at scale; ServersPage layout fix)
+
+Reported directly after using the new Cluster feature with ~70 VMs -
+editing each VM individually to assign a cluster was far too slow.
+
+- **New: right-click "Add to Cluster (name)"** on the VMs table, one
+  entry per existing cluster - select any number of VMs, one click
+  assigns them all, one undo step. Same pattern as the existing "Move
+  to {site}" and "Assign to Failover ({site})" actions.
+- **New: "Bulk move (Cluster)" toolbar row** on the VMs tab, matching
+  the existing Site row exactly - a cluster dropdown plus "Move
+  Selected to Cluster" and "Move All to Cluster" buttons. Both use the
+  existing `bulk_set_vm_fields()` service method, so a 70-VM
+  reassignment is one call, one undo step.
+- **Fixed**: the new Clusters section (added in v4.7.0) had squeezed
+  in between the servers toolbar and the servers table, pushing the
+  actual server list down to the bottom of the page - confusing since
+  every other tab's main table is the first thing visible. Reordered
+  so the servers table comes right after its toolbar as before, with
+  the Clusters section now below it, right above the summary cards row.
+- **Investigated, could not reproduce**: a report that adding a
+  Cluster made the Summary "Sites" count go from 1 to 2. Traced the
+  exact code path - `add_cluster()` only appends to `project.clusters`
+  and never touches `project.site_names`, and a direct reproduction
+  attempt showed no change to site_names after adding a cluster. Most
+  likely explanation: a new project's `site_names` already defaults to
+  `["Primary", "DR"]` (2 sites) independent of any cluster action, a
+  behavior in place since the multi-site work and discussed separately
+  before - probably just noticed for the first time here, not caused
+  by the cluster addition. Left as-is pending exact repro steps if a
+  real bug is still suspected.
+- 19 new tests (right-click assignment, bulk toolbar row in both Add/
+  Replace-equivalent modes, combo population/selection-preservation,
+  no-clusters-yet messaging, and the ServersPage layout order) - 580
+  passed total.
+
 ## v4.7.0 (Isolated Clusters within a site; generalized import conflicts; HCI workflow; bulk edit)
+
+- **New example**: `scenario_vlan_microsegmentation_example.clsz` - a
+  VMware environment with 6 VLAN-based security zones (DMZ-Web incl.
+  an F5 BIG-IP VE load balancer, App-Tier, DB-Tier with SQL Server/
+  Oracle, Mail, Mgmt-Infra with AD/vCenter/monitoring/backup, and a
+  fully isolated Dev-Test zone), 21 VMs distributed realistically
+  across them with per-zone IP addressing, 3 ESXi hosts, shared
+  storage, and 3-2-1-1 backup - verified through the full pipeline
+  (Summary, Attention, VLAN VM-count column, Word report) with zero
+  Attention items.
+- **New example**: `scenario_multi_cluster_example.clsz` - the exact
+  scenario discussed directly: 3 isolated Hyper-V Failover Clusters at
+  one site (HV-Cluster-A and HV-Cluster-B, 3 hosts/10 VMs each,
+  healthy) plus a small single-host HV-Cluster-Edge deliberately
+  oversubscribed at 5:1 - triggers exactly one Attention item (the
+  Edge cluster by name), while the site-wide aggregate stays a
+  comfortable 0.72:1, completely hiding the problem on its own.
+  Verified with a real rendered screenshot: each cluster's own color
+  (red/blue/orange) shows correctly in both the Clusters management
+  table and the main Servers table's badge column.
+
 
 A large batch of direct feedback, closing out several longstanding
 threads at once.
