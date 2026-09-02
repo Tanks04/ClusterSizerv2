@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models.server import Server, HYPERVISOR_VENDORS
+from src.persistence import app_preferences
 
 
 class ServerDialog(QDialog):
@@ -46,6 +47,7 @@ class ServerDialog(QDialog):
         dialog_layout.addWidget(scroll_area)
 
         layout = QFormLayout()
+        self.form_layout = layout
         outer.addLayout(layout)
 
         #
@@ -228,6 +230,7 @@ class ServerDialog(QDialog):
             "the list of Clusters above the servers table."
         )
         layout.addRow("Cluster", self.cluster_combo)
+        layout.setRowVisible(self.cluster_combo, app_preferences.load_advanced_mode())
 
         self.serial_number_edit = QLineEdit()
         self.serial_number_edit.setPlaceholderText("Asset/service tag - for support tickets and RMA tracking")

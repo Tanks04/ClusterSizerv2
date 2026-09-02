@@ -33,20 +33,23 @@ class PortUsage:
 
 
 def _usage_by_speed(
-    device, uid_attr: str, port_prefix: str, connections: list[NetworkConnection]
+    device, uid_attrs: list[str], port_prefix: str, connections: list[NetworkConnection]
 ) -> list[PortUsage]:
     """Shared implementation behind switch_port_usage/server_nic_usage/
-    storage_port_usage - they differ only in which Connection uid field
-    they match (`switch_uid`/`server_uid`/`storage_uid`) and which
-    attribute prefix holds the declared port counts (`ports_`/`nic_`).
-    Kept as public thin wrappers below (not collapsed into one function
+    storage_port_usage - they differ only in which Connection uid
+    field(s) they match and which attribute prefix holds the declared
+    port counts (`ports_`/`nic_`). uid_attrs is a list because a switch
+    can appear on EITHER side of a Switch<->Switch connection
+    (switch_uid or switch_b_uid) - server_nic_usage/storage_port_usage
+    only ever check one field, so they pass a single-item list. Kept
+    as public thin wrappers below (not collapsed into one function
     with a "kind" parameter) so callers keep type-specific signatures."""
     device_uid = device.uid
     used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
     for conn in connections:
         if conn.dedicated_link:
             continue
-        if getattr(conn, uid_attr) == device_uid and conn.speed in used_by_speed:
+        if any(getattr(conn, attr) == device_uid for attr in uid_attrs) and conn.speed in used_by_speed:
             used_by_speed[conn.speed] += 1
 
     result = []
@@ -59,15 +62,15 @@ def _usage_by_speed(
 
 
 def switch_port_usage(switch: NetworkSwitch, connections: list[NetworkConnection]) -> list[PortUsage]:
-    return _usage_by_speed(switch, "switch_uid", "ports_", connections)
+    return _usage_by_speed(switch, ["switch_uid", "switch_b_uid"], "ports_", connections)
 
 
 def server_nic_usage(server: Server, connections: list[NetworkConnection]) -> list[PortUsage]:
-    return _usage_by_speed(server, "server_uid", "nic_", connections)
+    return _usage_by_speed(server, ["server_uid"], "nic_", connections)
 
 
 def storage_port_usage(storage: Storage, connections: list[NetworkConnection]) -> list[PortUsage]:
-    return _usage_by_speed(storage, "storage_uid", "ports_", connections)
+    return _usage_by_speed(storage, ["storage_uid"], "ports_", connections)
 
 
 def format_usage(usages: list[PortUsage]) -> str:

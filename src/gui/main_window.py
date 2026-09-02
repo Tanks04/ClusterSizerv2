@@ -19,6 +19,9 @@ from src.persistence.csv_io import CsvSchemaError
 
 from src.gui.pages.servers_page import ServersPage
 from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
+from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
+from src.calculations.thresholds import PRESETS
+from src.calculations.vm_generation import generate_vms, generate_servers
 from src.gui.pages.storage_page import StoragePage
 from src.gui.pages.backup_page import BackupPage
 from src.gui.pages.pricing_page import PricingPage
@@ -70,6 +73,10 @@ class MainWindow(QMainWindow):
         new_action.setShortcut("Ctrl+N")
         new_action.triggered.connect(self._new_project)
         file_menu.addAction(new_action)
+
+        new_wizard_action = QAction("New with Wizard...", self)
+        new_wizard_action.triggered.connect(self._new_project_with_wizard)
+        file_menu.addAction(new_wizard_action)
 
         open_action = QAction("Open...", self)
         open_action.setShortcut("Ctrl+O")
@@ -239,6 +246,51 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard_if_dirty():
             return
         self.project_service.new_project()
+
+    def _new_project_with_wizard(self):
+        if not self._confirm_discard_if_dirty():
+            return
+
+        dialog = NewProjectWizardDialog(parent=self)
+        if not dialog.exec():
+            return
+
+        self.project_service.new_project()
+
+        site_names = dialog.get_site_names()
+        for existing_site in list(self.project_service.project.site_names):
+            if existing_site not in site_names:
+                self.project_service.remove_site(existing_site)
+        for site in site_names:
+            if site not in self.project_service.project.site_names:
+                self.project_service.add_site(site)
+
+        preset_key = dialog.get_hypervisor_preset_key()
+        if preset_key:
+            preset = next((p for p in PRESETS if p.key == preset_key), None)
+            if preset:
+                t = self.project_service.thresholds
+                t.cpu_warning_ratio = preset.thresholds.cpu_warning_ratio
+                t.cpu_critical_ratio = preset.thresholds.cpu_critical_ratio
+                t.ram_warning_ratio = preset.thresholds.ram_warning_ratio
+                t.ram_critical_ratio = preset.thresholds.ram_critical_ratio
+                t.storage_warning_ratio = preset.thresholds.storage_warning_ratio
+                t.storage_critical_ratio = preset.thresholds.storage_critical_ratio
+                self.project_service.touch()
+
+        server_params = dialog.get_server_generation_params()
+        if server_params:
+            count, sockets, cores_per_socket, ram_gb = server_params
+            primary_site = self.project_service.project.site_names[0]
+            servers = generate_servers(count, sockets, cores_per_socket, ram_gb, primary_site)
+            self.project_service.add_servers(servers)
+
+        vm_params = dialog.get_vm_generation_params()
+        if vm_params:
+            count, total_vcpu, total_ram_gb, total_disk_gb = vm_params
+            primary_site = self.project_service.project.site_names[0]
+            vms = generate_vms(count, total_vcpu, total_ram_gb, total_disk_gb, primary_site)
+            self.project_service.add_vms(vms)
 
     def _open_project(self):
         if not self._confirm_discard_if_dirty():

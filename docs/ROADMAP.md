@@ -1,5 +1,89 @@
 # ROADMAP
 
+## v4.9.1 (Fixed radio button/checkbox indicators app-wide; wizard sizing/positioning; Servers generation step)
+
+Direct feedback from actually running the v4.9.0 wizard - several real
+bugs only visible when a real window manager positions/renders the
+dialog, not in this environment's offscreen-render screenshots.
+
+- **Fixed app-wide**: radio buttons and checkboxes showed no visible
+  checked indicator (no dot, no checkmark) anywhere in the app -
+  "mogu klikati po izborima ali se ne vidi selection." Root cause: once
+  a stylesheet touches `QWidget`'s own background/color (added for the
+  white-input-fields change a while back), Qt silently stops drawing
+  the native checked indicator unless it's explicitly styled. Added
+  explicit `QRadioButton::indicator`/`QCheckBox::indicator` rules -
+  verified with a rendered screenshot showing both a filled radio dot
+  and a checked checkbox clearly.
+- **Fixed**: the wizard window appeared positioned oddly (off to one
+  side) and couldn't be resized to something more reasonable. Given a
+  small fixed size instead of a resizable-but-inconsistently-sized one,
+  and now explicitly centers itself on its parent window when shown
+  rather than leaving placement to the window manager.
+- **New: Servers generation step**, the same idea as the VMs step but
+  for hardware - unlike VMs (which split an aggregate total unevenly
+  sized workloads), real servers are usually bought as identical units,
+  so this asks for a server count plus ONE spec (sockets, cores per
+  socket, RAM) and creates that many identical servers
+  (`server-01`, `server-02`, ...). Optional, defaults to skip.
+- 10 new tests (generate_servers, the new wizard page, the fixed dialog
+  size, and full Servers+VMs generation together through MainWindow) -
+  640 passed total.
+
+## v4.9.0 (New Project Wizard)
+
+- **New: File > New with Wizard** - an optional alternative to plain
+  File > New, sitting right below it in the menu. Three quick
+  questions instead of an empty project the person has to discover
+  Settings/Servers/VMs all separately:
+  1. **Sites** - Primary only / Primary + DR / Primary + DR + more
+     (extra DR2, DR3, ... sites).
+  2. **Hypervisor** - picks one of the existing threshold presets
+     (VMware/Hyper-V/Proxmox/etc.), applying it immediately - exactly
+     the same effect as "Use This Preset" on Settings, just moved
+     earlier in the flow.
+  3. **VMs** (optional) - rather than a vague size label with nothing
+     concrete behind it (an earlier idea, correctly pushed back on):
+     enter a VM count plus total vCPU/RAM/Disk, and that many real VM
+     records get created (`vm-01`, `vm-02`, ...), splitting the totals
+     evenly across them - remainder from an uneven split distributed
+     so the sum always reconstructs the entered total exactly. Rename
+     and adjust each one afterward; leave VM count at 0 to skip
+     entirely and add VMs the normal way later.
+  Cancel at any point leaves the current project completely untouched.
+- 30 new tests (the wizard's three pages individually, full navigation,
+  the VM-generation math including the remainder-distribution edge
+  case, and the full File-menu-to-generated-VMs flow through
+  MainWindow) - 630 passed total.
+
+## v4.8.1 (Fixed switch port under-counting on Switch<->Switch links; new network redundancy example)
+
+Found while building the first real example using v4.8.0's Switch<->
+Switch connections - port usage looked wrong the moment a switch was
+on the "second" side of an inter-switch link.
+
+- **Fixed**: `switch_port_usage()` only checked a connection's
+  `switch_uid` field, so a switch referenced via the newer
+  `switch_b_uid` (the "second" side of a Switch<->Switch connection)
+  wasn't counted at all - silently under-reporting port usage for any
+  switch acting as the "B" endpoint on one or more links. A switch
+  with real connections on both sides (e.g. a core switch uplinked
+  from several access switches AND uplinked to a firewall pair) now
+  correctly counts all of them regardless of which side it's on.
+  `server_nic_usage`/`storage_port_usage` were never affected -
+  neither has a "second" endpoint field.
+- **New example**: `scenario_network_redundancy_example.clsz` - 4
+  redundant pairs/stacks (core switch HSRP pair, Palo Alto Active/
+  Passive firewall pair, a 2-switch access stack, an F5 load balancer
+  Active/Standby pair), each with its own dedicated HA-sync/stacking
+  link (excluded from port counting) plus the regular data uplinks
+  that DO count, wired to 3 servers and a storage array. Verified with
+  a real rendered screenshot showing all 4 pairs in 4 distinct border
+  colors, and this is exactly what surfaced the port-counting bug
+  above.
+- 2 new regression tests for the fixed counting logic - 614 passed
+  total.
+
 ## v4.8.0 (Site removal made discoverable; switch/firewall redundancy pairing with colored borders)
 
 - **Fixed**: removing a site required scrolling down to the Deployment

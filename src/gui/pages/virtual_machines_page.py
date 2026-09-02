@@ -205,16 +205,20 @@ class VirtualMachinesPage(QWidget):
 
         move_row.addSpacing(16)
 
+        self.cluster_move_widgets = QWidget()
+        cluster_move_row = QHBoxLayout(self.cluster_move_widgets)
+        cluster_move_row.setContentsMargins(0, 0, 0, 0)
+
         cluster_label = QLabel("Bulk move Cluster:")
         cluster_label.setToolTip(
             "Assigns the VM to an isolated cluster (e.g. a separate vSphere/"
             "Nutanix/Proxmox/Hyper-V cluster at the same site) - manage the list "
             "of Clusters on the Servers tab."
         )
-        move_row.addWidget(cluster_label)
+        cluster_move_row.addWidget(cluster_label)
 
         self.bulk_cluster_combo = QComboBox()
-        move_row.addWidget(self.bulk_cluster_combo)
+        cluster_move_row.addWidget(self.bulk_cluster_combo)
 
         bulk_cluster_selected_button = QPushButton("Selected")
         bulk_cluster_selected_button.setToolTip(
@@ -222,13 +226,14 @@ class VirtualMachinesPage(QWidget):
             "Same as right-click \u2192 Add to Cluster."
         )
         bulk_cluster_selected_button.clicked.connect(self._set_cluster_for_selected_from_combo)
-        move_row.addWidget(bulk_cluster_selected_button)
+        cluster_move_row.addWidget(bulk_cluster_selected_button)
 
         bulk_cluster_all_button = QPushButton("All")
         bulk_cluster_all_button.setToolTip("Assigns EVERY VM to the chosen cluster at once - one undo step.")
         bulk_cluster_all_button.clicked.connect(self._set_all_vms_cluster)
-        move_row.addWidget(bulk_cluster_all_button)
+        cluster_move_row.addWidget(bulk_cluster_all_button)
 
+        move_row.addWidget(self.cluster_move_widgets)
         move_row.addStretch()
         main_layout.addLayout(move_row)
 

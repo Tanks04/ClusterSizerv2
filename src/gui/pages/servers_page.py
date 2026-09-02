@@ -30,6 +30,7 @@ from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.status_badge import WARNING_COLOR
 from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
+from src.persistence import app_preferences
 
 
 class ServersPage(QWidget):
@@ -48,6 +49,7 @@ class ServersPage(QWidget):
         self.service.servers_changed.connect(self.refresh)
         self.service.clusters_changed.connect(self.refresh)
         self.refresh()
+        self.set_advanced_mode(app_preferences.load_advanced_mode())
 
     def _create_ui(self):
 
@@ -138,7 +140,7 @@ class ServersPage(QWidget):
         # this tab, matching every other page's layout.
         #
 
-        cluster_section = QWidget()
+        self.cluster_section = cluster_section = QWidget()
         cluster_layout = QVBoxLayout(cluster_section)
         cluster_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -456,3 +458,14 @@ class ServersPage(QWidget):
         )
         if confirm == QMessageBox.StandardButton.Yes:
             self.service.clear_clusters()
+
+    def set_advanced_mode(self, enabled: bool) -> None:
+        """Clusters are an opt-in, advanced concept (isolated failure
+        domains within a site) - hidden by default so a simple, single-
+        cluster project's Servers tab isn't cluttered with a section it
+        will never use. The "Cluster" column (index 17, the structured
+        one - not "Cluster Name" at 16, which stays visible either way
+        since it's a plain free-text field, not part of this feature)
+        is hidden the same way."""
+        self.cluster_section.setVisible(enabled)
+        self.table.setColumnHidden(17, not enabled)

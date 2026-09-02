@@ -30,6 +30,49 @@ QToolTip
     border: 1px solid #bdbdbd;
 }
 
+/* Once QWidget's own background/color is styled above, Qt silently
+   stops drawing the native checked dot/checkmark on radio buttons and
+   checkboxes unless the indicator is explicitly styled here - this is
+   what caused "I can click the options but no dot shows which one is
+   selected." */
+QRadioButton::indicator, QCheckBox::indicator
+{
+    width: 13px;
+    height: 13px;
+    border: 1px solid #757575;
+    background-color: #ffffff;
+}
+
+QRadioButton::indicator
+{
+    border-radius: 7px;
+}
+
+QCheckBox::indicator
+{
+    border-radius: 2px;
+}
+
+QRadioButton::indicator:checked
+{
+    background: qradialgradient(
+        cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5,
+        stop: 0 #1976d2, stop: 0.5 #1976d2, stop: 0.6 #ffffff, stop: 1 #ffffff
+    );
+}
+
+QCheckBox::indicator:checked
+{
+    background-color: #1976d2;
+    border: 1px solid #1976d2;
+}
+
+QRadioButton::indicator:disabled, QCheckBox::indicator:disabled
+{
+    background-color: #f0f0f0;
+    border: 1px solid #bdbdbd;
+}
+
 QFrame#SummaryWidget
 {
     border: 1px solid #bdbdbd;

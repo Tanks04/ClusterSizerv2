@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from src.models.virtual_machine import VirtualMachine, DR_CATEGORIES
 from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
+from src.persistence import app_preferences
 
 
 class VMDialog(QDialog):
@@ -42,6 +43,7 @@ class VMDialog(QDialog):
         dialog_layout.addWidget(scroll_area)
 
         layout = QFormLayout()
+        self.form_layout = layout
         outer.addLayout(layout)
 
         self.name_edit = QLineEdit()
@@ -111,6 +113,7 @@ class VMDialog(QDialog):
             "Manage the list of VLANs on the Network tab."
         )
         layout.addRow("VLAN", self.vlan_combo)
+        layout.setRowVisible(self.vlan_combo, app_preferences.load_advanced_mode())
 
         self.storage_combo = QComboBox()
         self.storage_combo.addItem("(none - site-wide aggregate only)", userData="")
@@ -125,6 +128,7 @@ class VMDialog(QDialog):
             "Manage the list of Storage entries on the Storage tab."
         )
         layout.addRow("Storage Pool", self.storage_combo)
+        layout.setRowVisible(self.storage_combo, app_preferences.load_advanced_mode())
 
         self.cluster_combo = QComboBox()
         self.cluster_combo.addItem("(none)", userData="")
@@ -137,6 +141,7 @@ class VMDialog(QDialog):
             "site-wide totals. Manage the list of Clusters on the Servers tab."
         )
         layout.addRow("Cluster", self.cluster_combo)
+        layout.setRowVisible(self.cluster_combo, app_preferences.load_advanced_mode())
 
         self.dr_category_combo = QComboBox()
         self.dr_category_combo.setEditable(True)

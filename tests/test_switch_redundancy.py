@@ -203,3 +203,54 @@ def test_old_switch_csv_without_redundancy_columns_still_imports(tmp_path):
     loaded = csv_io.import_switches(path)
 
     assert loaded[0].redundancy_group == ""
+
+
+def test_switch_port_usage_counts_connections_on_either_switch_b_side():
+    """Real bug found while building the network redundancy example:
+    switch_port_usage only checked switch_uid, so a switch referenced
+    via switch_b_uid on a Switch<->Switch connection wasn't counted at
+    all - undercounting port usage for any switch that's the "second"
+    endpoint of an inter-switch link."""
+    sw_a = NetworkSwitch.create_default()
+    sw_a.ports_10g = 10
+    sw_b = NetworkSwitch.create_default()
+    sw_b.ports_10g = 10
+
+    # sw_a is switch_uid, sw_b is switch_b_uid
+    conn = NetworkConnection.create_default()
+    conn.switch_uid = sw_a.uid
+    conn.switch_b_uid = sw_b.uid
+    conn.speed = "10G"
+
+    usage_a = switch_port_usage(sw_a, [conn])
+    usage_b = switch_port_usage(sw_b, [conn])
+
+    ten_g_a = next(u for u in usage_a if u.speed == "10G")
+    ten_g_b = next(u for u in usage_b if u.speed == "10G")
+    assert ten_g_a.used == 1
+    assert ten_g_b.used == 1  # this is the part that was broken
+
+
+def test_switch_can_appear_on_switch_uid_side_across_multiple_connections():
+    """The exact multi-connection scenario from the network redundancy
+    example: a core switch is switch_b_uid on some links (from access
+    switches) and switch_uid on others (to firewalls) - all must count."""
+    core = NetworkSwitch.create_default()
+    core.ports_10g = 24
+    other1 = NetworkSwitch.create_default()
+    other2 = NetworkSwitch.create_default()
+
+    conn1 = NetworkConnection.create_default()
+    conn1.switch_uid = other1.uid
+    conn1.switch_b_uid = core.uid  # core on the "b" side
+    conn1.speed = "10G"
+
+    conn2 = NetworkConnection.create_default()
+    conn2.switch_uid = core.uid  # core on the "a" side
+    conn2.switch_b_uid = other2.uid
+    conn2.speed = "10G"
+
+    usage = switch_port_usage(core, [conn1, conn2])
+    ten_g = next(u for u in usage if u.speed == "10G")
+
+    assert ten_g.used == 2
