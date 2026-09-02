@@ -1,0 +1,15 @@
+name,site,network,gateway,notes
+DMZ-Web,Primary,10.10.10.0/24,10.10.10.1,Public-facing web tier + load balancer - only zone reachable from internet
+App-Tier,Primary,10.10.20.0/24,10.10.20.1,Application/middleware tier - reachable only from DMZ-Web
+DB-Tier,Primary,10.10.30.0/24,10.10.30.1,"Database tier - reachable only from App-Tier, most restrictive segment"
+Mail,Primary,10.10.40.0/24,10.10.40.1,Mail relay and mailbox servers - isolated from App/DB tiers
+Mgmt-Infra,Primary,10.10.50.0/24,10.10.50.1,"AD, DNS, monitoring, backup proxies - management plane"
+Dev-Test,Primary,10.10.60.0/24,10.10.60.1,Dev/test workloads - fully isolated from every production segment
+Storage-iSCSI,Primary,10.10.70.0/24,10.10.70.1,Dedicated iSCSI/NFS storage traffic - no routing to other segments
+vMotion,Primary,10.10.80.0/24,,"Live migration traffic - isolated, non-routed"
+Voice-VoIP,Primary,10.10.90.0/24,10.10.90.1,VoIP/softphone traffic - QoS-tagged separately
+Guest-WiFi,Primary,10.10.100.0/24,10.10.100.1,"Guest wireless - internet-only, no internal access"
+DMZ-Web-DR,DR,10.20.10.0/24,10.20.10.1,DR mirror of DMZ-Web
+App-Tier-DR,DR,10.20.20.0/24,10.20.20.1,DR mirror of App-Tier
+DB-Tier-DR,DR,10.20.30.0/24,10.20.30.1,DR mirror of DB-Tier
+Mgmt-Infra-DR,DR,10.20.50.0/24,10.20.50.1,DR mirror of Mgmt-Infra

@@ -1,0 +1,6 @@
+name,site,destination_type,backup_software,raw_capacity_tb,dedup_ratio,is_offsite,is_immutable,price,location,notes
+veeam-repo-primary,Primary,NAS,Veeam,40,4.0,False,False,12000,On-prem datacenter,"Local daily backup repository, fast restores"
+veeam-repo-secondary,Primary,Disk Appliance,Veeam,40,4.5,False,False,15000,On-prem datacenter,"Secondary local copy, different media (3-2-1 rule)"
+veeam-cloud-copy,Primary,Cloud,Veeam,40,4.0,True,True,3000,Azure Blob Storage - West Europe,Offsite immutable copy via Veeam Cloud Connect
+commvault-tape-vault,Primary,Tape / Offline,Commvault,60,1.0,True,True,8000,Iron Mountain offsite vault,"Monthly tape rotation, air-gapped, long-term retention"
+dr-repo-01,DR,NAS,Veeam,40,4.0,True,False,12000,DR site datacenter,DR-side replica repository
