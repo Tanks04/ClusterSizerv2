@@ -1,5 +1,40 @@
 # ROADMAP
 
+## v4.10.0 (Simple/Advanced Mode toggle)
+
+- **New: View > Advanced Mode** - a single checkable menu action that
+  hides Clusters (isolated failure domains), Storage Pool assignment,
+  and VLAN assignment app-wide, since these are opt-in concepts most
+  projects never touch and were adding real mental overhead for a
+  simple, single-cluster project. Off by default. Nothing already set
+  up is ever lost by toggling this off - Cluster entities, cluster_uid/
+  storage_uid/vlan_uid assignments, and VLANs all stay exactly as they
+  are; the toggle only controls whether the UI for them is shown.
+  - Hides: the Clusters management section and its table column on
+    Servers; the Cluster dropdown on ServerDialog; the Storage Pool/
+    Cluster/VLAN dropdowns on VMDialog; the "Bulk move Cluster"
+    controls, the Cluster/VLAN table columns, and the "Add to Cluster"
+    right-click actions on VMs; the whole VLANs section on Network
+    (Switches/Connections stay visible either way - more fundamental
+    network inventory, not part of this toggle).
+  - Persisted as an app-level preference (`~/.clustersizer/
+    preferences.json`, same pattern as recent files) - not part of the
+    project file, since it's about how the person wants to work, not
+    project content.
+  - Correctly interacts with lazy tab construction (pages only get
+    built the first time their tab is actually visited): toggling
+    updates any already-built page immediately, and any page built
+    afterward picks up the current saved preference automatically at
+    construction time - no extra wiring needed either way.
+- **Fixed along the way**: caught and fixed a real ordering bug while
+  building this - a page's `refresh()` can reset its table model,
+  which would silently undo column-hidden state if that state was set
+  before the refresh instead of after.
+- 24 new tests covering the preference persistence, every affected
+  page and dialog individually, and the full toggle-through-MainWindow
+  interaction including the lazy-construction edge case - 664 passed
+  total.
+
 ## v4.9.1 (Fixed radio button/checkbox indicators app-wide; wizard sizing/positioning; Servers generation step)
 
 Direct feedback from actually running the v4.9.0 wizard - several real

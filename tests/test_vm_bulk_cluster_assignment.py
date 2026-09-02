@@ -47,6 +47,7 @@ def test_custom_actions_list_one_entry_per_cluster():
     service.add_cluster(cluster_a)
     service.add_cluster(cluster_b)
     page = VirtualMachinesPage(service)
+    page.set_advanced_mode(True)  # Cluster actions are advanced-only
 
     labels = [label for label, _ in page.table._custom_actions]
 

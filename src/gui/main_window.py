@@ -22,6 +22,7 @@ from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoic
 from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
 from src.calculations.thresholds import PRESETS
 from src.calculations.vm_generation import generate_vms, generate_servers
+from src.persistence import app_preferences
 from src.gui.pages.storage_page import StoragePage
 from src.gui.pages.backup_page import BackupPage
 from src.gui.pages.pricing_page import PricingPage
@@ -66,6 +67,7 @@ class MainWindow(QMainWindow):
 
         file_menu = menu.addMenu("&File")
         edit_menu = menu.addMenu("&Edit")
+        view_menu = menu.addMenu("&View")
         tools_menu = menu.addMenu("&Tools")
         help_menu = menu.addMenu("&Help")
 
@@ -158,6 +160,18 @@ class MainWindow(QMainWindow):
         raid_calc_action.triggered.connect(self._open_raid_calculator)
         tools_menu.addAction(raid_calc_action)
 
+        self.advanced_mode_action = QAction("Advanced Mode", self)
+        self.advanced_mode_action.setCheckable(True)
+        self.advanced_mode_action.setChecked(app_preferences.load_advanced_mode())
+        self.advanced_mode_action.setToolTip(
+            "Shows Clusters (isolated failure domains), Storage Pool assignment, "
+            "and VLAN assignment - opt-in concepts most projects never need. Off "
+            "by default to keep things simple; nothing already set up is lost by "
+            "toggling this off, it's just hidden."
+        )
+        self.advanced_mode_action.toggled.connect(self._toggle_advanced_mode)
+        view_menu.addAction(self.advanced_mode_action)
+
         about_action = QAction("About", self)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
@@ -241,6 +255,12 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
         )
         return answer == QMessageBox.StandardButton.Yes
+
+    def _toggle_advanced_mode(self, checked: bool) -> None:
+        app_preferences.set_advanced_mode(checked)
+        for container in self._tab_containers:
+            if container.page is not None and hasattr(container.page, "set_advanced_mode"):
+                container.page.set_advanced_mode(checked)
 
     def _new_project(self):
         if not self._confirm_discard_if_dirty():

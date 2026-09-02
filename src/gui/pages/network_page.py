@@ -31,6 +31,7 @@ from src.gui.models.vlan_table_model import VlanTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
+from src.persistence import app_preferences
 
 
 class NetworkPage(QWidget):
@@ -61,6 +62,7 @@ class NetworkPage(QWidget):
         self.service.storages_changed.connect(self.refresh)
         self.service.vms_changed.connect(self.refresh)
         self.refresh()
+        self.set_advanced_mode(app_preferences.load_advanced_mode())
 
     # ------------------------------------------------------------------
     # UI
@@ -100,7 +102,8 @@ class NetworkPage(QWidget):
 
         splitter.addWidget(self._build_switches_section())
         splitter.addWidget(self._build_connections_section())
-        splitter.addWidget(self._build_vlans_section())
+        self.vlans_section = self._build_vlans_section()
+        splitter.addWidget(self.vlans_section)
         splitter.setSizes([300, 300, 250])
 
     def _build_switches_section(self) -> QWidget:
@@ -573,3 +576,12 @@ class NetworkPage(QWidget):
         self.card_dr_ports.set_value(
             f"⚠ {dr_text}" if any_over_committed(dr_usage) else dr_text
         )
+
+    def set_advanced_mode(self, enabled: bool) -> None:
+        """VLANs (network microsegmentation assignment) are an opt-in,
+        advanced concept - hidden by default so a project that doesn't
+        need per-VM network segment tracking isn't shown a whole
+        section for it. Switches/Connections stay visible either way -
+        they're more fundamental network inventory, not part of this
+        toggle."""
+        self.vlans_section.setVisible(enabled)

@@ -33,6 +33,7 @@ from src.gui.models.failover_assignment_table_model import FailoverAssignmentTab
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
+from src.persistence import app_preferences
 
 
 class VirtualMachinesPage(QWidget):
@@ -41,6 +42,7 @@ class VirtualMachinesPage(QWidget):
         super().__init__()
 
         self.service = service
+        self._advanced_mode = False
         self.model = VMTableModel(
             on_change=self.service.touch_vms,
             vlans_provider=lambda: self.service.project.vlans,
@@ -61,6 +63,7 @@ class VirtualMachinesPage(QWidget):
         # correctly shows the current number.
         self.service.changed.connect(self.refresh)
         self.refresh()
+        self.set_advanced_mode(app_preferences.load_advanced_mode())
 
     def _create_ui(self):
 
@@ -678,11 +681,12 @@ class VirtualMachinesPage(QWidget):
             (f"\u2708 Assign to Failover ({site})", lambda checked=False, s=site: self._assign_selected_to_failover(s))
             for site in site_names
         )
-        actions.extend(
-            (f"\U0001f517 Add to Cluster ({cluster.name or '(unnamed)'})",
-             lambda checked=False, uid=cluster.uid: self._add_selected_to_cluster(uid))
-            for cluster in (clusters or [])
-        )
+        if self._advanced_mode:
+            actions.extend(
+                (f"\U0001f517 Add to Cluster ({cluster.name or '(unnamed)'})",
+                 lambda checked=False, uid=cluster.uid: self._add_selected_to_cluster(uid))
+                for cluster in (clusters or [])
+            )
         self.table.set_custom_actions(actions)
 
     # ------------------------------------------------------------------
@@ -744,3 +748,17 @@ class VirtualMachinesPage(QWidget):
             QMessageBox.information(self, "Acknowledge", "Select at least one assignment in the table.")
             return
         self.service.set_failover_assignment_confirmed(assignments, confirmed)
+
+    def set_advanced_mode(self, enabled: bool) -> None:
+        """Cluster/VLAN assignment are opt-in, advanced concepts -
+        hidden by default (the bulk-move widgets, table columns, and
+        right-click "Add to Cluster" actions) so a simple project's
+        VMs tab isn't cluttered with sections it will never use. VLAN
+        is 11, Cluster is 12 on the table - see VMTableModel.HEADERS.
+        refresh() runs first since it can reset the model, which would
+        otherwise undo the column-hidden state set right after it."""
+        self._advanced_mode = enabled
+        self.cluster_move_widgets.setVisible(enabled)
+        self.refresh()
+        self.table.setColumnHidden(11, not enabled)
+        self.table.setColumnHidden(12, not enabled)
