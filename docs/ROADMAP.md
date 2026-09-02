@@ -1,5 +1,42 @@
 # ROADMAP
 
+## v4.12.0 (Settings: 2-per-row layout; editable Workload Tier ratios)
+
+- **New: 2-per-row Settings layout** - sections that easily fit side
+  by side (Sites + Deployment Model, Rack Capacity + Recommended
+  Presets, CPU + RAM thresholds, Storage + Workload Tiers) no longer
+  each span the full window width. Reported directly as unnecessary -
+  "sve su postavke od jedne do druge strane prozora."
+- **New: Workload Tiers become per-project editable** on Settings,
+  alongside the CPU/RAM/Storage thresholds they already sit next to.
+  Previously `WORKLOAD_TIERS`' oversubscription-tolerance ratios
+  (Tier-0: 1.0, Standard: 4.0, Dev/Test: 8.0, VDI: 12.0) were fixed
+  catalog constants - now a project can override any of them (e.g. "my
+  Tier-0 workloads can actually tolerate 1.5:1, not the textbook 1:1").
+  - New `ClusterProject.tier_ratio_overrides` (persisted, empty by
+    default) and `tier_ratio_for_project()`, which checks the
+    project's own override before falling back to the shared catalog
+    default. `effective_vcpu_demand()`, `effective_failover_vcpu_
+    demand()`, and the Attention check's dominant-tier attribution all
+    switched to this project-aware lookup.
+  - Only stored as an override when the value actually differs from
+    the catalog default - setting a spinbox back to its default clears
+    the override entirely, keeping the persisted state meaningful
+    (empty = nothing customized) rather than always writing all four
+    tiers on every Apply.
+  - Found and fixed a real persistence bug while building this:
+    `ClusterProject`'s top-level fields are saved/loaded by explicit
+    name in `project_repository.py` (not a generic dict dump), so a
+    brand new field silently doesn't round-trip unless added to both
+    the save and load code - confirmed with a round-trip test before
+    trusting it.
+- 29 new/updated Settings-page tests (tier spinbox defaults, override
+  save/clear/reload, and a direct structural check that the boxes are
+  actually paired two-per-row) plus 6 new model-layer tests (override
+  lookup, effective-ratio impact, dominant-tier attribution respecting
+  an override, and .clsz round-trip both fresh and backward-compatible)
+  - 694 passed total.
+
 ## v4.11.1 (Effective CPU ratio now actually visible; demo example)
 
 Reported directly right after v4.11.0 shipped: "napravio si nekakav

@@ -330,3 +330,91 @@ def test_site_capacity_widget_effective_row_updates_when_tier_changes():
 
     assert widget.effective_cpu_badge.text() == "OK"
     assert widget.effective_cpu_bar.format() != "3.12 : 1"
+
+
+# ----------------------------------------------------------------------
+# Per-project tier ratio overrides
+# ----------------------------------------------------------------------
+
+def test_tier_ratio_for_project_uses_catalog_default_with_no_override():
+    project = ClusterProject()
+
+    assert project.tier_ratio_for_project("Tier-0 / Mission-Critical") == 1.0
+
+
+def test_tier_ratio_for_project_uses_override_when_set():
+    project = ClusterProject()
+    project.tier_ratio_overrides["Tier-0 / Mission-Critical"] = 2.0
+
+    assert project.tier_ratio_for_project("Tier-0 / Mission-Critical") == 2.0
+
+
+def test_effective_cpu_ratio_reflects_override():
+    project = _project_with_tier("Tier-0 / Mission-Critical", vm_count=1, vcpu_each=32)
+    baseline = project.effective_cpu_ratio(PRIMARY)
+
+    project.tier_ratio_overrides["Tier-0 / Mission-Critical"] = 2.0
+
+    assert project.effective_cpu_ratio(PRIMARY) == baseline / 2
+
+
+def test_dominant_strict_tier_respects_override():
+    """If Tier-0's override makes it MORE tolerant than VDI, VDI
+    becomes the strictest tier instead."""
+    project = ClusterProject()
+    for _ in range(2):
+        s = Server.create_default()
+        s.site = PRIMARY
+        s.sockets = 2
+        s.cores_per_socket = 16
+        s.hyperthreading_enabled = False
+        project.servers.append(s)
+    for _ in range(5):
+        vm = VirtualMachine.create_default()
+        vm.site = PRIMARY
+        vm.vcpu = 10
+        vm.workload_tier = "Tier-0 / Mission-Critical"
+        project.vms.append(vm)
+    for _ in range(5):
+        vm = VirtualMachine.create_default()
+        vm.site = PRIMARY
+        vm.vcpu = 10
+        vm.workload_tier = "High-Density VDI"
+        project.vms.append(vm)
+    project.tier_ratio_overrides["Tier-0 / Mission-Critical"] = 20.0  # now MORE tolerant than VDI's 12.0
+
+    from src.calculations.attention import _dominant_strict_tier
+    driver = _dominant_strict_tier(project, PRIMARY)
+
+    assert driver[0] == "High-Density VDI"
+
+
+def test_tier_ratio_overrides_clsz_round_trip(tmp_path):
+    from src.persistence import project_repository
+    from src.calculations.thresholds import Thresholds
+
+    project = ClusterProject(name="Override round trip")
+    project.tier_ratio_overrides["High-Density VDI"] = 16.0
+    path = tmp_path / "t.clsz"
+
+    project_repository.save_project(project, path, Thresholds())
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.tier_ratio_overrides == {"High-Density VDI": 16.0}
+
+
+def test_old_clsz_file_without_overrides_defaults_to_empty_dict(tmp_path):
+    import json
+    from src.persistence import project_repository
+    from src.calculations.thresholds import Thresholds
+
+    project = ClusterProject(name="Pre-override-feature")
+    path = tmp_path / "old.clsz"
+    project_repository.save_project(project, path, Thresholds())
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["tier_ratio_overrides"]
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = project_repository.load_project(path)
+
+    assert loaded.project.tier_ratio_overrides == {}

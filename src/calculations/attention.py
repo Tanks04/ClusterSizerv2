@@ -34,8 +34,6 @@ def _dominant_strict_tier(project: ClusterProject, site: str) -> tuple[str, floa
     ratio at this site - the one with the LOWEST tolerance (ratio) among
     tiers actually present, named along with its share of vCPU demand
     there. Returns None if there's no vCPU demand to attribute."""
-    from src.models.workload_tier import tier_ratio_for
-
     demand_by_tier: dict[str, float] = {}
     for vm in project.vms_at(site):
         if not vm.powered_on:
@@ -46,7 +44,7 @@ def _dominant_strict_tier(project: ClusterProject, site: str) -> tuple[str, floa
     if total == 0:
         return None
 
-    strictest_tier = min(demand_by_tier, key=tier_ratio_for)
+    strictest_tier = min(demand_by_tier, key=project.tier_ratio_for_project)
     share_pct = demand_by_tier[strictest_tier] / total * 100
     return (strictest_tier, share_pct)
 

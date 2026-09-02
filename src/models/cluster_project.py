@@ -77,6 +77,12 @@ class ClusterProject:
     maintenance_items: list[MaintenanceItem] = field(default_factory=list)
     vlans: list[Vlan] = field(default_factory=list)
     clusters: list[Cluster] = field(default_factory=list)
+
+    # Per-project overrides of WORKLOAD_TIERS' catalog default_ratio -
+    # e.g. {"Tier-0 / Mission-Critical": 1.5} to use 1.5 instead of the
+    # catalog's 1.0 for THIS project only. Empty by default (catalog
+    # values apply everywhere). Edited on the Settings tab.
+    tier_ratio_overrides: dict[str, float] = field(default_factory=dict)
     failover_assignments: list[FailoverAssignment] = field(default_factory=list)
 
     def add_site(self, name: str) -> None:
@@ -216,6 +222,16 @@ class ClusterProject:
             return None
         return self.vm_vcpu_demand(site) / cores
 
+    def tier_ratio_for_project(self, tier_name: str) -> float:
+        """Same as workload_tier.tier_ratio_for(), but checks this
+        project's own tier_ratio_overrides first - lets someone dial
+        in their own oversubscription-tolerance assumptions per
+        project instead of always using the shared catalog defaults."""
+        from src.models.workload_tier import tier_ratio_for
+        if tier_name in self.tier_ratio_overrides:
+            return self.tier_ratio_overrides[tier_name]
+        return tier_ratio_for(tier_name)
+
     def effective_vcpu_demand(self, site: str) -> float:
         """Same idea as vm_vcpu_demand, but each VM's vCPU is scaled by
         its Workload Tier's oversubscription tolerance first (vm.vcpu /
@@ -225,9 +241,8 @@ class ClusterProject:
         (ratio 1.0) counts at full weight; a VDI VM (ratio 12.0) counts
         at a small fraction of it, since it tolerates far more
         contention in practice."""
-        from src.models.workload_tier import tier_ratio_for
         return sum(
-            v.vcpu / tier_ratio_for(v.workload_tier)
+            v.vcpu / self.tier_ratio_for_project(v.workload_tier)
             for v in self.vms_at(site) if v.powered_on
         )
 
@@ -448,13 +463,12 @@ class ClusterProject:
         effective_vcpu_demand above - so "would this site's failover
         plan hold up" accounts for tier mix the same way "is this site
         healthy today" does."""
-        from src.models.workload_tier import tier_ratio_for
         vm_by_uid = {v.uid: v for v in self.vms}
         total = self.effective_vcpu_demand(site)
         for a in self.failover_assignments_for(site):
             vm = vm_by_uid[a.vm_uid]
             if vm.powered_on:
-                total += a.vcpu / tier_ratio_for(vm.workload_tier)
+                total += a.vcpu / self.tier_ratio_for_project(vm.workload_tier)
         return total
 
     def failover_ram_demand_gb(self, site: str) -> float:

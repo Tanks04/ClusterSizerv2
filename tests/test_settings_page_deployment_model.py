@@ -306,3 +306,96 @@ def test_removing_a_site_via_its_chip_updates_the_list(monkeypatch):
 
     assert "DR2" not in service.project.site_names
     assert page.sites_list_layout.count() == 4  # label + 2 sites + stretch
+
+
+# ----------------------------------------------------------------------
+# Workload Tiers editing - per-project override of the catalog defaults
+# ----------------------------------------------------------------------
+
+def test_tier_spinboxes_default_to_catalog_values():
+    from src.models.workload_tier import WORKLOAD_TIERS
+
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    for tier_name, spin in page.tier_ratio_spins.items():
+        assert spin.value() == WORKLOAD_TIERS[tier_name].default_ratio
+
+
+def test_changing_a_tier_ratio_and_applying_saves_an_override():
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    page.tier_ratio_spins["Tier-0 / Mission-Critical"].setValue(2.0)
+    page._apply()
+
+    assert service.project.tier_ratio_overrides == {"Tier-0 / Mission-Critical": 2.0}
+
+
+def test_override_affects_the_effective_cpu_calculation():
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    page.tier_ratio_spins["Tier-0 / Mission-Critical"].setValue(2.0)
+    page._apply()
+
+    assert service.project.tier_ratio_for_project("Tier-0 / Mission-Critical") == 2.0
+
+
+def test_reverting_to_catalog_default_clears_the_override():
+    service = ProjectService()
+    page = SettingsPage(service)
+    page.tier_ratio_spins["Tier-0 / Mission-Critical"].setValue(2.0)
+    page._apply()
+    assert service.project.tier_ratio_overrides != {}
+
+    page.tier_ratio_spins["Tier-0 / Mission-Critical"].setValue(1.0)
+    page._apply()
+
+    assert service.project.tier_ratio_overrides == {}
+
+
+def test_existing_override_loads_into_a_freshly_opened_page():
+    service = ProjectService()
+    service.project.tier_ratio_overrides["High-Density VDI"] = 16.0
+
+    page = SettingsPage(service)
+
+    assert page.tier_ratio_spins["High-Density VDI"].value() == 16.0
+
+
+def test_unrelated_tiers_unaffected_by_one_override():
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    page.tier_ratio_spins["Tier-0 / Mission-Critical"].setValue(2.0)
+    page._apply()
+
+    assert "Standard Production" not in service.project.tier_ratio_overrides
+    assert "High-Density VDI" not in service.project.tier_ratio_overrides
+
+
+# ----------------------------------------------------------------------
+# 2-per-row layout
+# ----------------------------------------------------------------------
+
+def test_settings_boxes_are_paired_into_rows_of_two():
+    """Reported directly - sections spanned the full window width when
+    they easily fit two per row (e.g. Sites + Deployment Model)."""
+    from PySide6.QtWidgets import QHBoxLayout, QGroupBox
+
+    service = ProjectService()
+    page = SettingsPage(service)
+
+    scroll_content = page.findChildren(QGroupBox)[0].parentWidget()
+    row_layouts = [
+        item.layout() for item in
+        [scroll_content.layout().itemAt(i) for i in range(scroll_content.layout().count())]
+        if item is not None and isinstance(item.layout(), QHBoxLayout)
+    ]
+    two_box_rows = [
+        row for row in row_layouts
+        if sum(1 for i in range(row.count()) if isinstance(row.itemAt(i).widget(), QGroupBox)) == 2
+    ]
+
+    assert len(two_box_rows) == 4  # Sites+Deployment, Rack+Presets, CPU+RAM, Storage+Tiers

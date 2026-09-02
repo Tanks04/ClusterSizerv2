@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.thresholds import PRESETS
+from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
 from src.models.cluster_project import DEPLOYMENT_MODELS, PRIMARY
 from src.services.project_service import ProjectService
 
@@ -117,7 +118,6 @@ class SettingsPage(QWidget):
         self.sites_list_layout.addWidget(QLabel("Current sites:"))
         sites_layout.addLayout(self.sites_list_layout)
 
-        layout.addWidget(sites_box)
 
         #
         # Deployment model (per-site - hybrid setups like on-prem
@@ -140,7 +140,6 @@ class SettingsPage(QWidget):
         deployment_note.setStyleSheet("color: #757575; font-style: italic;")
         self.deployment_form.addRow(deployment_note)
 
-        layout.addWidget(self.deployment_box)
 
         #
         # Rack Capacity (per site) - how many U are AVAILABLE, separate
@@ -163,7 +162,6 @@ class SettingsPage(QWidget):
         rack_capacity_note.setStyleSheet("color: #757575; font-style: italic;")
         self.rack_capacity_form.addRow(rack_capacity_note)
 
-        layout.addWidget(self.rack_capacity_box)
 
         self.site_names_shown: list[str] = []
         self.deployment_combos: dict[str, QComboBox] = {}
@@ -209,7 +207,6 @@ class SettingsPage(QWidget):
         note.setStyleSheet("color: #757575; font-style: italic;")
         preset_layout.addWidget(note)
 
-        layout.addWidget(preset_box)
 
         #
         # Manual thresholds
@@ -224,7 +221,6 @@ class SettingsPage(QWidget):
         self.cpu_critical_spin.installEventFilter(self._no_wheel)
         cpu_form.addRow("Warning at", self.cpu_warning_spin)
         cpu_form.addRow("Critical at", self.cpu_critical_spin)
-        layout.addWidget(cpu_box)
 
         ram_box = QGroupBox("RAM Utilization (allocated / physical)")
         ram_form = QFormLayout(ram_box)
@@ -235,7 +231,6 @@ class SettingsPage(QWidget):
         self.ram_critical_spin.installEventFilter(self._no_wheel)
         ram_form.addRow("Warning at", self.ram_warning_spin)
         ram_form.addRow("Critical at", self.ram_critical_spin)
-        layout.addWidget(ram_box)
 
         storage_box = QGroupBox("Storage Utilization (allocated / usable)")
         storage_form = QFormLayout(storage_box)
@@ -246,7 +241,47 @@ class SettingsPage(QWidget):
         self.storage_critical_spin.installEventFilter(self._no_wheel)
         storage_form.addRow("Warning at", self.storage_warning_spin)
         storage_form.addRow("Critical at", self.storage_critical_spin)
-        layout.addWidget(storage_box)
+
+        self.tiers_box = QGroupBox("Workload Tiers (vCPU : physical core tolerance)")
+        tiers_form = QFormLayout(self.tiers_box)
+        tiers_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
+        tiers_note = QLabel(
+            "Used by the tier-weighted Effective CPU check (Summary/Attention) "
+            "and Cluster Preparation sizing. Starts from commonly-cited "
+            "defaults - override any of them for this project if your own "
+            "experience says otherwise."
+        )
+        tiers_note.setWordWrap(True)
+        tiers_note.setStyleSheet("color: #757575; font-style: italic;")
+        tiers_form.addRow(tiers_note)
+
+        self.tier_ratio_spins: dict[str, QDoubleSpinBox] = {}
+        for tier_name in WORKLOAD_TIER_NAMES:
+            spin = _ratio_spin(WORKLOAD_TIERS[tier_name].default_ratio)
+            spin.setRange(1.0, 100.0)
+            spin.installEventFilter(self._no_wheel)
+            self.tier_ratio_spins[tier_name] = spin
+            tiers_form.addRow(tier_name, spin)
+
+        row1 = QHBoxLayout()
+        row1.addWidget(sites_box, 1)
+        row1.addWidget(self.deployment_box, 1)
+        layout.addLayout(row1)
+
+        row2 = QHBoxLayout()
+        row2.addWidget(self.rack_capacity_box, 1)
+        row2.addWidget(preset_box, 1)
+        layout.addLayout(row2)
+
+        row3 = QHBoxLayout()
+        row3.addWidget(cpu_box, 1)
+        row3.addWidget(ram_box, 1)
+        layout.addLayout(row3)
+
+        row4 = QHBoxLayout()
+        row4.addWidget(storage_box, 1)
+        row4.addWidget(self.tiers_box, 1)
+        layout.addLayout(row4)
 
         apply_button = QPushButton("Apply")
         apply_button.clicked.connect(self._apply)
@@ -410,6 +445,10 @@ class SettingsPage(QWidget):
         self.storage_warning_spin.setValue(t.storage_warning_ratio * 100)
         self.storage_critical_spin.setValue(t.storage_critical_ratio * 100)
 
+        overrides = self.service.project.tier_ratio_overrides
+        for tier_name, spin in self.tier_ratio_spins.items():
+            spin.setValue(overrides.get(tier_name, WORKLOAD_TIERS[tier_name].default_ratio))
+
     def _apply(self):
         t = self.service.thresholds
         t.cpu_warning_ratio = self.cpu_warning_spin.value()
@@ -418,6 +457,14 @@ class SettingsPage(QWidget):
         t.ram_critical_ratio = self.ram_critical_spin.value() / 100
         t.storage_warning_ratio = self.storage_warning_spin.value() / 100
         t.storage_critical_ratio = self.storage_critical_spin.value() / 100
+
+        overrides = self.service.project.tier_ratio_overrides
+        for tier_name, spin in self.tier_ratio_spins.items():
+            catalog_default = WORKLOAD_TIERS[tier_name].default_ratio
+            if abs(spin.value() - catalog_default) > 0.001:
+                overrides[tier_name] = spin.value()
+            else:
+                overrides.pop(tier_name, None)
 
         self.service.touch()
         self.preset_status_label.setText("\u2713 Applied - thresholds saved.")

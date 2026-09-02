@@ -43,6 +43,7 @@ def save_project(
         "schema_version": SCHEMA_VERSION,
         "name": project.name,
         "site_names": project.site_names,
+        "tier_ratio_overrides": project.tier_ratio_overrides,
         "site_deployment_models": project.site_deployment_models,
         "site_rack_capacity_u": project.site_rack_capacity_u,
         "servers": [asdict(s) for s in project.servers],
@@ -70,6 +71,7 @@ def load_project(path: str | Path) -> LoadedProject:
     project = ClusterProject(name=raw.get("name", "New Project"))
 
     project.site_names = raw.get("site_names", [PRIMARY, DR])
+    project.tier_ratio_overrides = raw.get("tier_ratio_overrides", {})
 
     if "site_deployment_models" in raw:
         project.site_deployment_models = raw["site_deployment_models"]
