@@ -216,6 +216,32 @@ class ClusterProject:
             return None
         return self.vm_vcpu_demand(site) / cores
 
+    def effective_vcpu_demand(self, site: str) -> float:
+        """Same idea as vm_vcpu_demand, but each VM's vCPU is scaled by
+        its Workload Tier's oversubscription tolerance first (vm.vcpu /
+        tier_ratio) - the same formula Cluster Preparation already uses
+        to decide how many hosts to buy, reused here so an EXISTING
+        cluster's tier mix is reflected the same way. A Tier-0 VM
+        (ratio 1.0) counts at full weight; a VDI VM (ratio 12.0) counts
+        at a small fraction of it, since it tolerates far more
+        contention in practice."""
+        from src.models.workload_tier import tier_ratio_for
+        return sum(
+            v.vcpu / tier_ratio_for(v.workload_tier)
+            for v in self.vms_at(site) if v.powered_on
+        )
+
+    def effective_cpu_ratio(self, site: str) -> float | None:
+        """Effective vCPU : physical core - unlike the raw ratio above,
+        1.0 here means "fully booked assuming zero oversubscription
+        tolerance anywhere", since Tier-0's own ratio is 1.0 and every
+        other tier only reduces its contribution. None if there are no
+        physical cores."""
+        cores = self.physical_cores(site)
+        if cores == 0:
+            return None
+        return self.effective_vcpu_demand(site) / cores
+
     def ram_oversubscription_ratio(self, site: str) -> float | None:
         ram = self.physical_ram_gb(site)
         if ram == 0:
@@ -414,6 +440,21 @@ class ClusterProject:
         for a in self.failover_assignments_for(site):
             if vm_by_uid[a.vm_uid].powered_on:
                 total += a.vcpu
+        return total
+
+    def effective_failover_vcpu_demand(self, site: str) -> float:
+        """Same idea as failover_vcpu_demand, but each contribution is
+        scaled by the VM's own Workload Tier tolerance first, matching
+        effective_vcpu_demand above - so "would this site's failover
+        plan hold up" accounts for tier mix the same way "is this site
+        healthy today" does."""
+        from src.models.workload_tier import tier_ratio_for
+        vm_by_uid = {v.uid: v for v in self.vms}
+        total = self.effective_vcpu_demand(site)
+        for a in self.failover_assignments_for(site):
+            vm = vm_by_uid[a.vm_uid]
+            if vm.powered_on:
+                total += a.vcpu / tier_ratio_for(vm.workload_tier)
         return total
 
     def failover_ram_demand_gb(self, site: str) -> float:

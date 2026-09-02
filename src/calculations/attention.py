@@ -14,7 +14,7 @@ turns them into one flat, severity-sorted list of short messages.
 
 from dataclasses import dataclass
 
-from src.calculations.thresholds import Status, Thresholds
+from src.calculations.thresholds import Status, Thresholds, effective_cpu_status
 from src.calculations.sizing import build_reports, build_failover_report
 from src.calculations.backup import compute_compliance
 from src.calculations.pricing import compute_maintenance_status
@@ -27,6 +27,28 @@ _SEVERITY_ORDER = {Status.CRITICAL: 0, Status.WARNING: 1}
 class AttentionItem:
     severity: Status  # only ever WARNING or CRITICAL - OK/Unknown are never "attention needed"
     message: str
+
+
+def _dominant_strict_tier(project: ClusterProject, site: str) -> tuple[str, float] | None:
+    """Which Workload Tier is most responsible for a high effective CPU
+    ratio at this site - the one with the LOWEST tolerance (ratio) among
+    tiers actually present, named along with its share of vCPU demand
+    there. Returns None if there's no vCPU demand to attribute."""
+    from src.models.workload_tier import tier_ratio_for
+
+    demand_by_tier: dict[str, float] = {}
+    for vm in project.vms_at(site):
+        if not vm.powered_on:
+            continue
+        demand_by_tier[vm.workload_tier] = demand_by_tier.get(vm.workload_tier, 0) + vm.vcpu
+
+    total = sum(demand_by_tier.values())
+    if total == 0:
+        return None
+
+    strictest_tier = min(demand_by_tier, key=tier_ratio_for)
+    share_pct = demand_by_tier[strictest_tier] / total * 100
+    return (strictest_tier, share_pct)
 
 
 def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> list[AttentionItem]:
@@ -42,6 +64,38 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
                 report.cpu_status,
                 f"{report.site}: CPU oversubscription is {ratio_text} ({report.cpu_status.value})",
             ))
+
+        # Tier-weighted effective CPU check - the raw ratio above treats
+        # every vCPU the same, but a site full of Tier-0/Mission-Critical
+        # VMs can't tolerate the same oversubscription a VDI-heavy site
+        # can. 1.0 = "fully booked assuming zero oversubscription
+        # tolerance anywhere" (Tier-0's own ratio), so unlike the
+        # Settings-configurable raw thresholds, these cutoffs are fixed
+        # rather than adjustable - they're intrinsic to what "effective"
+        # means, not a site-specific policy choice.
+        effective_ratio = project.effective_cpu_ratio(site)
+        if effective_ratio is not None:
+            effective_status = effective_cpu_status(effective_ratio)
+            if effective_status in (Status.WARNING, Status.CRITICAL):
+                driver = _dominant_strict_tier(project, site)
+                if driver:
+                    from src.models.workload_tier import WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
+                    tier_name, share_pct = driver
+                    tier = WORKLOAD_TIERS.get(tier_name) or WORKLOAD_TIERS[DEFAULT_WORKLOAD_TIER]
+                    driver_text = (
+                        f" - driven mainly by {tier_name} ({share_pct:.0f}% of vCPU demand here); "
+                        f"consider giving it {tier.recommended_hypervisor_priority} CPU priority "
+                        "in your hypervisor to protect it from contention"
+                    )
+                else:
+                    driver_text = ""
+                items.append(AttentionItem(
+                    effective_status,
+                    f"{report.site}: tier-weighted effective CPU ratio is {effective_ratio:.1f}:1 "
+                    f"({effective_status.value}){driver_text} - some Workload Tiers here tolerate far "
+                    "less oversubscription than others",
+                ))
+
         if report.ram_status in (Status.WARNING, Status.CRITICAL):
             pct_text = f"{report.ram_ratio * 100:.0f}%" if report.ram_ratio is not None else "n/a"
             items.append(AttentionItem(

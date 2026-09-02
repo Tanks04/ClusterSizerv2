@@ -48,6 +48,55 @@ Status color (Settings tab lets you change these per hypervisor):
 - Orange (Warning): between warning and critical
 - Red (Critical): above the "critical" threshold
 
+### 2a. Tier-weighted "effective" CPU ratio - a second, separate check
+
+The ratio above treats every vCPU the same, whether it belongs to a
+Tier-0 database or a VDI desktop - which means changing a VM's
+**Workload Tier** had no effect at all on this number (reported
+directly: "postavio sam sve u Tier-0, pa u VDI, pa u test i nema
+nikakve razlike"). The raw ratio itself is correct math and doesn't
+change - what SHOULD change with tier is *how much oversubscription
+that particular mix of workloads can actually tolerate*.
+
+```
+effective vCPU for one VM = vm.vcpu / tier's default_ratio
+effective ratio = (sum of effective vCPU, powered-on VMs)
+                   / (sum of effective cores)
+```
+
+This is the exact same formula Cluster Preparation already uses to
+decide how many hosts to buy (see section 8) - reused here so an
+EXISTING cluster's tier mix is checked the same way a NEW one gets
+sized. A Tier-0 VM (ratio 1.0) counts at full weight; a VDI VM (ratio
+12.0) counts at a twelfth of it, since it tolerates far more
+contention in practice.
+
+**Worked example** (the exact scenario reported): 20 VMs, 200 total
+vCPU, on 2 servers x 2 sockets x 16 cores (HT off) = 64 physical cores.
+Raw ratio = 200 / 64 = **3.1 : 1** either way - this part never changes.
+
+| All VMs tagged as... | Effective vCPU | Effective ratio | Reading |
+|---|---|---|---|
+| Tier-0 / Mission-Critical (ratio 1.0) | 200 / 1 = 200 | 200 / 64 = **3.1** | Critical - 3x over what Tier-0 can safely tolerate |
+| High-Density VDI (ratio 12.0) | 200 / 12 = 16.7 | 16.7 / 64 = **0.26** | Fine - well under capacity for this workload type |
+| Mixed: 10 VMs (100 vCPU) Tier-0 + 10 VMs (100 vCPU) VDI | 100/1 + 100/12 = 108.3 | 108.3 / 64 = **1.69** | Critical - the Tier-0 half still dominates the risk |
+
+Unlike the raw ratio's thresholds (Settings-adjustable per hypervisor),
+the effective ratio's Warning (>1.0) and Critical (>1.5) cutoffs are
+fixed - 1.0 is intrinsically "fully booked assuming zero
+oversubscription tolerance anywhere" (Tier-0's own ratio), not a
+site-specific policy choice.
+
+When this fires, the Attention message also names whichever tier is
+driving the risk (the one with the least tolerance among those
+actually present) and its share of vCPU demand, plus a suggested
+**hypervisor CPU priority** for that tier (vSphere CPU Shares/
+Reservation, Hyper-V VM CPU weight) - e.g. "High" for Tier-0. This is
+a recommendation for what to configure, not a simulation of actual
+scheduler behavior - real contention depends on NUMA layout, actual
+concurrent load, and scheduler internals this app has no visibility
+into and isn't trying to model.
+
 ## 3. RAM Utilization (%)
 
 ```

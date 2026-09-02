@@ -39,6 +39,7 @@ def _report(cpu_ratio=None, ram_ratio=None, storage_ratio=None):
         vm_count=1, vcpu_demand=1, ram_demand_gb=1, disk_demand_gb=1,
         cpu_ratio=cpu_ratio, ram_ratio=ram_ratio, storage_ratio=storage_ratio,
         cpu_status=Status.OK, ram_status=Status.OK, storage_status=Status.OK,
+        effective_cpu_ratio=cpu_ratio, effective_cpu_status=Status.OK,
         n_plus_one_ok=True, n_plus_one_check=None, ht_state="all_on",
     )
 

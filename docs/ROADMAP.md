@@ -1,5 +1,89 @@
 # ROADMAP
 
+## v4.11.1 (Effective CPU ratio now actually visible; demo example)
+
+Reported directly right after v4.11.0 shipped: "napravio si nekakav
+random case, malo se igrao s tierima i ne vidim nigdje razliku." Traced
+it to a real gap: the whole feature only ever surfaced as a
+conditional Attention message - there was no visible NUMBER anywhere
+for the person to watch move while experimenting with tiers.
+
+- **New: "Effective CPU (tier-weighted)" row** on Summary, right below
+  the existing "CPU oversubscription" row for each site - same bar +
+  status badge treatment, so the two numbers sit side by side and the
+  effective one visibly moves as Workload Tier assignments change,
+  while the raw one correctly stays put (it's not supposed to change -
+  that was always correct behavior, just invisible next to nothing to
+  compare it against).
+  - `SiteReport` gained `effective_cpu_ratio`/`effective_cpu_status`
+    fields, populated for both the normal site view and the Failover
+    Preview scenario (new `effective_failover_vcpu_demand()` on
+    `ClusterProject`, mirroring the existing raw version).
+  - Factored the fixed 1.0/1.5 Warning/Critical cutoffs into a shared
+    `effective_cpu_status()` function (`calculations/thresholds.py`),
+    used by both the Attention check and the new Summary row instead
+    of duplicating the cutoff logic in two places.
+- **New example**: `scenario_tier_weighted_cpu_demo.clsz` - 2 servers
+  (64 physical cores), 20 VMs at 10 vCPU each (200 total, 3.1:1 raw),
+  all starting tagged Tier-0/Mission-Critical so Effective CPU opens
+  already Critical at the same 3.1:1. Select all VMs, bulk-set Tier to
+  High-Density VDI, and watch Effective CPU drop to ~0.26:1 (OK) on
+  Summary while the raw ratio stays exactly where it was.
+- 17 new tests (both SiteReport-building paths, the new
+  effective-failover-demand calculation, and the widget's visible
+  bar/badge actually changing when tier assignments change) - 681
+  passed total.
+
+## v4.11.0 (Workload Tier now actually affects CPU oversubscription)
+
+Reported directly: changing a VM's Workload Tier (Tier-0, VDI, Test)
+had zero visible effect on the CPU oversubscription ratio shown on
+Summary/VMs, no matter what was selected.
+
+- **Root cause found**: `WORKLOAD_TIERS`' commonly-cited safe
+  oversubscription ratios (Tier-0: 1:1, Standard: 4:1, Dev/Test: 8:1,
+  VDI: 12:1) were only ever consumed by the one-time Cluster
+  Preparation wizard's sizing recommendation - never by the ongoing
+  raw CPU ratio actually displayed once servers/VMs already exist in
+  a project.
+- **New: tier-weighted "effective" CPU ratio**, a second check
+  alongside (not replacing) the existing raw ratio. Reuses the exact
+  formula already established and tested in Cluster Preparation
+  (`vm.vcpu / tier's default_ratio`, summed and compared against
+  physical cores) rather than inventing a new one - keeps the two
+  contexts ("should I buy more hosts" vs "am I oversubscribed given
+  what I have") mathematically consistent. An earlier, simpler
+  "weighted-average of tolerances" idea was considered and rejected
+  after it gave a DIFFERENT answer than the wizard's own math for a
+  mixed-tier scenario - confirmed by hand-checking a 10 Tier-0 + 10
+  VDI example both ways before committing to the wizard's more
+  rigorous, already-vetted approach.
+  - Fixed thresholds (Warning >1.0, Critical >1.5) rather than
+    Settings-adjustable ones - 1.0 is intrinsically "fully booked
+    assuming zero tolerance anywhere" (Tier-0's own ratio), not a
+    site-specific policy choice.
+  - The Attention message names whichever tier is driving the risk
+    (least tolerance among tiers actually present) and its share of
+    vCPU demand.
+  - New: each tier also carries a `recommended_hypervisor_priority`
+    (vSphere CPU Shares/Reservation, Hyper-V VM CPU weight - e.g.
+    "High" for Tier-0) surfaced in the same Attention message -
+    informational guidance on what to configure for real, not a
+    simulation of actual scheduler/contention behavior (which would
+    need NUMA layout, real concurrent load, and scheduler internals
+    this app has no visibility into).
+- Documented in `docs/HOW_THE_MATH_WORKS.md` \u00a72a with a worked
+  example matching the exact scenario reported - every number in the
+  table was verified against actual code output before being written
+  down, catching (and fixing) a mistake in an early draft of the table
+  itself (a 1.69 ratio mis-labeled "Warning" when it's actually
+  "Critical" at >1.5).
+- 12 new tests (the tier-ratio lookup, effective-ratio math across
+  all-Tier-0/all-VDI/mixed scenarios, the Attention check firing
+  correctly including the dominant-tier and priority-recommendation
+  text, and confirming the thresholds are NOT affected by the
+  Settings-configurable raw CPU thresholds) - 676 passed total.
+
 ## v4.10.0 (Simple/Advanced Mode toggle)
 
 - **New: View > Advanced Mode** - a single checkable menu action that

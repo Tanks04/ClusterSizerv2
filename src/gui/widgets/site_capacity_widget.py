@@ -81,6 +81,20 @@ class SiteCapacityWidget(QFrame):
         grid.addWidget(self.cpu_badge, row, 2)
         row += 1
 
+        effective_cpu_label = QLabel("Effective CPU (tier-weighted):")
+        effective_cpu_label.setToolTip(
+            "Same demand, but each VM's vCPU is scaled by its Workload Tier's "
+            "oversubscription tolerance first (Tier-0 counts at full weight, "
+            "VDI at a small fraction of it) - see HOW_THE_MATH_WORKS.md \u00a72a. "
+            "1.0 means \"fully booked assuming zero tolerance anywhere\"."
+        )
+        grid.addWidget(effective_cpu_label, row, 0)
+        self.effective_cpu_bar = _bar(None)
+        grid.addWidget(self.effective_cpu_bar, row, 1)
+        self.effective_cpu_badge = StatusBadge()
+        grid.addWidget(self.effective_cpu_badge, row, 2)
+        row += 1
+
         grid.addWidget(QLabel("RAM utilization:"), row, 0)
         self.ram_bar = _bar(None)
         grid.addWidget(self.ram_bar, row, 1)
@@ -138,6 +152,15 @@ class SiteCapacityWidget(QFrame):
         self.cpu_bar.setValue(0 if report.cpu_ratio is None else min(round(report.cpu_ratio * 100), 400))
         self.cpu_bar.setFormat("n/a" if report.cpu_ratio is None else f"{report.cpu_ratio:.1f} : 1")
         self.cpu_badge.set_status(report.cpu_status)
+
+        self.effective_cpu_bar.setRange(0, 400)
+        self.effective_cpu_bar.setValue(
+            0 if report.effective_cpu_ratio is None else min(round(report.effective_cpu_ratio * 100), 400)
+        )
+        self.effective_cpu_bar.setFormat(
+            "n/a" if report.effective_cpu_ratio is None else f"{report.effective_cpu_ratio:.2f} : 1"
+        )
+        self.effective_cpu_badge.set_status(report.effective_cpu_status)
 
         # RAM/Storage are plain percentages (0-100 is "full"), not a
         # ratio like CPU that's expected to run past 100% - a 0-200

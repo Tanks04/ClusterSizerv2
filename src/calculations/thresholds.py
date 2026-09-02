@@ -44,6 +44,19 @@ class Thresholds:
         return self.status_for(ratio, self.storage_warning_ratio, self.storage_critical_ratio)
 
 
+# Fixed (not Settings-adjustable) cutoffs for the tier-weighted
+# "effective" CPU ratio - see HOW_THE_MATH_WORKS.md \u00a72a. 1.0 is
+# intrinsically "fully booked assuming zero oversubscription tolerance
+# anywhere" (Tier-0's own ratio), not a site-specific policy choice
+# like the ordinary CPU/RAM/Storage thresholds above.
+EFFECTIVE_CPU_WARNING_RATIO = 1.0
+EFFECTIVE_CPU_CRITICAL_RATIO = 1.5
+
+
+def effective_cpu_status(ratio: float | None) -> Status:
+    return Thresholds.status_for(ratio, EFFECTIVE_CPU_WARNING_RATIO, EFFECTIVE_CPU_CRITICAL_RATIO)
+
+
 @dataclass
 class ThresholdPreset:
     key: str

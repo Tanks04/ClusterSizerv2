@@ -4,7 +4,7 @@ so it can be tested and reused from Reports/CLI if ever needed."""
 from dataclasses import dataclass
 
 from src.models.cluster_project import ClusterProject, NPlusOneCheck, PRIMARY, DR
-from src.calculations.thresholds import Thresholds, Status
+from src.calculations.thresholds import Thresholds, Status, effective_cpu_status
 
 
 @dataclass
@@ -30,6 +30,13 @@ class SiteReport:
     ram_status: Status
     storage_status: Status
 
+    # Tier-weighted "effective" CPU ratio - see HOW_THE_MATH_WORKS.md
+    # \u00a72a. Separate from cpu_ratio/cpu_status above: this treats
+    # each VM's vCPU as vcpu/tier_ratio rather than counting every
+    # vCPU the same, and uses fixed (not Settings-adjustable) cutoffs.
+    effective_cpu_ratio: float | None
+    effective_cpu_status: Status
+
     n_plus_one_ok: bool | None
     n_plus_one_check: NPlusOneCheck | None  # detail - which resource is short, by how much
     ht_state: str  # "all_on" | "all_off" | "mixed" | "no_servers"
@@ -52,6 +59,7 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
     cpu_ratio = project.cpu_oversubscription_ratio(site)
     ram_ratio = project.ram_oversubscription_ratio(site)
     storage_ratio = project.storage_utilization_ratio(site)
+    effective_ratio = project.effective_cpu_ratio(site)
     n1_check = project.n_plus_one_check(site, thresholds.cpu_warning_ratio)
 
     return SiteReport(
@@ -71,6 +79,8 @@ def build_site_report(project: ClusterProject, site: str, thresholds: Thresholds
         cpu_status=thresholds.cpu_status(cpu_ratio),
         ram_status=thresholds.ram_status(ram_ratio),
         storage_status=thresholds.storage_status(storage_ratio),
+        effective_cpu_ratio=effective_ratio,
+        effective_cpu_status=effective_cpu_status(effective_ratio),
         n_plus_one_ok=n1_check.ok if n1_check is not None else None,
         n_plus_one_check=n1_check,
         ht_state=project.hyperthreading_state(site),
@@ -115,6 +125,8 @@ def build_failover_scenario_report(project: ClusterProject, site: str, threshold
     cpu_ratio = (vcpu_demand / physical_cores) if physical_cores > 0 else None
     ram_ratio = (ram_demand_gb / physical_ram_gb) if physical_ram_gb > 0 else None
     storage_ratio = (disk_demand_gb / usable_storage_gb) if usable_storage_gb > 0 else None
+    effective_vcpu_demand = project.effective_failover_vcpu_demand(site)
+    effective_ratio = (effective_vcpu_demand / physical_cores) if physical_cores > 0 else None
 
     n1_check = project.n_plus_one_check(site, thresholds.cpu_warning_ratio)
 
@@ -135,6 +147,8 @@ def build_failover_scenario_report(project: ClusterProject, site: str, threshold
         cpu_status=thresholds.cpu_status(cpu_ratio),
         ram_status=thresholds.ram_status(ram_ratio),
         storage_status=thresholds.storage_status(storage_ratio),
+        effective_cpu_ratio=effective_ratio,
+        effective_cpu_status=effective_cpu_status(effective_ratio),
         n_plus_one_ok=n1_check.ok if n1_check is not None else None,
         n_plus_one_check=n1_check,
         ht_state=project.hyperthreading_state(site),
