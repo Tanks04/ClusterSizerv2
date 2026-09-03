@@ -1,5 +1,5 @@
-from src.models.server import Server
 from src.calculations.hci_storage import compute_hci_raw_capacity
+from src.models.server import Server
 
 
 def _server(uid, local_disk_raw_tb=0.0):

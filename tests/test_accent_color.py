@@ -8,8 +8,8 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QApplication
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -76,8 +76,9 @@ def test_apply_accent_color_sets_readable_highlighted_text(qapp):
 
 def test_settings_page_shows_current_accent_color():
     from unittest.mock import patch
-    from src.services.project_service import ProjectService
+
     from src.gui.pages.settings_page import SettingsPage
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     page = SettingsPage(service)
@@ -87,9 +88,10 @@ def test_settings_page_shows_current_accent_color():
 
 def test_picking_a_color_saves_it():
     from unittest.mock import patch
-    from src.services.project_service import ProjectService
+
     from src.gui.pages.settings_page import SettingsPage
     from src.persistence import app_preferences
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     page = SettingsPage(service)
@@ -103,8 +105,9 @@ def test_picking_a_color_saves_it():
 
 def test_picking_a_color_applies_it_live(qapp):
     from unittest.mock import patch
-    from src.services.project_service import ProjectService
+
     from src.gui.pages.settings_page import SettingsPage
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     page = SettingsPage(service)
@@ -117,9 +120,10 @@ def test_picking_a_color_applies_it_live(qapp):
 
 def test_cancelling_the_picker_changes_nothing():
     from unittest.mock import patch
-    from src.services.project_service import ProjectService
+
     from src.gui.pages.settings_page import SettingsPage
     from src.persistence import app_preferences
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     page = SettingsPage(service)
@@ -132,9 +136,9 @@ def test_cancelling_the_picker_changes_nothing():
 
 
 def test_existing_saved_color_loads_into_a_freshly_opened_page():
-    from src.services.project_service import ProjectService
     from src.gui.pages.settings_page import SettingsPage
     from src.persistence import app_preferences
+    from src.services.project_service import ProjectService
 
     app_preferences.set_accent_color("#8bc34a")
     service = ProjectService()

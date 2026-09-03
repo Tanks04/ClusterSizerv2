@@ -6,7 +6,8 @@ identical servers) can be fixed across many rows in one action instead
 of editing each row's dialog separately.
 """
 
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 
 from PySide6.QtWidgets import (
     QCheckBox,

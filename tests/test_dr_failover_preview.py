@@ -1,9 +1,9 @@
+from src.calculations.sizing import build_failover_scenario_report, build_site_report
+from src.calculations.thresholds import Status, Thresholds
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.failover_assignment import FailoverAssignment
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
-from src.models.failover_assignment import FailoverAssignment
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.calculations.sizing import build_site_report, build_failover_scenario_report
-from src.calculations.thresholds import Thresholds, Status
 
 
 def _dr_server(sockets=1, cores_per_socket=8, ram_gb=64):

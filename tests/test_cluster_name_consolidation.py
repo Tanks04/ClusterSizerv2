@@ -5,8 +5,9 @@ auto-create/link a real, colored Cluster from the imported name
 instead of leaving it as a dead-end text field.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 pytest.importorskip("PySide6")
 

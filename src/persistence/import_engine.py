@@ -6,7 +6,7 @@ import uuid
 
 from src.models.import_profile import ImportProfile
 from src.models.virtual_machine import VirtualMachine
-from src.persistence.units import parse_size_to_gb, parse_int, parse_bool
+from src.persistence.units import parse_bool, parse_int, parse_size_to_gb
 
 
 def best_matching_profile(header: list[str], profiles: list[ImportProfile]) -> ImportProfile | None:

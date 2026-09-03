@@ -2,8 +2,13 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
+
+from src.calculations.networking import (
+    any_over_committed,
+    format_usage,
+    switch_port_usage,
+)
 from src.models.network_switch import NetworkSwitch, redundancy_group_color
-from src.calculations.networking import switch_port_usage, format_usage, any_over_committed
 
 # Custom role carrying the redundancy border color (or None) for a row -
 # read by RedundancyBorderDelegate via index.data(...), which Qt

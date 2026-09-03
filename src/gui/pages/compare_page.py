@@ -17,15 +17,16 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.comparison import (
-    build_comparison_rows, build_delta_summary, projects_are_identical,
+    build_comparison_rows,
+    build_delta_summary,
+    projects_are_identical,
 )
+from src.gui.error_handling import report_error
+from src.gui.widgets.summary_widget import SummaryWidget
 from src.models.cluster_project import ClusterProject
 from src.persistence import project_repository
 from src.persistence.project_repository import FILE_EXTENSION
 from src.services.project_service import ProjectService
-
-from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.error_handling import report_error
 
 SECTION_BG = QColor("#eceff1")
 DIFF_BG = QColor("#fff8e1")

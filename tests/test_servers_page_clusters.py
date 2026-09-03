@@ -2,19 +2,20 @@
 Edit/Delete/Clear All for the Cluster entity, right above the main
 servers table."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
-from src.gui.pages.servers_page import ServersPage
 from src.gui.dialogs.cluster_dialog import ClusterDialog
+from src.gui.pages.servers_page import ServersPage
 from src.models.cluster import Cluster
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -14,7 +15,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
-    QDoubleSpinBox,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -24,9 +24,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.storage import Storage, StorageShelf, StoragePool, FTT_LEVELS, ftt_usable_factor
-from src.gui.dialogs.storage_pool_dialog import StoragePoolDialog
 from src.calculations.hci_storage import compute_hci_raw_capacity
+from src.gui.dialogs.storage_pool_dialog import StoragePoolDialog
+from src.models.storage import (
+    FTT_LEVELS,
+    Storage,
+    StoragePool,
+    StorageShelf,
+    ftt_usable_factor,
+)
 
 
 class StorageDialog(QDialog):

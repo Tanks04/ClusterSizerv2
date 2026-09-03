@@ -2,9 +2,14 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
+
+from src.calculations.networking import (
+    any_over_committed,
+    format_usage,
+    storage_port_usage,
+)
+from src.calculations.thresholds import Status, Thresholds
 from src.models.storage import Storage
-from src.calculations.networking import storage_port_usage, format_usage, any_over_committed
-from src.calculations.thresholds import Thresholds, Status
 
 _WARNING_COLOR = QColor("#ed6c02")
 _CRITICAL_COLOR = QColor("#c62828")

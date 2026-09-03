@@ -1,6 +1,6 @@
 from typing import Callable
 
-from PySide6.QtCore import Qt, QSortFilterProxyModel, QTimer, Signal
+from PySide6.QtCore import QSortFilterProxyModel, Qt, QTimer, Signal
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QMenu, QTableView
 
 

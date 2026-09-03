@@ -1,8 +1,14 @@
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.models.virtual_machine import VirtualMachine
+from src.calculations.cluster_preparation import (
+    HostSpec,
+    ManualDemand,
+    SizingPolicy,
+    compute_site_recommendation,
+    compute_sizing,
+)
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
 from src.models.failover_assignment import FailoverAssignment
 from src.models.server import Server
-from src.calculations.cluster_preparation import compute_sizing, SizingPolicy, HostSpec, ManualDemand, compute_site_recommendation
+from src.models.virtual_machine import VirtualMachine
 from src.models.workload_tier import WORKLOAD_TIERS
 
 

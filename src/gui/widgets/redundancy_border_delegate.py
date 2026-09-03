@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QStyledItemDelegate
-from PySide6.QtGui import QPen
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPen
+from PySide6.QtWidgets import QStyledItemDelegate
 
 from src.gui.models.switch_table_model import REDUNDANCY_BORDER_COLOR_ROLE
 

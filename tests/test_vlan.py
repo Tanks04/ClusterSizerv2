@@ -1,8 +1,8 @@
-from src.models.vlan import Vlan
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.models.virtual_machine import VirtualMachine
-from src.persistence import csv_io, project_repository
 from src.calculations.thresholds import Thresholds
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.virtual_machine import VirtualMachine
+from src.models.vlan import Vlan
+from src.persistence import csv_io, project_repository
 
 
 def test_create_default():

@@ -13,7 +13,10 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.raid_calculator import (
-    compute_raid, RaidConfigError, RAID_LEVELS, DISK_TYPES,
+    DISK_TYPES,
+    RAID_LEVELS,
+    RaidConfigError,
+    compute_raid,
 )
 from src.services.project_service import ProjectService
 

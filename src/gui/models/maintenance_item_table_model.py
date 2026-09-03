@@ -3,8 +3,8 @@ from typing import Callable, Sequence
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
 
-from src.models.maintenance_item import MaintenanceItem
 from src.calculations.pricing import compute_item_status
+from src.models.maintenance_item import MaintenanceItem
 
 _STATUS_COLORS = {
     "expired": QColor("#c62828"),        # red

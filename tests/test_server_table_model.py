@@ -7,8 +7,8 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
 from src.gui.models.server_table_model import ServerTableModel
 from src.models.server import Server

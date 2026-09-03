@@ -1,5 +1,5 @@
-from src.models.import_profile import ImportProfile, ColumnMapping
-from src.persistence.import_engine import convert_rows, best_matching_profile
+from src.models.import_profile import ColumnMapping, ImportProfile
+from src.persistence.import_engine import best_matching_profile, convert_rows
 
 
 def _profile(disk_source_sheet=""):

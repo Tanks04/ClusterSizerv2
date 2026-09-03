@@ -1,14 +1,16 @@
 from datetime import date
 
+from src.calculations.pricing import (
+    compute_equipment_pricing,
+    compute_item_status,
+    compute_maintenance_status,
+)
+from src.models.backup_destination import BackupDestination
+from src.models.cluster_project import ClusterProject
+from src.models.maintenance_item import MaintenanceItem
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage, StorageShelf
-from src.models.network_switch import NetworkSwitch
-from src.models.backup_destination import BackupDestination
-from src.models.maintenance_item import MaintenanceItem
-from src.models.cluster_project import ClusterProject
-from src.calculations.pricing import (
-    compute_equipment_pricing, compute_maintenance_status, compute_item_status,
-)
 
 
 def _server(price=0.0):

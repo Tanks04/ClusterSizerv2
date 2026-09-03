@@ -1,6 +1,6 @@
 import pytest
 
-from src.calculations.raid_calculator import compute_raid, RaidConfigError
+from src.calculations.raid_calculator import RaidConfigError, compute_raid
 
 
 def test_raid0_no_overhead():

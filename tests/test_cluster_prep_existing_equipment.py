@@ -4,17 +4,18 @@ servers/storage would land on a site that already has some, confirming
 the exact reported request ("should ask whether to clear existing or
 add these")."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
 from src.gui.pages.virtual_machines_page import VirtualMachinesPage
-from src.models.server import Server
 from src.models.cluster_project import PRIMARY
+from src.models.server import Server
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -116,8 +117,8 @@ def test_open_cluster_preparation_applies_generic_n_site_clusters_and_assignment
     assignments after the wizard closes - not just the fixed Primary/DR
     queues that existed before N-site support."""
     from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
-    from src.models.server import Server
     from src.models.failover_assignment import FailoverAssignment
+    from src.models.server import Server
     from src.models.virtual_machine import VirtualMachine
 
     service = ProjectService()

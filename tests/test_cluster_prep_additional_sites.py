@@ -2,16 +2,17 @@
 page - the N-site recommendation path driven by DR Category selection,
 plus the auto-created Failover Assignments when adding a site cluster."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.models.cluster_project import ClusterProject, PRIMARY
-from src.models.virtual_machine import VirtualMachine
 from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
+from src.models.cluster_project import PRIMARY, ClusterProject
+from src.models.virtual_machine import VirtualMachine
 
 
 @pytest.fixture(scope="module", autouse=True)

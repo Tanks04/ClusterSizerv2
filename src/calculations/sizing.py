@@ -3,8 +3,8 @@ so it can be tested and reused from Reports/CLI if ever needed."""
 
 from dataclasses import dataclass
 
-from src.models.cluster_project import ClusterProject, NPlusOneCheck, PRIMARY, DR
-from src.calculations.thresholds import Thresholds, Status, effective_cpu_status
+from src.calculations.thresholds import Status, Thresholds, effective_cpu_status
+from src.models.cluster_project import DR, PRIMARY, ClusterProject, NPlusOneCheck
 
 
 @dataclass

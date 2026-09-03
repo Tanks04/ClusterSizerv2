@@ -8,11 +8,11 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.gui.dialogs.connection_dialog import ConnectionDialog
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection, KIND_SWITCH_SWITCH
+from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.models.cluster_project import ClusterProject
+from src.models.network_connection import KIND_SWITCH_SWITCH, NetworkConnection
+from src.models.network_switch import NetworkSwitch
 
 
 @pytest.fixture(scope="module", autouse=True)

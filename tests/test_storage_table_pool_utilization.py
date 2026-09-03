@@ -7,13 +7,13 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
+from src.calculations.thresholds import Thresholds
 from src.gui.models.storage_table_model import StorageTableModel
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
-from src.calculations.thresholds import Thresholds
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -110,8 +110,8 @@ def test_two_pools_at_the_same_site_are_tracked_independently():
 
 
 def test_storage_page_refreshes_pool_column_on_vm_change():
-    from src.services.project_service import ProjectService
     from src.gui.pages.storage_page import StoragePage
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     pool = Storage.create_default()

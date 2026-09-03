@@ -8,18 +8,23 @@ from PySide6.QtWidgets import (
     QLineEdit,
 )
 
+from src.calculations.networking import (
+    format_usage,
+    server_nic_usage,
+    storage_port_usage,
+    switch_port_usage,
+)
 from src.models.cluster_project import ClusterProject
 from src.models.network_connection import (
-    NetworkConnection,
-    SPEED_OPTIONS,
-    MEDIA_OPTIONS,
-    PURPOSE_OPTIONS,
+    KIND_SERVER_STORAGE,
     KIND_SERVER_SWITCH,
     KIND_STORAGE_SWITCH,
-    KIND_SERVER_STORAGE,
     KIND_SWITCH_SWITCH,
+    MEDIA_OPTIONS,
+    PURPOSE_OPTIONS,
+    SPEED_OPTIONS,
+    NetworkConnection,
 )
-from src.calculations.networking import server_nic_usage, switch_port_usage, storage_port_usage, format_usage
 
 # For each connection kind: (label_a, entities_a_attr, uid_field_a),
 # (label_b, entities_b_attr, uid_field_b), usage_fn_a, usage_fn_b.

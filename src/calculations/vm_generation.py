@@ -7,8 +7,8 @@ detail (OS, workload tier, etc.) beyond the numbers actually given -
 this is a starting point, not a fabricated inventory.
 """
 
-from src.models.virtual_machine import VirtualMachine
 from src.models.server import Server
+from src.models.virtual_machine import VirtualMachine
 
 
 def _split_evenly_int(total: int, count: int) -> list[int]:

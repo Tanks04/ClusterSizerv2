@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import uuid
+from dataclasses import dataclass
 
 DESTINATION_TYPES = ["NAS", "Disk Appliance", "Storage Array", "Offsite", "Cloud", "Tape / Offline"]
 

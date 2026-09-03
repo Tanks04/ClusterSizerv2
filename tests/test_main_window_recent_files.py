@@ -7,9 +7,9 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
 from src.gui.main_window import MainWindow
 from src.persistence import recent_files
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

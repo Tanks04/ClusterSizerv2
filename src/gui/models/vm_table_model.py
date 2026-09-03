@@ -2,6 +2,7 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
+
 from src.models.virtual_machine import VirtualMachine
 
 # Custom role carrying a border color (or None) for a VM's row - read

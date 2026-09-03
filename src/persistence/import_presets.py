@@ -2,7 +2,7 @@
 points, not guarantees (export formats drift between tool versions, which
 is exactly why the wizard lets you adjust and re-save as your own)."""
 
-from src.models.import_profile import ImportProfile, ColumnMapping
+from src.models.import_profile import ColumnMapping, ImportProfile
 
 PRESETS: list[ImportProfile] = [
     ImportProfile(

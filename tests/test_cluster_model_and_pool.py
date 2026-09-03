@@ -5,12 +5,12 @@ host several of side by side. Mirrors the Storage Pool pattern
 exactly: per-cluster CPU/RAM tracking reveals problems the site-wide
 aggregate can hide."""
 
-from src.models.cluster import Cluster, DEFAULT_CLUSTER_COLORS
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
+from src.calculations.thresholds import Thresholds
+from src.models.cluster import DEFAULT_CLUSTER_COLORS, Cluster
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
-from src.persistence import project_repository, csv_io
-from src.calculations.thresholds import Thresholds
+from src.persistence import csv_io, project_repository
 from src.services.project_service import ProjectService
 
 

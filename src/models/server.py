@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import uuid
+from dataclasses import dataclass
 
 # Matches the labels used by the Settings page's oversubscription presets
 # (src/calculations/thresholds.py PRESETS) for consistency - kept as a

@@ -1,5 +1,16 @@
 import pytest
-from src.persistence.csv_io import _bool, import_servers, import_vms, import_storages, import_switches, import_backup_destinations, import_vlans, import_maintenance_items, CsvSchemaError
+
+from src.persistence.csv_io import (
+    CsvSchemaError,
+    _bool,
+    import_backup_destinations,
+    import_maintenance_items,
+    import_servers,
+    import_storages,
+    import_switches,
+    import_vlans,
+    import_vms,
+)
 
 
 def test_bool_none_uses_default():
@@ -51,7 +62,10 @@ def test_import_servers_accepts_float_formatted_ints(tmp_path):
 
 def test_backup_destinations_csv_round_trip(tmp_path):
     from src.models.backup_destination import BackupDestination
-    from src.persistence.csv_io import import_backup_destinations, export_backup_destinations
+    from src.persistence.csv_io import (
+        export_backup_destinations,
+        import_backup_destinations,
+    )
 
     d1 = BackupDestination.create_default()
     d1.name = "veeam-repo-01"

@@ -4,17 +4,18 @@ pattern already established for Site/Cluster bulk assignment. Also
 covers the new "Storage Pool" column on the VMs table.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
 from src.gui.pages.virtual_machines_page import VirtualMachinesPage
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -182,6 +183,7 @@ def test_storage_widgets_and_column_shown_when_advanced_enabled():
 
 def test_table_shows_assigned_storage_pool_name():
     from PySide6.QtCore import Qt
+
     from src.gui.models.vm_table_model import VMTableModel
 
     storage = Storage.create_default()
@@ -196,6 +198,7 @@ def test_table_shows_assigned_storage_pool_name():
 
 def test_table_shows_dash_when_unassigned():
     from PySide6.QtCore import Qt
+
     from src.gui.models.vm_table_model import VMTableModel
 
     vm = VirtualMachine.create_default()
@@ -206,6 +209,7 @@ def test_table_shows_dash_when_unassigned():
 
 def test_table_shows_dash_for_stale_storage_reference():
     from PySide6.QtCore import Qt
+
     from src.gui.models.vm_table_model import VMTableModel
 
     vm = VirtualMachine.create_default()

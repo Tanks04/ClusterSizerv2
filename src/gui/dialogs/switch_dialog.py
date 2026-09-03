@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.network_switch import NetworkSwitch, SWITCH_TYPES, REDUNDANCY_ROLES
+from src.models.network_switch import REDUNDANCY_ROLES, SWITCH_TYPES, NetworkSwitch
 
 
 class SwitchDialog(QDialog):

@@ -19,10 +19,10 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.thresholds import PRESETS
-from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
-from src.models.cluster_project import DEPLOYMENT_MODELS, PRIMARY
-from src.persistence import app_preferences
 from src.gui.theming import apply_accent_color
+from src.models.cluster_project import DEPLOYMENT_MODELS, PRIMARY
+from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
+from src.persistence import app_preferences
 from src.services.project_service import ProjectService
 
 

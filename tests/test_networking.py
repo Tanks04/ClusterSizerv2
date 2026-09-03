@@ -1,11 +1,15 @@
+from src.calculations.networking import (
+    any_over_committed,
+    format_usage,
+    server_nic_usage,
+    site_port_usage,
+    storage_port_usage,
+    switch_port_usage,
+)
+from src.models.network_connection import NetworkConnection
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection
-from src.calculations.networking import (
-    switch_port_usage, server_nic_usage, storage_port_usage,
-    site_port_usage, any_over_committed, format_usage,
-)
 
 
 def _server(nic_1g=0, nic_fc=0):

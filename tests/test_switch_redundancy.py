@@ -5,13 +5,20 @@ values on the same NetworkSwitch, so this works for those too),
 Switch<->Switch connections, and dedicated/proprietary links that
 don't consume a declared port."""
 
-from src.models.network_switch import NetworkSwitch, REDUNDANCY_ROLES, redundancy_group_color
-from src.models.network_connection import NetworkConnection, KIND_SWITCH_SWITCH, KIND_SERVER_SWITCH
 from src.calculations.networking import switch_port_usage
-from src.persistence import csv_io, project_repository
-from src.models.cluster_project import ClusterProject
 from src.calculations.thresholds import Thresholds
-
+from src.models.cluster_project import ClusterProject
+from src.models.network_connection import (
+    KIND_SERVER_SWITCH,
+    KIND_SWITCH_SWITCH,
+    NetworkConnection,
+)
+from src.models.network_switch import (
+    REDUNDANCY_ROLES,
+    NetworkSwitch,
+    redundancy_group_color,
+)
+from src.persistence import csv_io, project_repository
 
 # ----------------------------------------------------------------------
 # redundancy_group_color - deterministic, stable across process restarts

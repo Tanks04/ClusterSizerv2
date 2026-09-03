@@ -4,17 +4,17 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from src.calculations.thresholds import Thresholds
-from src.models.cluster_project import ClusterProject, PRIMARY
+from src.models.backup_destination import BackupDestination
+from src.models.cluster import Cluster, find_or_create_clusters_by_name
+from src.models.cluster_project import PRIMARY, ClusterProject
+from src.models.failover_assignment import FailoverAssignment
+from src.models.maintenance_item import MaintenanceItem
+from src.models.network_connection import NetworkConnection
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage
-from src.models.backup_destination import BackupDestination
-from src.models.maintenance_item import MaintenanceItem
-from src.models.vlan import Vlan
-from src.models.cluster import Cluster, find_or_create_clusters_by_name
-from src.models.failover_assignment import FailoverAssignment
 from src.models.virtual_machine import VirtualMachine
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection
+from src.models.vlan import Vlan
 from src.persistence import csv_io, project_repository
 
 MAX_UNDO_DEPTH = 50

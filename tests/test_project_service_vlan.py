@@ -7,10 +7,10 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.services.project_service import ProjectService
-from src.models.vlan import Vlan
-from src.models.virtual_machine import VirtualMachine
 from src.models.failover_assignment import FailoverAssignment
+from src.models.virtual_machine import VirtualMachine
+from src.models.vlan import Vlan
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

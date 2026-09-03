@@ -19,9 +19,9 @@ already know what you're buying.
 import math
 from dataclasses import dataclass, field
 
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.models.virtual_machine import VirtualMachine, DR_CATEGORIES
-from src.models.workload_tier import WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.virtual_machine import DR_CATEGORIES, VirtualMachine
+from src.models.workload_tier import DEFAULT_WORKLOAD_TIER, WORKLOAD_TIERS
 
 HA_LEVELS = ["None", "Basic HA", "N+1", "N+2"]
 

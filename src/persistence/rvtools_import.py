@@ -25,9 +25,9 @@ so every memory/disk value is divided by 1024, not 1000.
 
 import openpyxl
 
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
-from src.models.network_switch import NetworkSwitch
 
 MIB_PER_GIB = 1024
 

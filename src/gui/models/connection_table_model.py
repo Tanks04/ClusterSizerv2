@@ -1,9 +1,10 @@
 from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+
 from src.models.network_connection import NetworkConnection
-from src.models.server import Server
 from src.models.network_switch import NetworkSwitch
+from src.models.server import Server
 from src.models.storage import Storage
 
 

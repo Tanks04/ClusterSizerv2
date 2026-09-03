@@ -1,5 +1,5 @@
-from src.models.backup_destination import BackupDestination
 from src.calculations.backup import compute_compliance
+from src.models.backup_destination import BackupDestination
 
 
 def _dest(dtype="NAS", offsite=False, immutable=False, raw=10.0, dedup=1.0):

@@ -10,9 +10,9 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.services.project_service import ProjectService
 from src.gui.pages.summary_page import SummaryPage
 from src.models.server import Server
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

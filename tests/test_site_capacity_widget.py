@@ -21,9 +21,9 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 from src.calculations.sizing import SiteReport
 from src.calculations.thresholds import Status
+from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 
 
 @pytest.fixture(scope="module", autouse=True)

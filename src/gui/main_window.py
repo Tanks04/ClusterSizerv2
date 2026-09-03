@@ -11,32 +11,30 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
-from src.services.project_service import ProjectService
-from src.persistence.project_repository import FILE_EXTENSION
-from src.persistence import recent_files
-from src.version import VERSION as APP_VERSION
-from src.persistence.csv_io import CsvSchemaError
-
-from src.gui.pages.servers_page import ServersPage
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
-from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
 from src.calculations.thresholds import PRESETS
-from src.calculations.vm_generation import generate_vms, generate_servers
-from src.models.cluster import find_or_create_clusters_by_name
-from src.persistence import app_preferences
-from src.gui.pages.storage_page import StoragePage
-from src.gui.pages.backup_page import BackupPage
-from src.gui.pages.pricing_page import PricingPage
-from src.gui.pages.virtual_machines_page import VirtualMachinesPage
-from src.gui.pages.network_page import NetworkPage
-from src.gui.pages.summary_page import SummaryPage
-from src.gui.pages.compare_page import ComparePage
-from src.gui.pages.reports_page import ReportsPage
-from src.gui.pages.settings_page import SettingsPage
-from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
+from src.calculations.vm_generation import generate_servers, generate_vms
+from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
 from src.gui.dialogs.raid_calculator_dialog import RaidCalculatorDialog
-from src.gui.widgets.lazy_tab_container import LazyTabContainer
+from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
 from src.gui.error_handling import report_error
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
+from src.gui.pages.backup_page import BackupPage
+from src.gui.pages.compare_page import ComparePage
+from src.gui.pages.network_page import NetworkPage
+from src.gui.pages.pricing_page import PricingPage
+from src.gui.pages.reports_page import ReportsPage
+from src.gui.pages.servers_page import ServersPage
+from src.gui.pages.settings_page import SettingsPage
+from src.gui.pages.storage_page import StoragePage
+from src.gui.pages.summary_page import SummaryPage
+from src.gui.pages.virtual_machines_page import VirtualMachinesPage
+from src.gui.widgets.lazy_tab_container import LazyTabContainer
+from src.models.cluster import find_or_create_clusters_by_name
+from src.persistence import app_preferences, recent_files
+from src.persistence.csv_io import CsvSchemaError
+from src.persistence.project_repository import FILE_EXTENSION
+from src.services.project_service import ProjectService
+from src.version import VERSION as APP_VERSION
 
 
 class MainWindow(QMainWindow):

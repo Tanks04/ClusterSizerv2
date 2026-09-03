@@ -7,16 +7,16 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QApplication
 
+from src.calculations.thresholds import Thresholds
 from src.gui.dialogs.cluster_dialog import ClusterDialog
 from src.gui.models.cluster_table_model import ClusterTableModel
 from src.models.cluster import Cluster
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
-from src.calculations.thresholds import Thresholds
 
 
 @pytest.fixture(scope="module", autouse=True)

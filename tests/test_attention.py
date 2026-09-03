@@ -6,15 +6,15 @@ Warning/Critical ones into one list."""
 
 from datetime import date
 
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
+from src.calculations.attention import compute_attention_items
+from src.calculations.thresholds import Status, Thresholds
+from src.models.backup_destination import BackupDestination
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.failover_assignment import FailoverAssignment
+from src.models.maintenance_item import MaintenanceItem
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
-from src.models.backup_destination import BackupDestination
-from src.models.maintenance_item import MaintenanceItem
-from src.models.failover_assignment import FailoverAssignment
-from src.calculations.thresholds import Thresholds, Status
-from src.calculations.attention import compute_attention_items
 
 
 def _server(site=PRIMARY, sockets=1, cores_per_socket=1, ram_gb=0):

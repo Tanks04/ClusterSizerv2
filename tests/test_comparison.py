@@ -1,6 +1,6 @@
-from src.models.cluster_project import ClusterProject, PRIMARY
-from src.models.server import Server
 from src.calculations.comparison import projects_are_identical
+from src.models.cluster_project import PRIMARY, ClusterProject
+from src.models.server import Server
 
 
 def test_identical_ignores_uid():

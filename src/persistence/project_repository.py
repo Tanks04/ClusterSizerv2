@@ -1,22 +1,22 @@
 """Saving/loading a ClusterProject as a JSON (.clsz) file."""
 
 import json
+import uuid
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from src.calculations.thresholds import Thresholds
-from src.models.cluster_project import ClusterProject, ON_PREMISE, PRIMARY, DR
-from src.models.failover_assignment import FailoverAssignment
-import uuid
-from src.models.server import Server
-from src.models.storage import Storage, StorageShelf, StoragePool
-from src.models.virtual_machine import VirtualMachine
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection
 from src.models.backup_destination import BackupDestination
-from src.models.maintenance_item import MaintenanceItem
-from src.models.vlan import Vlan
 from src.models.cluster import Cluster
+from src.models.cluster_project import DR, ON_PREMISE, PRIMARY, ClusterProject
+from src.models.failover_assignment import FailoverAssignment
+from src.models.maintenance_item import MaintenanceItem
+from src.models.network_connection import NetworkConnection
+from src.models.network_switch import NetworkSwitch
+from src.models.server import Server
+from src.models.storage import Storage, StoragePool, StorageShelf
+from src.models.virtual_machine import VirtualMachine
+from src.models.vlan import Vlan
 
 FILE_EXTENSION = ".clsz"
 SCHEMA_VERSION = 8

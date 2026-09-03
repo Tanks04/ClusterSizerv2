@@ -17,24 +17,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.services.project_service import ProjectService
-from src.persistence.csv_io import CsvSchemaError
-from src.persistence import csv_io
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
-from src.models.workload_tier import WORKLOAD_TIER_NAMES
-
-from src.gui.dialogs.vm_dialog import VMDialog
-from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
 from src.gui.dialogs.failover_assignment_dialog import FailoverAssignmentDialog
-from src.models.failover_assignment import FailoverAssignment
-from src.gui.models.vm_table_model import VMTableModel
-from src.gui.widgets.passthrough_border_delegate import PassthroughBorderDelegate
-from src.gui.models.failover_assignment_table_model import FailoverAssignmentTableModel
-from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
+from src.gui.dialogs.vm_dialog import VMDialog
 from src.gui.error_handling import report_error
-from src.persistence import app_preferences
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
+from src.gui.models.failover_assignment_table_model import FailoverAssignmentTableModel
+from src.gui.models.vm_table_model import VMTableModel
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.widgets.passthrough_border_delegate import PassthroughBorderDelegate
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.models.failover_assignment import FailoverAssignment
+from src.models.workload_tier import WORKLOAD_TIER_NAMES
+from src.persistence import app_preferences, csv_io
+from src.persistence.csv_io import CsvSchemaError
+from src.services.project_service import ProjectService
 
 
 class VirtualMachinesPage(QWidget):

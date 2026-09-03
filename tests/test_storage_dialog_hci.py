@@ -9,11 +9,11 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
-from src.models.server import Server
 from src.gui.dialogs.storage_dialog import StorageDialog
+from src.models.server import Server
 
 
 @pytest.fixture(scope="module", autouse=True)

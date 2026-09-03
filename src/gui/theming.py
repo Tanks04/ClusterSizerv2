@@ -14,7 +14,7 @@ everywhere Qt runs, so it's the one that actually guarantees the
 color changes.
 """
 
-from PySide6.QtGui import QPalette, QColor
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
 _ACCENT_QSS_START = "/* === accent color override (auto-generated) === */"

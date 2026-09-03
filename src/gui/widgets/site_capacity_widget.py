@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from src.calculations.sizing import SiteReport, FailoverReport
+from src.calculations.sizing import FailoverReport, SiteReport
 from src.calculations.thresholds import Status
 from src.gui.widgets.status_badge import StatusBadge
 

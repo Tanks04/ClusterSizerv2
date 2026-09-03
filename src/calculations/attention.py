@@ -14,10 +14,10 @@ turns them into one flat, severity-sorted list of short messages.
 
 from dataclasses import dataclass
 
-from src.calculations.thresholds import Status, Thresholds, effective_cpu_status
-from src.calculations.sizing import build_reports, build_failover_report
 from src.calculations.backup import compute_compliance
 from src.calculations.pricing import compute_maintenance_status
+from src.calculations.sizing import build_failover_report, build_reports
+from src.calculations.thresholds import Status, Thresholds, effective_cpu_status
 from src.models.cluster_project import ClusterProject
 
 _SEVERITY_ORDER = {Status.CRITICAL: 0, Status.WARNING: 1}
@@ -77,7 +77,10 @@ def compute_attention_items(project: ClusterProject, thresholds: Thresholds) -> 
             if effective_status in (Status.WARNING, Status.CRITICAL):
                 driver = _dominant_strict_tier(project, site)
                 if driver:
-                    from src.models.workload_tier import WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
+                    from src.models.workload_tier import (
+                        DEFAULT_WORKLOAD_TIER,
+                        WORKLOAD_TIERS,
+                    )
                     tier_name, share_pct = driver
                     tier = WORKLOAD_TIERS.get(tier_name) or WORKLOAD_TIERS[DEFAULT_WORKLOAD_TIER]
                     driver_text = (

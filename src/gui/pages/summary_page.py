@@ -1,16 +1,25 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
-from src.calculations.sizing import build_reports, build_failover_scenario_report, build_failover_report
-from src.calculations.rack import compute_rack_sizing
 from src.calculations.attention import compute_attention_items
-from src.services.project_service import ProjectService
-
+from src.calculations.rack import compute_rack_sizing
+from src.calculations.sizing import (
+    build_failover_report,
+    build_failover_scenario_report,
+    build_reports,
+)
+from src.gui.widgets.attention_panel import AttentionPanel
 from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.widgets.attention_panel import AttentionPanel
+from src.services.project_service import ProjectService
 
 
 class SummaryPage(QWidget):

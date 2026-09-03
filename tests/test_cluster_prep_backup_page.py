@@ -2,15 +2,16 @@
 page - a mini-form that queues one or more Backup Destinations,
 committed to the project only after Finish."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
 
 
 @pytest.fixture(scope="module", autouse=True)

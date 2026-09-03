@@ -1,3 +1,6 @@
+import copy
+import uuid
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -10,20 +13,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.services.project_service import ProjectService
-from src.persistence.csv_io import CsvSchemaError
-from src.persistence import csv_io
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
-from src.calculations.pricing import compute_equipment_pricing, compute_maintenance_status
-
+from src.calculations.pricing import (
+    compute_equipment_pricing,
+    compute_maintenance_status,
+)
 from src.gui.dialogs.maintenance_item_dialog import MaintenanceItemDialog
-from src.gui.models.maintenance_item_table_model import MaintenanceItemTableModel
-from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
-
-import copy
-import uuid
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
+from src.gui.models.maintenance_item_table_model import MaintenanceItemTableModel
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.persistence import csv_io
+from src.persistence.csv_io import CsvSchemaError
+from src.services.project_service import ProjectService
 
 
 def _eur(amount: float) -> str:

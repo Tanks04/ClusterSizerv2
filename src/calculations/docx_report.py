@@ -27,10 +27,10 @@ except Exception as _exc:  # noqa: BLE001 - deliberately broad, see message belo
     RGBColor = None
     _docx_import_error = _exc
 
-from src.calculations.sizing import build_reports, build_failover_report
-from src.calculations.thresholds import Status, Thresholds
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
 from src.calculations.rack import compute_rack_sizing
+from src.calculations.sizing import build_failover_report, build_reports
+from src.calculations.thresholds import Status, Thresholds
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
 
 
 def _docx_missing_message() -> str:
@@ -317,7 +317,10 @@ def _pct(value: float | None) -> str:
 
 
 def _pricing_section(document: Document, project: ClusterProject) -> None:
-    from src.calculations.pricing import compute_equipment_pricing, compute_maintenance_status
+    from src.calculations.pricing import (
+        compute_equipment_pricing,
+        compute_maintenance_status,
+    )
 
     document.add_heading("Pricing", level=1)
 

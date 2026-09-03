@@ -6,12 +6,12 @@ established in Cluster Preparation (vm.vcpu / tier_ratio), applied to
 the ONGOING/live ratio instead of just the one-time sizing wizard.
 """
 
-from src.models.cluster_project import ClusterProject, PRIMARY
+from src.calculations.attention import compute_attention_items
+from src.calculations.thresholds import Thresholds
+from src.models.cluster_project import PRIMARY, ClusterProject
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
 from src.models.workload_tier import tier_ratio_for
-from src.calculations.attention import compute_attention_items
-from src.calculations.thresholds import Thresholds
 
 
 def _project_with_tier(tier: str, vm_count: int = 20, vcpu_each: int = 10) -> ClusterProject:
@@ -244,10 +244,10 @@ def test_site_report_carries_effective_cpu_fields():
 
 
 def test_failover_scenario_report_carries_effective_cpu_fields():
-    from src.models.server import Server as ServerModel
-    from src.models.failover_assignment import FailoverAssignment
     from src.calculations.sizing import build_failover_scenario_report
     from src.models.cluster_project import DR
+    from src.models.failover_assignment import FailoverAssignment
+    from src.models.server import Server as ServerModel
 
     project = _project_with_tier("Tier-0 / Mission-Critical", vm_count=1, vcpu_each=10)
     dr_server = ServerModel.create_default()
@@ -268,9 +268,9 @@ def test_failover_scenario_report_carries_effective_cpu_fields():
 
 
 def test_effective_failover_vcpu_demand_scales_by_tier():
-    from src.models.server import Server as ServerModel
-    from src.models.failover_assignment import FailoverAssignment
     from src.models.cluster_project import DR
+    from src.models.failover_assignment import FailoverAssignment
+    from src.models.server import Server as ServerModel
 
     project = ClusterProject()
     vm = VirtualMachine.create_default()
@@ -298,8 +298,8 @@ def test_site_capacity_widget_shows_effective_cpu_row():
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication
     QApplication.instance() or QApplication([])
-    from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
     from src.calculations.sizing import build_site_report
+    from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 
     project = _project_with_tier("Tier-0 / Mission-Critical")
     report = build_site_report(project, PRIMARY, Thresholds())
@@ -316,8 +316,8 @@ def test_site_capacity_widget_effective_row_updates_when_tier_changes():
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication
     QApplication.instance() or QApplication([])
-    from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
     from src.calculations.sizing import build_site_report
+    from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 
     project = _project_with_tier("Tier-0 / Mission-Critical")
     widget = SiteCapacityWidget(PRIMARY)
@@ -390,8 +390,8 @@ def test_dominant_strict_tier_respects_override():
 
 
 def test_tier_ratio_overrides_clsz_round_trip(tmp_path):
-    from src.persistence import project_repository
     from src.calculations.thresholds import Thresholds
+    from src.persistence import project_repository
 
     project = ClusterProject(name="Override round trip")
     project.tier_ratio_overrides["High-Density VDI"] = 16.0
@@ -405,8 +405,9 @@ def test_tier_ratio_overrides_clsz_round_trip(tmp_path):
 
 def test_old_clsz_file_without_overrides_defaults_to_empty_dict(tmp_path):
     import json
-    from src.persistence import project_repository
+
     from src.calculations.thresholds import Thresholds
+    from src.persistence import project_repository
 
     project = ClusterProject(name="Pre-override-feature")
     path = tmp_path / "old.clsz"

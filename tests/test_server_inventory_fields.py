@@ -2,11 +2,11 @@
 Hypervisor vendor/version) and BackupDestination's Location field and
 Cloud destination type."""
 
-from src.models.server import Server, HYPERVISOR_VENDORS
-from src.models.backup_destination import BackupDestination, DESTINATION_TYPES
-from src.persistence import csv_io, project_repository
-from src.models.cluster_project import ClusterProject
 from src.calculations.thresholds import Thresholds
+from src.models.backup_destination import DESTINATION_TYPES, BackupDestination
+from src.models.cluster_project import ClusterProject
+from src.models.server import HYPERVISOR_VENDORS, Server
+from src.persistence import csv_io, project_repository
 
 
 def test_cloud_is_a_valid_destination_type():

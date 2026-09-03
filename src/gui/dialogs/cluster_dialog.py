@@ -1,15 +1,15 @@
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QColorDialog,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFormLayout,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
-    QFormLayout,
-    QColorDialog,
 )
-from PySide6.QtGui import QColor
 
 from src.models.cluster import Cluster
 

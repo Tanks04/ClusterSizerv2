@@ -1,8 +1,8 @@
+from src.calculations.rack import compute_rack_sizing
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage, StorageShelf
-from src.models.network_switch import NetworkSwitch
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
-from src.calculations.rack import compute_rack_sizing
 
 
 def _server(site=PRIMARY, rack_units=0, power_watts=0.0):

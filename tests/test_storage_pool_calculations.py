@@ -5,7 +5,7 @@ ratio), which stay unaffected by whether VMs are further split across
 sub-pools within that array.
 """
 
-from src.models.cluster_project import ClusterProject, PRIMARY
+from src.models.cluster_project import PRIMARY, ClusterProject
 from src.models.storage import Storage, StoragePool
 from src.models.virtual_machine import VirtualMachine
 

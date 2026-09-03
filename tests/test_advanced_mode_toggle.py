@@ -6,17 +6,18 @@ page's set_advanced_mode, both dialogs' advanced-only rows, and the
 full toggle-through-MainWindow interaction with lazy tab construction.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.services.project_service import ProjectService
 from src.models.cluster import Cluster
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -100,8 +101,8 @@ def test_servers_page_shows_cluster_section_when_enabled():
 
 
 def test_servers_page_picks_up_saved_preference_at_construction():
-    from src.persistence import app_preferences
     from src.gui.pages.servers_page import ServersPage
+    from src.persistence import app_preferences
 
     app_preferences.set_advanced_mode(True)
     service = ProjectService()
@@ -123,8 +124,8 @@ def test_server_dialog_hides_cluster_row_by_default():
 
 
 def test_server_dialog_shows_cluster_row_when_advanced_enabled():
-    from src.persistence import app_preferences
     from src.gui.dialogs.server_dialog import ServerDialog
+    from src.persistence import app_preferences
 
     app_preferences.set_advanced_mode(True)
     dialog = ServerDialog()
@@ -147,8 +148,8 @@ def test_vm_dialog_hides_advanced_rows_by_default():
 
 
 def test_vm_dialog_shows_advanced_rows_when_enabled():
-    from src.persistence import app_preferences
     from src.gui.dialogs.vm_dialog import VMDialog
+    from src.persistence import app_preferences
 
     app_preferences.set_advanced_mode(True)
     dialog = VMDialog()

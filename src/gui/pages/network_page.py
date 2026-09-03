@@ -1,6 +1,7 @@
 import copy
 import uuid
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -12,26 +13,27 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtCore import Qt
 
-from src.services.project_service import ProjectService
-from src.persistence.csv_io import CsvSchemaError
-from src.persistence import csv_io
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
-from src.calculations.networking import site_port_usage, format_usage, any_over_committed
-from src.models.cluster_project import PRIMARY, DR
-
-from src.gui.dialogs.switch_dialog import SwitchDialog
+from src.calculations.networking import (
+    any_over_committed,
+    format_usage,
+    site_port_usage,
+)
 from src.gui.dialogs.connection_dialog import ConnectionDialog
+from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.gui.dialogs.vlan_dialog import VlanDialog
-from src.gui.models.switch_table_model import SwitchTableModel
-from src.gui.widgets.redundancy_border_delegate import RedundancyBorderDelegate
-from src.gui.models.connection_table_model import ConnectionTableModel
-from src.gui.models.vlan_table_model import VlanTableModel
-from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
-from src.persistence import app_preferences
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
+from src.gui.models.connection_table_model import ConnectionTableModel
+from src.gui.models.switch_table_model import SwitchTableModel
+from src.gui.models.vlan_table_model import VlanTableModel
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.widgets.redundancy_border_delegate import RedundancyBorderDelegate
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.models.cluster_project import DR, PRIMARY
+from src.persistence import app_preferences, csv_io
+from src.persistence.csv_io import CsvSchemaError
+from src.services.project_service import ProjectService
 
 
 class NetworkPage(QWidget):

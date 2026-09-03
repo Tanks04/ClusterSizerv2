@@ -5,16 +5,17 @@ cut off) and the "Add" confirmation (previously just appended text to
 an already-overflowing label, invisible for the same reason - now a
 real QMessageBox)."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication, QScrollArea, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea
 
+from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
 from src.models.cluster_project import ClusterProject
 from src.models.virtual_machine import VirtualMachine
-from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
 
 
 @pytest.fixture(scope="module", autouse=True)

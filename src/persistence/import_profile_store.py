@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from src.models.import_profile import ImportProfile, ColumnMapping
+from src.models.import_profile import ColumnMapping, ImportProfile
 
 PROFILES_PATH = Path.home() / ".clustersizer" / "import_profiles.json"
 

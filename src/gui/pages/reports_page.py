@@ -11,11 +11,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.calculations.sizing import build_reports
 from src.calculations.docx_report import build_docx_report
+from src.calculations.sizing import build_reports
+from src.gui.error_handling import report_error
 from src.services.project_service import ProjectService
 from src.version import VERSION
-from src.gui.error_handling import report_error
 
 
 def _fmt_ratio(ratio: float | None, as_percent: bool = False) -> str:
@@ -79,8 +79,8 @@ class ReportsPage(QWidget):
         layout.addWidget(self.text_area)
 
     def _build_report_text(self) -> str:
-        from src.calculations.sizing import build_failover_report
         from src.calculations.rack import compute_rack_sizing
+        from src.calculations.sizing import build_failover_report
 
         project = self.service.project
         thresholds = self.service.thresholds

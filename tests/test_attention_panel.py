@@ -7,9 +7,9 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.gui.widgets.attention_panel import AttentionPanel
 from src.calculations.attention import AttentionItem
 from src.calculations.thresholds import Status
+from src.gui.widgets.attention_panel import AttentionPanel
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -4,12 +4,12 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
 from src.gui.models.failover_assignment_table_model import FailoverAssignmentTableModel
-from src.models.virtual_machine import VirtualMachine
 from src.models.failover_assignment import FailoverAssignment
+from src.models.virtual_machine import VirtualMachine
 
 
 @pytest.fixture(scope="module", autouse=True)

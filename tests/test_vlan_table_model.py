@@ -5,12 +5,12 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
 from src.gui.models.vlan_table_model import VlanTableModel
-from src.models.vlan import Vlan
 from src.models.virtual_machine import VirtualMachine
+from src.models.vlan import Vlan
 
 
 @pytest.fixture(scope="module", autouse=True)

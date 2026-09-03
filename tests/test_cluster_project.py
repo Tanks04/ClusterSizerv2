@@ -1,8 +1,8 @@
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
+from src.calculations.thresholds import Thresholds
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.failover_assignment import FailoverAssignment
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
-from src.models.failover_assignment import FailoverAssignment
-from src.calculations.thresholds import Thresholds
 
 
 def _server(name, ram_gb, sockets, cores_per_socket):

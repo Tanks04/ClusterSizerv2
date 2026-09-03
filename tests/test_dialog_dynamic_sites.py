@@ -9,14 +9,14 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.gui.dialogs.storage_dialog import StorageDialog
+from src.gui.dialogs.backup_destination_dialog import BackupDestinationDialog
+from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
+from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
 from src.gui.dialogs.server_dialog import ServerDialog
+from src.gui.dialogs.storage_dialog import StorageDialog
 from src.gui.dialogs.switch_dialog import SwitchDialog
 from src.gui.dialogs.vlan_dialog import VlanDialog
-from src.gui.dialogs.backup_destination_dialog import BackupDestinationDialog
 from src.gui.dialogs.vm_dialog import VMDialog
-from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
-from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 
 
 @pytest.fixture(scope="module", autouse=True)

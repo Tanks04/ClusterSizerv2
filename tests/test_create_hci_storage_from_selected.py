@@ -5,17 +5,18 @@ Storage entity (not Server), this creates a new Storage linking the
 selected servers, with Raw auto-computed and Usable left for the
 person to set (with the FTT calculator now available)."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication, QMessageBox, QInputDialog
+from PySide6.QtWidgets import QApplication, QInputDialog, QMessageBox
 
-from src.services.project_service import ProjectService
 from src.gui.pages.servers_page import ServersPage
+from src.models.cluster_project import DR, PRIMARY
 from src.models.server import Server
-from src.models.cluster_project import PRIMARY, DR
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QLabel,
@@ -10,13 +11,16 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QScrollArea,
     QSpinBox,
-    QDoubleSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from src.models.virtual_machine import VirtualMachine, DR_CATEGORIES
-from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
+from src.models.virtual_machine import DR_CATEGORIES, VirtualMachine
+from src.models.workload_tier import (
+    DEFAULT_WORKLOAD_TIER,
+    WORKLOAD_TIER_NAMES,
+    WORKLOAD_TIERS,
+)
 from src.persistence import app_preferences
 
 

@@ -9,15 +9,15 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QApplication
 
 from src.gui.models.server_table_model import ServerTableModel
 from src.gui.models.vm_table_model import VMTableModel
+from src.models.cluster import Cluster
 from src.models.server import Server
 from src.models.virtual_machine import VirtualMachine
-from src.models.cluster import Cluster
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -130,8 +130,8 @@ def test_vm_editable_columns_unaffected_by_column_shift():
 # ----------------------------------------------------------------------
 
 def test_servers_page_cluster_column_live_refreshes():
-    from src.services.project_service import ProjectService
     from src.gui.pages.servers_page import ServersPage
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     cluster = Cluster.create_default(0)
@@ -149,8 +149,8 @@ def test_servers_page_cluster_column_live_refreshes():
 
 
 def test_vms_page_cluster_column_live_refreshes():
-    from src.services.project_service import ProjectService
     from src.gui.pages.virtual_machines_page import VirtualMachinesPage
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     cluster = Cluster.create_default(0)

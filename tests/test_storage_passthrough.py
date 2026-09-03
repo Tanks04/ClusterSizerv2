@@ -6,16 +6,17 @@ Sec_data_os and Sec_data_log) plus a request to visually highlight any
 VM that has one.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
+from src.models.server import Server
 from src.models.storage import Storage, StoragePool
 from src.models.virtual_machine import VirtualMachine
-from src.models.server import Server
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -43,9 +44,9 @@ def test_pool_can_be_marked_passthrough_with_a_connected_vm():
 
 
 def test_passthrough_fields_clsz_round_trip(tmp_path):
+    from src.calculations.thresholds import Thresholds
     from src.models.cluster_project import ClusterProject
     from src.persistence import project_repository
-    from src.calculations.thresholds import Thresholds
 
     project = ClusterProject(name="Passthrough round trip")
     storage = Storage.create_default()
@@ -63,9 +64,10 @@ def test_passthrough_fields_clsz_round_trip(tmp_path):
 
 def test_old_clsz_file_without_passthrough_fields_defaults_gracefully(tmp_path):
     import json
+
+    from src.calculations.thresholds import Thresholds
     from src.models.cluster_project import ClusterProject
     from src.persistence import project_repository
-    from src.calculations.thresholds import Thresholds
 
     project = ClusterProject(name="Pre-passthrough")
     storage = Storage.create_default()
@@ -179,9 +181,9 @@ def test_editing_an_existing_passthrough_pool_loads_correctly():
 
 
 def test_storage_dialog_passes_project_vms_to_pool_dialog():
-    from src.services.project_service import ProjectService
     from src.gui.dialogs.storage_dialog import StorageDialog
     from src.gui.dialogs.storage_pool_dialog import StoragePoolDialog
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     vm = VirtualMachine.create_default()
@@ -218,7 +220,10 @@ def test_storage_dialog_without_service_passes_empty_vm_list():
 # ----------------------------------------------------------------------
 
 def test_vm_with_passthrough_pool_gets_a_border_color():
-    from src.gui.models.vm_table_model import VMTableModel, PASSTHROUGH_BORDER_COLOR_ROLE
+    from src.gui.models.vm_table_model import (
+        PASSTHROUGH_BORDER_COLOR_ROLE,
+        VMTableModel,
+    )
 
     vm = VirtualMachine.create_default()
     storage = Storage.create_default()
@@ -231,7 +236,10 @@ def test_vm_with_passthrough_pool_gets_a_border_color():
 
 
 def test_vm_without_passthrough_pool_gets_no_border():
-    from src.gui.models.vm_table_model import VMTableModel, PASSTHROUGH_BORDER_COLOR_ROLE
+    from src.gui.models.vm_table_model import (
+        PASSTHROUGH_BORDER_COLOR_ROLE,
+        VMTableModel,
+    )
 
     vm = VirtualMachine.create_default()
     model = VMTableModel([vm], storages_provider=lambda: [])
@@ -245,7 +253,10 @@ def test_regular_pool_assignment_does_not_trigger_border():
     """Just being assigned to an ordinary pool (storage_pool_uid) is
     NOT the same as having a passthrough pool connected - only
     is_passthrough + passthrough_vm_uid matching should highlight."""
-    from src.gui.models.vm_table_model import VMTableModel, PASSTHROUGH_BORDER_COLOR_ROLE
+    from src.gui.models.vm_table_model import (
+        PASSTHROUGH_BORDER_COLOR_ROLE,
+        VMTableModel,
+    )
 
     vm = VirtualMachine.create_default()
     storage = Storage.create_default()
@@ -261,7 +272,10 @@ def test_regular_pool_assignment_does_not_trigger_border():
 
 
 def test_two_different_vms_each_with_their_own_passthrough_pool():
-    from src.gui.models.vm_table_model import VMTableModel, PASSTHROUGH_BORDER_COLOR_ROLE
+    from src.gui.models.vm_table_model import (
+        PASSTHROUGH_BORDER_COLOR_ROLE,
+        VMTableModel,
+    )
 
     vm1 = VirtualMachine.create_default()
     vm2 = VirtualMachine.create_default()
@@ -279,7 +293,10 @@ def test_two_different_vms_each_with_their_own_passthrough_pool():
 def test_vm_with_two_passthrough_pools_still_gets_one_border():
     """The exact reported scenario: one VM connected to BOTH
     Sec_data_os and Sec_data_log."""
-    from src.gui.models.vm_table_model import VMTableModel, PASSTHROUGH_BORDER_COLOR_ROLE
+    from src.gui.models.vm_table_model import (
+        PASSTHROUGH_BORDER_COLOR_ROLE,
+        VMTableModel,
+    )
 
     vm = VirtualMachine.create_default()
     storage = Storage.create_default()
@@ -295,8 +312,8 @@ def test_vm_with_two_passthrough_pools_still_gets_one_border():
 
 
 def test_delegate_paints_a_border_for_passthrough_vms():
-    from src.gui.widgets.passthrough_border_delegate import PassthroughBorderDelegate
     from src.gui.models.vm_table_model import VMTableModel
+    from src.gui.widgets.passthrough_border_delegate import PassthroughBorderDelegate
 
     vm = VirtualMachine.create_default()
     storage = Storage.create_default()
@@ -307,8 +324,8 @@ def test_delegate_paints_a_border_for_passthrough_vms():
     # Smoke test: paint() must not raise when given a real index with
     # a border color set - actual pixel rendering is covered by the
     # visual screenshot check done during development.
+    from PySide6.QtGui import QPainter, QPixmap
     from PySide6.QtWidgets import QStyleOptionViewItem
-    from PySide6.QtGui import QPixmap, QPainter
     pixmap = QPixmap(100, 20)
     painter = QPainter(pixmap)
     option = QStyleOptionViewItem()

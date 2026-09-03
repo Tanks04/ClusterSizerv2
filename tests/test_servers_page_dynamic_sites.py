@@ -3,17 +3,18 @@ list into ServerDialog - the exact bug reported directly: editing a
 server only offered Primary/DR, never a custom site like DR2, even
 though Storage's dialog already worked correctly."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.services.project_service import ProjectService
-from src.gui.pages.servers_page import ServersPage
 from src.gui.dialogs.server_dialog import ServerDialog
+from src.gui.pages.servers_page import ServersPage
 from src.models.server import Server
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

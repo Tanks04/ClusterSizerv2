@@ -5,17 +5,18 @@ existing "Add Storage Array" row. Reported directly as the next needed
 piece after building the StoragePool model/dialogs themselves.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
 from src.gui.pages.virtual_machines_page import VirtualMachinesPage
 from src.models.storage import Storage, StoragePool
 from src.models.virtual_machine import VirtualMachine
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

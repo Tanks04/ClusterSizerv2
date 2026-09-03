@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import uuid
+from dataclasses import dataclass
 
 SWITCH_TYPES = ["LAN", "SAN/FC", "Unified", "Firewall", "Load Balancer"]
 

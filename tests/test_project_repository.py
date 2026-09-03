@@ -1,10 +1,10 @@
 import json
 
 from src.calculations.thresholds import Thresholds
-from src.models.cluster_project import ClusterProject
 from src.models.backup_destination import BackupDestination
-from src.models.virtual_machine import VirtualMachine
+from src.models.cluster_project import ClusterProject
 from src.models.failover_assignment import FailoverAssignment
+from src.models.virtual_machine import VirtualMachine
 from src.persistence import project_repository
 
 
@@ -80,7 +80,9 @@ def test_storage_shelves_round_trip_as_real_objects_not_dicts(tmp_path):
     needed a dedicated reconstruction step (_build_storage()) or shelves
     would come back as plain dicts, breaking .rack_units/.power_watts
     attribute access."""
-    from src.models.backup_destination import BackupDestination  # noqa: F401 - keep import group consistent
+    from src.models.backup_destination import (
+        BackupDestination,  # noqa: F401 - keep import group consistent
+    )
     from src.models.storage import Storage, StorageShelf
 
     project = ClusterProject(name="Rack round trip")

@@ -11,16 +11,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.services.project_service import ProjectService
-from src.persistence.csv_io import CsvSchemaError
-from src.persistence import csv_io
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
-
 from src.gui.dialogs.storage_dialog import StorageDialog
-from src.gui.models.storage_table_model import StorageTableModel
-from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
+from src.gui.models.storage_table_model import StorageTableModel
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.persistence import csv_io
+from src.persistence.csv_io import CsvSchemaError
+from src.services.project_service import ProjectService
 
 
 class StoragePage(QWidget):

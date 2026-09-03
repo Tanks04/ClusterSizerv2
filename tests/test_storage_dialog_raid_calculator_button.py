@@ -5,8 +5,9 @@ the new StoragePool model (multiple carved-out slices of one array's
 disks, each optionally zoned to specific servers).
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
@@ -124,9 +125,9 @@ def test_pool_can_reference_multiple_servers():
 
 
 def test_pool_clsz_round_trip(tmp_path):
+    from src.calculations.thresholds import Thresholds
     from src.models.cluster_project import ClusterProject
     from src.persistence import project_repository
-    from src.calculations.thresholds import Thresholds
 
     project = ClusterProject(name="Pool round trip")
     storage = Storage.create_default()
@@ -148,9 +149,10 @@ def test_pool_clsz_round_trip(tmp_path):
 
 def test_old_clsz_file_without_pools_defaults_gracefully(tmp_path):
     import json
+
+    from src.calculations.thresholds import Thresholds
     from src.models.cluster_project import ClusterProject
     from src.persistence import project_repository
-    from src.calculations.thresholds import Thresholds
 
     project = ClusterProject(name="Pre-pools")
     project.storages.append(Storage.create_default())
@@ -179,10 +181,10 @@ def test_vm_storage_pool_uid_defaults_empty():
 
 
 def test_vm_storage_pool_uid_clsz_round_trip(tmp_path):
+    from src.calculations.thresholds import Thresholds
     from src.models.cluster_project import ClusterProject
     from src.models.virtual_machine import VirtualMachine
     from src.persistence import project_repository
-    from src.calculations.thresholds import Thresholds
 
     project = ClusterProject(name="VM pool round trip")
     vm = VirtualMachine.create_default()

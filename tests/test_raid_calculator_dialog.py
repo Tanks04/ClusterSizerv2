@@ -4,8 +4,9 @@ disk_size_spin, reported directly as broken: typing "1.09" or "1.9"
 the field was a QSpinBox (integers only) instead of a QDoubleSpinBox.
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 pytest.importorskip("PySide6")
 

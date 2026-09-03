@@ -12,17 +12,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.services.project_service import ProjectService
-from src.persistence.csv_io import CsvSchemaError
-from src.persistence import csv_io
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
 from src.calculations.backup import compute_compliance
-
 from src.gui.dialogs.backup_destination_dialog import BackupDestinationDialog
-from src.gui.models.backup_table_model import BackupDestinationTableModel
-from src.gui.widgets.summary_widget import SummaryWidget
-from src.gui.widgets.multi_select_table import MultiSelectTableView
 from src.gui.error_handling import report_error
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
+from src.gui.models.backup_table_model import BackupDestinationTableModel
+from src.gui.widgets.multi_select_table import MultiSelectTableView
+from src.gui.widgets.summary_widget import SummaryWidget
+from src.persistence import csv_io
+from src.persistence.csv_io import CsvSchemaError
+from src.services.project_service import ProjectService
 
 
 class BackupPage(QWidget):

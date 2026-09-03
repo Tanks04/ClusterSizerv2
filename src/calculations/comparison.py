@@ -54,7 +54,7 @@ def build_delta_summary(project_a: ClusterProject, project_b: ClusterProject) ->
     ram_a, ram_b = project_a.total_ram, project_b.total_ram
     vms_a, vms_b = len(project_a.vms), len(project_b.vms)
 
-    from src.models.cluster_project import PRIMARY, DR
+    from src.models.cluster_project import DR, PRIMARY
     storage_a = (project_a.usable_storage_gb(PRIMARY) + project_a.usable_storage_gb(DR)) / 1024
     storage_b = (project_b.usable_storage_gb(PRIMARY) + project_b.usable_storage_gb(DR)) / 1024
 

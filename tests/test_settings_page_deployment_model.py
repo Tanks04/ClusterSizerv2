@@ -9,8 +9,8 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.services.project_service import ProjectService
 from src.gui.pages.settings_page import SettingsPage
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -382,7 +382,7 @@ def test_unrelated_tiers_unaffected_by_one_override():
 def test_settings_boxes_are_paired_into_rows_of_two():
     """Reported directly - sections spanned the full window width when
     they easily fit two per row (e.g. Sites + Deployment Model)."""
-    from PySide6.QtWidgets import QHBoxLayout, QGroupBox
+    from PySide6.QtWidgets import QGroupBox, QHBoxLayout
 
     service = ProjectService()
     page = SettingsPage(service)

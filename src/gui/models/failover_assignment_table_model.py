@@ -2,6 +2,7 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
+
 from src.models.failover_assignment import FailoverAssignment
 
 _STALE_COLOR = QColor("#e65100")  # matches the Attention panel's Warning color

@@ -1,5 +1,18 @@
 # ROADMAP
 
+## v4.17.1 (Import order cleanup - ruff)
+
+Flagged directly by ruff in an editor: unsorted imports at the top of
+`main.py`.
+
+- Ran `ruff check --select I --fix` across `main.py`, `src/`, and
+  `tests/` - 192 accumulated import-ordering issues (stdlib/third-
+  party/first-party grouping, alphabetization within each group),
+  built up gradually over many rounds of ad-hoc edits without ever
+  being swept in one pass. Purely mechanical - reordering import
+  statements never changes behavior, confirmed by the full test suite
+  passing unchanged (805 passed, same as before).
+
 ## v4.17.0 (PCI passthrough storage pools; VM highlighting)
 
 Requested with a concrete real-world example: a security VM with two

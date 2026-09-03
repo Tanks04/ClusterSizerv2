@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from src.models.maintenance_item import MaintenanceItem, CATEGORIES
+from src.models.maintenance_item import CATEGORIES, MaintenanceItem
 
 
 class MaintenanceItemDialog(QDialog):

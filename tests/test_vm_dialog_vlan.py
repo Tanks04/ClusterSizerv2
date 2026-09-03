@@ -9,8 +9,8 @@ pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 
 from src.gui.dialogs.vm_dialog import VMDialog
-from src.models.vlan import Vlan
 from src.models.virtual_machine import VirtualMachine
+from src.models.vlan import Vlan
 
 
 @pytest.fixture(scope="module", autouse=True)

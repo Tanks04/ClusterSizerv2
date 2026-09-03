@@ -18,12 +18,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.gui.error_handling import report_error
 from src.models.import_profile import (
-    ImportProfile, ColumnMapping, VM_TARGET_FIELDS, REQUIRED_VM_FIELDS, SIZE_UNITS,
+    REQUIRED_VM_FIELDS,
+    SIZE_UNITS,
+    VM_TARGET_FIELDS,
+    ColumnMapping,
+    ImportProfile,
 )
 from src.persistence import generic_import, import_presets, import_profile_store
 from src.persistence.import_engine import best_matching_profile, convert_rows
-from src.gui.error_handling import report_error
 
 FIELD_LABELS = {
     "name": "Name *",

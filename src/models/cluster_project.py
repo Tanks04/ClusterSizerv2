@@ -1,16 +1,16 @@
 from dataclasses import dataclass, field
 
-from src.calculations.thresholds import Thresholds, Status
+from src.calculations.thresholds import Status, Thresholds
+from src.models.backup_destination import BackupDestination
+from src.models.cluster import Cluster
+from src.models.failover_assignment import FailoverAssignment
+from src.models.maintenance_item import MaintenanceItem
+from src.models.network_connection import NetworkConnection
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage, StoragePool
 from src.models.virtual_machine import VirtualMachine
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection
-from src.models.backup_destination import BackupDestination
-from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
-from src.models.cluster import Cluster
-from src.models.failover_assignment import FailoverAssignment
 
 PRIMARY = "Primary"
 DR = "DR"

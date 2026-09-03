@@ -1,6 +1,7 @@
 from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+
 from src.models.server import Server
 
 

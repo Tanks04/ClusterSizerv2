@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.backup_destination import BackupDestination, DESTINATION_TYPES
+from src.models.backup_destination import DESTINATION_TYPES, BackupDestination
 
 
 class BackupDestinationDialog(QDialog):

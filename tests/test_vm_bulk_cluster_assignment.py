@@ -5,17 +5,18 @@ patterns already established for Site and Failover assignment. The
 scenario this exists for: assigning 70 VMs to a cluster one dialog at
 a time was reported directly as far too slow."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
 from src.gui.pages.virtual_machines_page import VirtualMachinesPage
 from src.models.cluster import Cluster
 from src.models.virtual_machine import VirtualMachine
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

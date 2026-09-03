@@ -2,14 +2,14 @@ import pytest
 
 pytest.importorskip("docx")
 
-from src.models.cluster_project import ClusterProject, PRIMARY, DR
+from src.calculations.docx_report import build_docx_report
+from src.calculations.thresholds import Thresholds
+from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.network_connection import NetworkConnection
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection
-from src.calculations.thresholds import Thresholds
-from src.calculations.docx_report import build_docx_report
 
 
 def _build_sample_project() -> ClusterProject:
@@ -142,8 +142,8 @@ def test_build_docx_report_can_be_saved(tmp_path):
 
 
 def test_rack_sizing_shows_numbers_for_on_premise_site():
-    from src.models.server import Server
     from src.models.cluster_project import PRIMARY
+    from src.models.server import Server
 
     project = _build_sample_project()
     server = Server.create_default()
@@ -171,8 +171,8 @@ def test_rack_sizing_shows_cloud_for_a_cloud_site():
 
 
 def test_rack_sizing_shows_used_and_capacity_when_capacity_is_set():
-    from src.models.server import Server
     from src.models.cluster_project import PRIMARY
+    from src.models.server import Server
 
     project = _build_sample_project()
     server = Server.create_default()
@@ -189,8 +189,8 @@ def test_rack_sizing_shows_used_and_capacity_when_capacity_is_set():
 
 
 def test_rack_sizing_flags_over_capacity():
-    from src.models.server import Server
     from src.models.cluster_project import PRIMARY
+    from src.models.server import Server
 
     project = _build_sample_project()
     server = Server.create_default()

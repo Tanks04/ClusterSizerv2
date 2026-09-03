@@ -6,8 +6,9 @@ the dialog), but pools need a full sub-dialog (StoragePoolDialog)
 since a server checklist doesn't fit in a table cell.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
@@ -15,8 +16,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from src.gui.dialogs.storage_dialog import StorageDialog
 from src.gui.dialogs.storage_pool_dialog import StoragePoolDialog
-from src.models.storage import Storage, StoragePool
 from src.models.server import Server
+from src.models.storage import Storage, StoragePool
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -172,8 +173,8 @@ def test_pool_dialog_notes_round_trip():
 
 
 def test_pools_table_shows_utilization_with_service():
-    from src.services.project_service import ProjectService
     from src.models.virtual_machine import VirtualMachine
+    from src.services.project_service import ProjectService
 
     service = ProjectService()
     storage = Storage.create_default()

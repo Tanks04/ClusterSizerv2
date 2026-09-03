@@ -2,10 +2,10 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFormLayout,
     QLineEdit,
     QPlainTextEdit,
     QVBoxLayout,
-    QFormLayout,
 )
 
 from src.models.vlan import Vlan

@@ -18,18 +18,28 @@ from PySide6.QtWidgets import (
 )
 
 from src.calculations.cluster_preparation import (
-    compute_sizing, SizingPolicy, HostSpec, HA_LEVELS, ManualDemand,
+    HA_LEVELS,
+    HostSpec,
+    ManualDemand,
+    SizingPolicy,
+    compute_sizing,
+)
+from src.calculations.cluster_preparation import (
     compute_site_recommendation as compute_site_recommendation_calc,
 )
 from src.calculations.thresholds import PRESETS
+from src.gui.error_handling import report_error
+from src.models.backup_destination import DESTINATION_TYPES, BackupDestination
 from src.models.cluster_project import ClusterProject
+from src.models.failover_assignment import FailoverAssignment
 from src.models.server import Server
 from src.models.storage import Storage
-from src.models.backup_destination import BackupDestination, DESTINATION_TYPES
-from src.models.failover_assignment import FailoverAssignment
-from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS, DEFAULT_WORKLOAD_TIER
 from src.models.virtual_machine import DR_CATEGORIES
-from src.gui.error_handling import report_error
+from src.models.workload_tier import (
+    DEFAULT_WORKLOAD_TIER,
+    WORKLOAD_TIER_NAMES,
+    WORKLOAD_TIERS,
+)
 
 _HA_EXPLANATIONS = {
     "None": "Fewest hosts possible for today's demand, no reserved headroom. HA is not configured at all - a host failure means its VMs stay down until manually recovered.",

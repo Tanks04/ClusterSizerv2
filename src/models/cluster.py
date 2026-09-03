@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import uuid
+from dataclasses import dataclass
 
 # A reasonable, distinguishable default palette - the person can pick
 # any color regardless, this just gives the first Cluster created a

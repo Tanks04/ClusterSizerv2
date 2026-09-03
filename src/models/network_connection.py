@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import uuid
+from dataclasses import dataclass
 
 # Shared speed vocabulary - used by Server.nic_*, NetworkSwitch.ports_*,
 # Storage.ports_*, and NetworkConnection.speed, so all sides agree on the

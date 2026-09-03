@@ -5,11 +5,11 @@ three-part storage redesign requested directly: disk count x size auto
 can be assigned to a SPECIFIC storage entity rather than only counting
 toward a site-wide aggregate."""
 
+from src.calculations.thresholds import Thresholds
+from src.models.cluster_project import ClusterProject
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
 from src.persistence import csv_io, project_repository
-from src.models.cluster_project import ClusterProject
-from src.calculations.thresholds import Thresholds
 
 
 def test_storage_disk_calculator_fields_default_to_zero():

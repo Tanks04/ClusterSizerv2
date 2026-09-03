@@ -4,23 +4,24 @@ Cluster Preparation's per-site Add button to every CSV import in the
 app: if the destination already has some of this kind of entity, ask
 before silently appending on top of it."""
 
-import pytest
 import csv
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.services.project_service import ProjectService
-from src.models.server import Server
-from src.models.storage import Storage
-from src.models.virtual_machine import VirtualMachine
+from src.gui.import_conflict import ImportConflictChoice, confirm_import_conflict
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.network_switch import NetworkSwitch
+from src.models.server import Server
+from src.models.storage import Storage
+from src.models.virtual_machine import VirtualMachine
 from src.models.vlan import Vlan
-from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoice
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -338,9 +339,10 @@ def test_add_servers_and_vms_default_extends():
 def test_smart_import_replace_choice(tmp_path):
     """Smart Import (RVTools/VMware/Nutanix/Proxmox via ImportWizardDialog)
     gets the same conflict prompt as CSV imports."""
-    from src.gui.pages.virtual_machines_page import VirtualMachinesPage
-    from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
     from unittest.mock import MagicMock
+
+    from src.gui.dialogs.import_wizard_dialog import ImportWizardDialog
+    from src.gui.pages.virtual_machines_page import VirtualMachinesPage
 
     service = ProjectService()
     service.add_vm(VirtualMachine.create_default())
@@ -366,9 +368,10 @@ def test_smart_import_replace_choice(tmp_path):
 
 
 def test_rvtools_import_replace_choice():
-    from src.gui.main_window import MainWindow
-    from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
     from unittest.mock import MagicMock
+
+    from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
+    from src.gui.main_window import MainWindow
 
     service = ProjectService()
     service.add_server(Server.create_default())
@@ -392,9 +395,10 @@ def test_rvtools_import_replace_choice():
 
 
 def test_rvtools_import_cancel_choice_imports_nothing():
-    from src.gui.main_window import MainWindow
-    from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
     from unittest.mock import MagicMock
+
+    from src.gui.dialogs.rvtools_import_dialog import RVToolsImportDialog
+    from src.gui.main_window import MainWindow
 
     service = ProjectService()
     existing = Server.create_default()

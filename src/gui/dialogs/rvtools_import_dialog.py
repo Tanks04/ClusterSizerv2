@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.persistence import rvtools_import
 from src.gui.error_handling import report_error
+from src.persistence import rvtools_import
 
 
 class RVToolsImportDialog(QDialog):

@@ -7,8 +7,8 @@ pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 
 from src.gui.dialogs.failover_assignment_dialog import FailoverAssignmentDialog
-from src.models.virtual_machine import VirtualMachine
 from src.models.failover_assignment import FailoverAssignment
+from src.models.virtual_machine import VirtualMachine
 
 
 @pytest.fixture(scope="module", autouse=True)

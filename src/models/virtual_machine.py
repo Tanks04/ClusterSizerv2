@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import uuid
+from dataclasses import dataclass
 
 from src.models.workload_tier import DEFAULT_WORKLOAD_TIER
 

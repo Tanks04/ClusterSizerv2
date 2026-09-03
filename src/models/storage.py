@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
 import uuid
+from dataclasses import dataclass, field
 
 # Common RAID levels for the Calc button's optional Usable estimate.
 # "" (no selection) skips the Usable estimate entirely - Calc only

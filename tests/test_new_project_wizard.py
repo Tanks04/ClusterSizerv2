@@ -2,17 +2,18 @@
 quick questions (sites, hypervisor, a rough VM count) that set up
 sensible starting defaults instead of an empty project."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication
 
-from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
 from src.calculations.vm_generation import generate_vms
-from src.services.project_service import ProjectService
+from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
 from src.gui.main_window import MainWindow
+from src.services.project_service import ProjectService
 
 
 @pytest.fixture(scope="module", autouse=True)

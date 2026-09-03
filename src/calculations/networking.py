@@ -10,11 +10,10 @@ deliberately left for later given the effort/benefit ratio)."""
 
 from dataclasses import dataclass
 
-from src.models.network_connection import SPEED_OPTIONS, SPEED_ATTR
+from src.models.network_connection import SPEED_ATTR, SPEED_OPTIONS, NetworkConnection
 from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage
-from src.models.network_connection import NetworkConnection
 
 
 @dataclass

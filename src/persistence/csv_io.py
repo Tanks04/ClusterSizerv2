@@ -13,15 +13,15 @@ silently creating rows with default values.
 import csv
 from pathlib import Path
 
+from src.models.backup_destination import BackupDestination
+from src.models.maintenance_item import MaintenanceItem
+from src.models.network_connection import NetworkConnection
+from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
-from src.models.workload_tier import WORKLOAD_TIER_NAMES, DEFAULT_WORKLOAD_TIER
-from src.models.network_switch import NetworkSwitch
-from src.models.network_connection import NetworkConnection
-from src.models.backup_destination import BackupDestination
-from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
+from src.models.workload_tier import DEFAULT_WORKLOAD_TIER, WORKLOAD_TIER_NAMES
 
 
 class CsvSchemaError(ValueError):
