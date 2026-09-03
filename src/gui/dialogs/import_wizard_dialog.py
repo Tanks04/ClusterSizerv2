@@ -439,7 +439,10 @@ class ImportWizardDialog(QDialog):
         total_rows = len(self._data_rows)
         sample = self._data_rows[: self._PREVIEW_SAMPLE_SIZE]
         sheets_data = self._gather_sheets_data()
-        vms, skipped = convert_rows(sample, profile, site=self.default_site_combo.currentText(), sheets_data=sheets_data)
+        vms, skipped = convert_rows(
+            sample, profile, site=self.default_site_combo.currentText(),
+            sheets_data=sheets_data, valid_sites=self._sites,
+        )
         self.imported_vms = vms  # overwritten with the full-file result in _on_accept()
 
         if total_rows > self._PREVIEW_SAMPLE_SIZE:
@@ -464,7 +467,7 @@ class ImportWizardDialog(QDialog):
 
         vms, skipped = convert_rows(
             self._data_rows, profile, site=self.default_site_combo.currentText(),
-            sheets_data=self._gather_sheets_data(),
+            sheets_data=self._gather_sheets_data(), valid_sites=self._sites,
         )
         if not vms:
             QMessageBox.warning(self, "Import", "No VMs matched this mapping - nothing to import.")

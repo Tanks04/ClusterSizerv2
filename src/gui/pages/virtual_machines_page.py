@@ -281,7 +281,7 @@ class VirtualMachinesPage(QWidget):
         self.card_vms = SummaryWidget("VMs", "0")
         self.card_vcpu = SummaryWidget("vCPU Demand (Powered On)", "0")
         self.card_ram = SummaryWidget("RAM Demand (Powered On)", "0 GB")
-        self.card_cpu_ratio = SummaryWidget("CPU Oversub.", "-")
+        self.card_cpu_ratio = SummaryWidget("CPU Oversub. (Primary)", "-")
         self.card_vm_storage = SummaryWidget("VM Storage", "0 GB")
         self.card_failover_assigned = SummaryWidget("Failover Assigned", "0")
 

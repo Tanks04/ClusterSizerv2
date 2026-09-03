@@ -30,7 +30,7 @@ except Exception as _exc:  # noqa: BLE001 - deliberately broad, see message belo
 from src.calculations.rack import compute_rack_sizing
 from src.calculations.sizing import build_failover_report, build_reports
 from src.calculations.thresholds import Status, Thresholds
-from src.models.cluster_project import DR, PRIMARY, ClusterProject
+from src.models.cluster_project import ClusterProject
 
 
 def _docx_missing_message() -> str:
@@ -113,7 +113,7 @@ def _servers_section(document: Document, project: ClusterProject) -> None:
 
     document.add_heading("Summary", level=2)
     agg_rows = []
-    for site in (PRIMARY, DR):
+    for site in project.site_names:
         site_servers = [s for s in project.servers if s.site == site]
         enabled_servers = [s for s in site_servers if s.enabled]
         agg_rows.append([
@@ -142,7 +142,7 @@ def _storage_section(document: Document, project: ClusterProject) -> None:
 
     document.add_heading("Summary", level=2)
     agg_rows = []
-    for site in (PRIMARY, DR):
+    for site in project.site_names:
         site_storages = [s for s in project.storages if s.site == site]
         agg_rows.append([
             site,
@@ -168,7 +168,7 @@ def _network_section(document: Document, project: ClusterProject) -> None:
 
     document.add_heading("Summary", level=2)
     agg_rows = []
-    for site in (PRIMARY, DR):
+    for site in project.site_names:
         site_switches = [s for s in project.switches if s.site == site]
         site_connections = [
             c for c in project.connections

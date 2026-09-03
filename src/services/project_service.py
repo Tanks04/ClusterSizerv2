@@ -25,8 +25,9 @@ class ProjectService(QObject):
 
     `changed` is the general signal (for Summary/Reports/window
     title - pages that need to know about ANY change). servers_changed /
-    storages_changed / vms_changed / network_changed are narrower signals -
-    each CRUD table subscribes to ONLY its own, so it doesn't run
+    storages_changed / vms_changed / network_changed / clusters_changed /
+    backup_changed / pricing_changed are narrower signals - each CRUD
+    table subscribes to ONLY its own, so it doesn't run
     beginResetModel() on tables whose data hasn't changed at all. This
     isn't just about performance: a large number of unnecessary model
     resets at once (e.g. adding one Storage entry resetting everything
@@ -166,6 +167,9 @@ class ProjectService(QObject):
         self.storages_changed.emit()
         self.vms_changed.emit()
         self.network_changed.emit()
+        self.clusters_changed.emit()
+        self.backup_changed.emit()
+        self.pricing_changed.emit()
 
     # ------------------------------------------------------------------
     # Project: new / save / load
@@ -367,8 +371,8 @@ class ProjectService(QObject):
 
     def remove_servers(self, servers: list[Server]) -> None:
         self._push_undo_snapshot()
-        removed = set(id(s) for s in servers)
-        self._project.servers = [s for s in self._project.servers if id(s) not in removed]
+        removed_uids = {s.uid for s in servers}
+        self._project.servers = [s for s in self._project.servers if s.uid not in removed_uids]
         self._notify(self.servers_changed)
 
     def clear_servers(self) -> None:
@@ -433,8 +437,8 @@ class ProjectService(QObject):
 
     def remove_storages(self, storages: list[Storage]) -> None:
         self._push_undo_snapshot()
-        removed = set(id(s) for s in storages)
-        self._project.storages = [s for s in self._project.storages if id(s) not in removed]
+        removed_uids = {s.uid for s in storages}
+        self._project.storages = [s for s in self._project.storages if s.uid not in removed_uids]
         self._notify(self.storages_changed)
 
     def clear_storages(self) -> None:
@@ -463,9 +467,9 @@ class ProjectService(QObject):
 
     def remove_backup_destinations(self, destinations: list[BackupDestination]) -> None:
         self._push_undo_snapshot()
-        removed = set(id(d) for d in destinations)
+        removed_uids = {d.uid for d in destinations}
         self._project.backup_destinations = [
-            d for d in self._project.backup_destinations if id(d) not in removed
+            d for d in self._project.backup_destinations if d.uid not in removed_uids
         ]
         self._notify(self.backup_changed)
 
@@ -500,9 +504,9 @@ class ProjectService(QObject):
 
     def remove_maintenance_items(self, items: list[MaintenanceItem]) -> None:
         self._push_undo_snapshot()
-        removed = set(id(i) for i in items)
+        removed_uids = {i.uid for i in items}
         self._project.maintenance_items = [
-            i for i in self._project.maintenance_items if id(i) not in removed
+            i for i in self._project.maintenance_items if i.uid not in removed_uids
         ]
         self._notify(self.pricing_changed)
 
@@ -651,9 +655,8 @@ class ProjectService(QObject):
 
     def remove_vms(self, vms: list[VirtualMachine]) -> None:
         self._push_undo_snapshot()
-        removed = set(id(v) for v in vms)
         removed_uids = {v.uid for v in vms}
-        self._project.vms = [v for v in self._project.vms if id(v) not in removed]
+        self._project.vms = [v for v in self._project.vms if v.uid not in removed_uids]
         self._project.failover_assignments = [
             a for a in self._project.failover_assignments if a.vm_uid not in removed_uids
         ]
@@ -903,9 +906,9 @@ class ProjectService(QObject):
 
     def remove_connections(self, connections: list[NetworkConnection]) -> None:
         self._push_undo_snapshot()
-        removed = set(id(c) for c in connections)
+        removed_uids = {c.uid for c in connections}
         self._project.connections = [
-            c for c in self._project.connections if id(c) not in removed
+            c for c in self._project.connections if c.uid not in removed_uids
         ]
         self._notify(self.network_changed)
 

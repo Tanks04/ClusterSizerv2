@@ -44,6 +44,7 @@ def convert_rows(
     site: str,
     sheets_data: dict[str, list[dict]] | None = None,
     join_key_column: str | None = None,
+    valid_sites: list[str] | None = None,
 ) -> tuple[list[VirtualMachine], int]:
     """Returns (converted VMs, number of rows skipped due to a name prefix
     match in profile.skip_name_prefixes, e.g. vCLS-* system VMs).
@@ -115,7 +116,10 @@ def convert_rows(
             if power_col else True
         )
         row_site = str(_resolve(row, site_col) or site).strip() if site_col else site
-        if row_site not in ("Primary", "DR"):
+        if valid_sites is not None:
+            if row_site not in valid_sites:
+                row_site = site
+        elif row_site not in ("Primary", "DR"):
             row_site = site
         notes = str(_resolve(row, notes_col) or "").strip() if notes_col else ""
         ip_address = str(_resolve(row, ip_col) or "").strip() if ip_col else ""

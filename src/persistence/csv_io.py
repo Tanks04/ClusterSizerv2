@@ -153,7 +153,7 @@ def import_servers(path: str | Path) -> list[Server]:
                 sockets=int(float(row.get("sockets") or 2)),
                 cores_per_socket=int(float(row.get("cores_per_socket") or 16)),
                 threads_per_core=int(float(row.get("threads_per_core") or 2)),
-                hyperthreading_enabled=_bool(row.get("hyperthreading_enabled"), default=True),
+                hyperthreading_enabled=_bool(row.get("hyperthreading_enabled"), default=False),
                 ram_gb=int(float(row.get("ram_gb") or 256)),
                 cpu_frequency=float(row.get("cpu_frequency") or 2.5),
                 warranty_expiry=row.get("warranty_expiry", "") or "",
@@ -176,7 +176,7 @@ def import_servers(path: str | Path) -> list[Server]:
                 nic_100g=int(float(row.get("nic_100g") or 0)),
                 nic_fc=int(float(row.get("nic_fc") or 0)),
                 nic_sas=int(float(row.get("nic_sas") or 0)),
-                enabled=_bool(row.get("enabled"), default=True),
+                enabled=_bool(row.get("enabled"), default=False),
                 notes=row.get("notes", "") or "",
             )
         )

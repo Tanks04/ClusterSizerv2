@@ -4,7 +4,7 @@ dependency, so it's testable on its own."""
 
 from dataclasses import asdict
 
-from src.calculations.sizing import build_reports
+from src.calculations.sizing import build_failover_report, build_reports
 from src.calculations.thresholds import Thresholds
 from src.models.cluster_project import ClusterProject
 
@@ -54,9 +54,12 @@ def build_delta_summary(project_a: ClusterProject, project_b: ClusterProject) ->
     ram_a, ram_b = project_a.total_ram, project_b.total_ram
     vms_a, vms_b = len(project_a.vms), len(project_b.vms)
 
-    from src.models.cluster_project import DR, PRIMARY
-    storage_a = (project_a.usable_storage_gb(PRIMARY) + project_a.usable_storage_gb(DR)) / 1024
-    storage_b = (project_b.usable_storage_gb(PRIMARY) + project_b.usable_storage_gb(DR)) / 1024
+    # Every other delta above sums across the whole project already
+    # (server_count/total_cores/total_ram are project-wide properties) -
+    # storage was the one card still only adding Primary+DR, missing
+    # DR2/DR3/any additional site on a 3+-site project.
+    storage_a = sum(project_a.usable_storage_gb(site) for site in project_a.site_names) / 1024
+    storage_b = sum(project_b.usable_storage_gb(site) for site in project_b.site_names) / 1024
 
     return [
         ("\u0394 Servers", delta(servers_a, servers_b)),
@@ -67,15 +70,33 @@ def build_delta_summary(project_a: ClusterProject, project_b: ClusterProject) ->
     ]
 
 
+def _reports_for(project: ClusterProject, thresholds: Thresholds):
+    """build_reports() returns one SiteReport per site.site_names entry
+    (dict[str, SiteReport]) since N-site support replaced the old fixed
+    (primary, dr, dr_report) 3-tuple return - this project's own
+    Compare table still only shows a Primary/DR-shaped view (see the
+    hardcoded row labels below), so this pulls exactly those two plus
+    a DR-readiness FailoverReport for the DR site, by name rather than
+    by tuple position. Falls back to None for either report if the
+    project doesn't actually have a site by that name (e.g. a
+    Primary-only project has no "DR")."""
+    from src.models.cluster_project import DR, PRIMARY
+    reports = build_reports(project, thresholds)
+    primary = reports.get(PRIMARY)
+    dr = reports.get(DR)
+    dr_readiness = build_failover_report(project, DR, thresholds) if DR in project.site_names else None
+    return primary, dr, dr_readiness
+
+
 def build_comparison_rows(
     project_a: ClusterProject, project_b: ClusterProject | None, thresholds: Thresholds
 ) -> list[tuple[str, str, str]]:
     """Returns (label, value_a, value_b) rows. value_b is '-' for every
     row when project_b is None (no Scenario B loaded yet)."""
 
-    pa, dra, dcka = build_reports(project_a, thresholds)
+    pa, dra, dcka = _reports_for(project_a, thresholds)
     if project_b is not None:
-        pb, drb, dckb = build_reports(project_b, thresholds)
+        pb, drb, dckb = _reports_for(project_b, thresholds)
     else:
         pb, drb, dckb = None, None, None
 
@@ -93,6 +114,8 @@ def build_comparison_rows(
         return fn(pb, drb, dckb) if project_b is not None else "-"
 
     def ht_text(report):
+        if report is None:
+            return "-"
         return {
             "all_on": "HT ENABLED",
             "mixed": "HT MIXED",
@@ -118,17 +141,23 @@ def build_comparison_rows(
     rows.append(("Survives N+1", yn(pa.n_plus_one_ok), b(lambda p, d, c: yn(p.n_plus_one_ok))))
 
     rows.append(("--- DR SITE ---", "", ""))
-    rows.append(("Servers", str(dra.server_count), b(lambda p, d, c: str(d.server_count))))
-    rows.append(("Physical cores (HT-adj.)", str(dra.physical_cores), b(lambda p, d, c: str(d.physical_cores))))
-    rows.append(("Hyperthreading", ht_text(dra), b(lambda p, d, c: ht_text(d))))
-    rows.append(("Physical RAM (GB)", f"{dra.physical_ram_gb:.0f}", b(lambda p, d, c: f"{d.physical_ram_gb:.0f}")))
-    rows.append(("Usable storage (TB)", f"{dra.usable_storage_gb / 1024:.1f}", b(lambda p, d, c: f"{d.usable_storage_gb / 1024:.1f}")))
+    if dra is not None:
+        rows.append(("Servers", str(dra.server_count), b(lambda p, d, c: str(d.server_count) if d else "-")))
+        rows.append(("Physical cores (HT-adj.)", str(dra.physical_cores), b(lambda p, d, c: str(d.physical_cores) if d else "-")))
+        rows.append(("Hyperthreading", ht_text(dra), b(lambda p, d, c: ht_text(d))))
+        rows.append(("Physical RAM (GB)", f"{dra.physical_ram_gb:.0f}", b(lambda p, d, c: f"{d.physical_ram_gb:.0f}" if d else "-")))
+        rows.append(("Usable storage (TB)", f"{dra.usable_storage_gb / 1024:.1f}", b(lambda p, d, c: f"{d.usable_storage_gb / 1024:.1f}" if d else "-")))
+    else:
+        rows.append(("(no DR site on Scenario A)", "-", b(lambda p, d, c: f"{d.server_count} server(s)" if d else "(no DR site)")))
 
     rows.append(("--- DR READINESS ---", "", ""))
-    rows.append(("DR-protected VMs", str(dcka.protected_vm_count), b(lambda p, d, c: str(c.protected_vm_count))))
-    rows.append(("Failover vCPU demand", str(dcka.failover_vcpu_demand), b(lambda p, d, c: str(c.failover_vcpu_demand))))
-    rows.append(("Failover RAM demand (GB)", f"{dcka.failover_ram_demand_gb:.0f}", b(lambda p, d, c: f"{c.failover_ram_demand_gb:.0f}")))
-    rows.append(("Failover disk demand (TB)", f"{dcka.failover_disk_demand_gb / 1024:.1f}", b(lambda p, d, c: f"{c.failover_disk_demand_gb / 1024:.1f}")))
-    rows.append(("DR Ready", yn(dcka.ready), b(lambda p, d, c: yn(c.ready))))
+    if dcka is not None:
+        rows.append(("DR-protected VMs", str(dcka.assigned_vm_count), b(lambda p, d, c: str(c.assigned_vm_count) if c else "-")))
+        rows.append(("Failover vCPU demand", str(dcka.failover_vcpu_demand), b(lambda p, d, c: str(c.failover_vcpu_demand) if c else "-")))
+        rows.append(("Failover RAM demand (GB)", f"{dcka.failover_ram_demand_gb:.0f}", b(lambda p, d, c: f"{c.failover_ram_demand_gb:.0f}" if c else "-")))
+        rows.append(("Failover disk demand (TB)", f"{dcka.failover_disk_demand_gb / 1024:.1f}", b(lambda p, d, c: f"{c.failover_disk_demand_gb / 1024:.1f}" if c else "-")))
+        rows.append(("DR Ready", yn(dcka.ready), b(lambda p, d, c: yn(c.ready) if c else "-")))
+    else:
+        rows.append(("(no DR site on Scenario A)", "-", b(lambda p, d, c: "has DR readiness data" if c else "(no DR site)")))
 
     return rows

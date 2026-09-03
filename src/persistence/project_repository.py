@@ -1,6 +1,8 @@
 """Saving/loading a ClusterProject as a JSON (.clsz) file."""
 
 import json
+import os
+import tempfile
 import uuid
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
@@ -59,10 +61,22 @@ def save_project(
         "thresholds": asdict(thresholds if thresholds is not None else Thresholds()),
     }
 
-    Path(path).write_text(
-        json.dumps(data, indent=2, ensure_ascii=False),
-        encoding="utf-8",
+    target = Path(path)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=target.parent, prefix=f".{target.name}.", suffix=".tmp",
     )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, indent=2, ensure_ascii=False))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, target)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def load_project(path: str | Path) -> LoadedProject:

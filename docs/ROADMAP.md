@@ -1,5 +1,75 @@
 # ROADMAP
 
+## v4.19.0 (10 real defects from an external code review, including a guaranteed Compare-page crash)
+
+A friend ran two independent LLM code analyses of this repo and
+diffed their findings. Verified all 12 claimed issues against the
+current codebase before touching anything - every single one was
+confirmed still real and current, not stale findings from an old
+snapshot.
+
+- **CRASH - `comparison.py`**: `build_reports()` has returned
+  `dict[str, SiteReport]` since N-site support replaced the old fixed
+  3-tuple, but this file still unpacked it as `pa, dra, dcka =
+  build_reports(...)` - the Compare page crashed with a `ValueError`
+  the moment anyone opened it, on any project with other than exactly
+  3 sites (i.e. every default 2-site project). New `_reports_for()`
+  helper looks up Primary/DR by name instead of tuple position, and
+  pulls DR readiness from `build_failover_report()` (a `FailoverReport`)
+  instead of misreading nonexistent `SiteReport` attributes
+  (`protected_vm_count` etc. don't exist - the real fields are
+  `assigned_vm_count` and friends). Delta storage summing also
+  generalized from hardcoded Primary+DR to every site, matching how
+  every other delta card on that row already worked.
+- **WRONG - `docx_report.py`**: 3 of 4 sections (Servers, Storage,
+  Network) iterated a hardcoded `(PRIMARY, DR)` pair while a 4th
+  (Failover) already correctly used `project.site_names` - a 3-site
+  project produced device rows tagged DR2 with no DR2 summary row
+  anywhere in the report. All four sections now consistent.
+- **WRONG - missing signals**: `_emit_everything_changed()` (fired on
+  every undo/redo) only emitted 4 of 7 narrow signals - `clusters_
+  changed`, `backup_changed`, and `pricing_changed` were missing, so
+  undoing a change to Clusters/Backup/Pricing didn't refresh those
+  pages. Also fixed the class docstring, which still only listed 4 of
+  the 7 signals that actually exist.
+- **RISK - 6 `remove_*` methods matched by `id()`** (object identity)
+  instead of `.uid`: `remove_servers`, `remove_storages`, `remove_
+  backup_destinations`, `remove_maintenance_items`, `remove_vms`
+  (partially - cascade cleanup already used uid, the primary list
+  filter didn't), `remove_connections`. Silently removes NOTHING if
+  the caller holds a different-but-equal object (e.g. a deep copy from
+  an undo/redo snapshot) - confirmed with a test reproducing exactly
+  that scenario. All 6 now match by `.uid`, consistent with `remove_
+  switches`/`remove_vlans`/`remove_clusters`, which already did.
+- **WRONG - `import_engine.py`**: Smart Import validated each row's
+  site against a hardcoded `("Primary", "DR")` tuple - a row
+  legitimately tagged "DR2" silently fell back to the wizard's default
+  site instead. New `valid_sites` parameter on `convert_rows()`,
+  threaded from `ImportWizardDialog`'s own site list (which it already
+  had, for the default-site dropdown).
+- **WRONG - `csv_io.py`**: both `hyperthreading_enabled` and `enabled`
+  defaulted to `True` when their column was absent from the CSV -
+  doubling effective cores in the unsafe direction, and silently
+  re-enabling servers an admin had deliberately disabled. Both now
+  default to `False`, matching the "undercount rather than overcount"
+  posture this app uses elsewhere; unaffected for round-tripping the
+  app's own CSV export, which always includes both columns.
+- **RISK - `project_repository.py`**: `save_project()` wrote directly
+  to the target `.clsz` path - a crash or power loss mid-write would
+  corrupt the file with no recovery. Now writes to a temp file in the
+  same directory (guarantees same filesystem) and atomically replaces
+  the target only after a successful fsync'd write; the original file
+  is untouched by any interruption. Verified with a simulated crash
+  mid-write.
+- **NIT**: the VMs tab's "CPU Oversub." summary card silently only
+  ever reported the Primary site while sitting next to cards that
+  correctly total the whole project - relabeled "CPU Oversub.
+  (Primary)" rather than trying to sum a ratio across sites (which
+  isn't meaningful the way summing raw demand is).
+- 23 new tests covering every fix above, including the exact failure
+  scenarios described (crash reproduction, deep-copy removal, DR2 row
+  silently dropped, simulated mid-write crash) - 831 passed total.
+
 ## v4.18.0 (Storage array zoning moved to Servers tab; Cluster-based bulk assign)
 
 Requested directly: array-level storage zoning is fundamentally a
