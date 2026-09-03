@@ -199,17 +199,14 @@ class SiteCapacityWidget(QFrame):
             self.n1_label.setText("\u2705 Yes")
             self.n1_label.setToolTip(
                 "RAM has zero overcommit tolerance; CPU is checked against your "
-                "configured oversubscription warning threshold (Settings), not a "
-                "strict 1:1 - a healthy cluster is expected to run CPU oversubscribed."
+                "Settings threshold, not a strict 1:1."
             )
             self.n1_detail_label.setVisible(False)
         else:
             self.n1_label.setText("\u274c No")
             self.n1_label.setToolTip(
-                "Either RAM demand exceeds what's left after losing the largest-RAM "
-                "host (zero overcommit tolerance), or CPU demand exceeds what's left "
-                "after losing the largest-core host, beyond your configured "
-                "oversubscription warning threshold (Settings)."
+                "RAM or CPU demand exceeds what's left after losing your "
+                "largest host, beyond your Settings threshold."
             )
             self._set_n1_detail(report.n_plus_one_check)
 

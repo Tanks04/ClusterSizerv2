@@ -4,4 +4,4 @@ stamps), so it's never hardcoded a second place. A dedicated module,
 rather than reports_page.py importing MainWindow.VERSION directly, avoids
 a circular import (main_window.py imports ReportsPage)."""
 
-VERSION = "4.13.0"
+VERSION = "4.17.0"

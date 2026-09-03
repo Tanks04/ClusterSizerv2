@@ -181,3 +181,27 @@ def test_editing_existing_hci_storage_never_loses_its_real_usable_value():
     dialog = StorageDialog(existing, servers=servers)
 
     assert dialog.usable_spin.value() == 80.0
+
+
+def test_overhead_spin_is_visibly_disabled_not_just_readonly():
+    """Reported directly: the RAID/EC Overhead field looked like a
+    normal white active field with no arrows, since setReadOnly(True)
+    doesn't get the app's grey disabled styling the way setEnabled
+    (False) does. Fixed to use setEnabled(False) for the correct
+    visual treatment, consistent with every other calculated/
+    non-editable field in the app."""
+    dialog = StorageDialog(servers=[])
+
+    assert dialog.overhead_spin.isEnabled() is False
+
+
+def test_overhead_spin_still_computes_correctly_when_disabled():
+    from src.models.storage import Storage
+
+    storage = Storage.create_default()
+    storage.raw_capacity_tb = 100.0
+    storage.usable_capacity_tb = 80.0
+
+    dialog = StorageDialog(storage, servers=[])
+
+    assert dialog.overhead_spin.value() == 20.0

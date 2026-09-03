@@ -130,12 +130,8 @@ class WorkloadPage(QWizardPage):
 
         self.manual_demand_box = QGroupBox("No VMs yet - enter aggregate demand directly")
         self.manual_demand_box.setToolTip(
-            "Sizes the cluster from these totals instead of real VM records - useful "
-            "for a brand-new environment before anything's been entered on the VMs "
-            "tab yet. One workload tier applies to the whole total, since there's no "
-            "per-VM breakdown here by nature. Ignored once real VMs exist on the VMs "
-            "tab - DR sizing also isn't available in this mode, since DR footprint "
-            "comes from FailoverAssignment records tied to real VMs."
+            "Sizes from these totals for a brand-new environment before VMs "
+            "exist. Ignored once real VMs are added."
         )
         manual_form = QFormLayout(self.manual_demand_box)
 
@@ -245,11 +241,8 @@ class PolicyPage(QWizardPage):
         self.growth_spin.setSuffix(" %")
         self.growth_spin.setValue(30.0)
         self.growth_spin.setToolTip(
-            "Applied EQUALLY to vCPU, RAM, and storage demand (not to the vendor "
-            "ratio or host count directly). E.g. 30% means the wizard sizes for "
-            "30% more of everything than today's VMs actually need - a simple "
-            "margin for adding more VMs later, not a prediction of exactly what "
-            "will grow."
+            "Applied equally to vCPU, RAM, and storage demand - a margin for "
+            "adding VMs later, not a growth prediction."
         )
         layout.addRow("Expected Growth\n(vCPU + RAM + Storage)", self.growth_spin)
 
@@ -277,22 +270,16 @@ class PolicyPage(QWizardPage):
         self.cpu_reserve_spin.setSuffix(" cores/host")
         self.cpu_reserve_spin.setValue(2)
         self.cpu_reserve_spin.setToolTip(
-            "Physical cores per host reserved for the hypervisor itself, subtracted "
-            "from usable capacity before sizing - matches how Memory Reserve already "
-            "works for RAM, just in absolute cores rather than a percentage (a "
-            "hypervisor's own CPU footprint is closer to a fixed cost than "
-            "proportional to host size). Set to 0 to disable and size on raw "
-            "capacity alone."
+            "Cores per host reserved for the hypervisor itself, before sizing. "
+            "Set to 0 to size on raw capacity alone."
         )
         layout.addRow("Hypervisor CPU Reserve", self.cpu_reserve_spin)
 
         self.ht_check = QCheckBox("Hyperthreading Enabled")
         self.ht_check.setChecked(False)
         self.ht_check.setToolTip(
-            "Whether the recommended host spec assumes Hyperthreading is on. "
-            "Off by default - HT gains vary by workload and aren't guaranteed, so "
-            "sizing without relying on it is the more conservative starting point. "
-            "You can still edit this per-field on the Result page afterward."
+            "Off by default - HT gains vary by workload. Editable per-field on "
+            "the Result page afterward."
         )
         layout.addRow("", self.ht_check)
 

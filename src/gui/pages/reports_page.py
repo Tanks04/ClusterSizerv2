@@ -59,10 +59,8 @@ class ReportsPage(QWidget):
 
         export_docx_button = QPushButton("📄 Export Word Report")
         export_docx_button.setToolTip(
-            "A structured, editable Word document - Servers, Storage, Network, "
-            "Cluster config, and VMs, each with a summary plus the full "
-            "per-device listing. Add a letterhead, trim sections, or rebrand "
-            "for a client afterward."
+            "A structured, editable Word document covering Servers, Storage, "
+            "Network, and VMs - rebrand or trim sections afterward."
         )
         export_docx_button.clicked.connect(self._export_docx)
         buttons.addWidget(export_docx_button)

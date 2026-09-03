@@ -51,10 +51,8 @@ class SwitchDialog(QDialog):
         self.redundancy_group_edit = QLineEdit()
         self.redundancy_group_edit.setPlaceholderText("e.g. core-pair-01, fw-ha-01... (optional)")
         self.redundancy_group_edit.setToolTip(
-            "A shared tag linking two (or more) devices into the same redundant "
-            "set (an HSRP/VRRP pair, an Active/Passive firewall HA pair, an "
-            "MLAG/VPC stack). Devices sharing this same tag get the same colored "
-            "border on the table - color is derived automatically from the name."
+            "Shared tag linking devices into one redundant set (HSRP pair, "
+            "HA pair, MLAG stack) - same tag gets the same colored border."
         )
         layout.addRow("Redundancy Group", self.redundancy_group_edit)
 
@@ -63,10 +61,8 @@ class SwitchDialog(QDialog):
         for role in REDUNDANCY_ROLES[1:]:
             self.redundancy_role_combo.addItem(role, userData=role)
         self.redundancy_role_combo.setToolTip(
-            "Your own call - never auto-detected. Active/Standby is Cisco HSRP/"
-            "VRRP/GLBP terminology, Active/Passive is common for firewall HA "
-            "pairs (Palo Alto, Fortinet, etc.), Member is for MLAG/VPC/stacking "
-            "setups with no active-standby distinction."
+            "Your own call, never auto-detected. Active/Standby = Cisco HSRP/"
+            "VRRP; Active/Passive = firewall HA; Member = MLAG/stacking."
         )
         layout.addRow("Redundancy Role", self.redundancy_role_combo)
 

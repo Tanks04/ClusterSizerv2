@@ -72,6 +72,13 @@ class VirtualMachine:
     # per-pool tracking, same spirit as vlan_uid above.
     storage_uid: str = ""
 
+    # Optional reference to a StoragePool.uid WITHIN the Storage above -
+    # narrower than storage_uid alone, for an array that's been carved
+    # into several pools (e.g. an SSD tier and a bulk SATA tier). Only
+    # meaningful together with storage_uid; when empty, this VM's disk
+    # demand counts against the whole array's aggregate as it always has.
+    storage_pool_uid: str = ""
+
     # Optional reference to a Cluster.uid - which specific isolated
     # cluster (a vSphere Cluster, a Nutanix cluster, a Proxmox cluster,
     # one of several independent Hyper-V Failover Clusters) this VM

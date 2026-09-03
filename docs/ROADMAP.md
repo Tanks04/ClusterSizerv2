@@ -1,5 +1,223 @@
 # ROADMAP
 
+## v4.17.0 (PCI passthrough storage pools; VM highlighting)
+
+Requested with a concrete real-world example: a security VM with two
+physical disk groups (Sec_data_os, Sec_data_log) wired directly to it
+via PCI passthrough - the opposite assignment direction from a normal
+pool, where the cluster/hosts never see it at all, only that one VM
+does.
+
+- **New: `StoragePool.is_passthrough` / `passthrough_vm_uid`** - marks
+  a pool as bypassing the hypervisor entirely, connected to exactly
+  one VM instead of zoned to hosts. Persists through the same nested-
+  dataclass mechanism already in place for pools generally - no
+  additional persistence work needed.
+- **New in `StoragePoolDialog`**: a "PCI Passthrough" checkbox that
+  swaps the "Zoned Servers" checklist for a "Connected VM" picker when
+  checked (server zoning is meaningless for a pool the hosts never
+  see). `StorageDialog` now threads the project's VM list through to
+  this picker via its existing `service` reference.
+- **New: colored border on the VMs table** for any VM connected to a
+  passthrough pool - same technique already used for switch redundancy
+  pairing (a custom `QStyledItemDelegate` reading a dedicated role off
+  the model), kept as its own small delegate rather than cross-coupling
+  the switch and VM table models. A fixed purple (not a name-derived
+  hash like the switch version) since the useful signal here is simply
+  "this VM has passthrough," not telling several setups apart. Verified
+  with a rendered screenshot. A VM with multiple passthrough pools
+  (the exact reported scenario) still gets exactly one border, not one
+  per pool.
+- Also confirmed and documented: the Word export always includes the
+  full project (Cluster/Storage Pool/VLAN data) regardless of whether
+  Advanced Mode is on in the GUI - Advanced Mode only affects what's
+  shown live on screen, nothing is excluded from the report.
+- Fixed a small bug in an already-in-progress test file
+  (`test_vm_bulk_pool_assignment.py`) from earlier bulk-pool-assignment
+  work - a leftover broken widget-search line that predated a working
+  one right below it.
+- 19 new tests (model fields, persistence fresh and backward-compatible,
+  the dialog's checkbox/picker toggle and save/load round-trip, and the
+  VM table border - single pool, no pool, ordinary pool assignment not
+  triggering it, two different VMs each with their own pool, and one
+  VM with two passthrough pools still getting a single border) - 805
+  passed total.
+
+## v4.16.2 (Fixed: RAID Calculator couldn't accept decimal disk sizes)
+
+Reported directly: typing "1.09" or "1.9" TB (common real-world disk
+sizes) into the RAID Calculator's disk size field silently turned into
+"19" - made it unusable for a large chunk of real disk models.
+
+- **Root cause**: `disk_size_spin` was a `QSpinBox` (integers only),
+  not a `QDoubleSpinBox` - every other TB-capacity field in the app
+  (Storage, StoragePool, Server's own local disk calculator) already
+  used the correct widget; this one slipped through when the
+  standalone RAID Calculator was originally built.
+- **Fixed**: switched to `QDoubleSpinBox` (2 decimals) - verified with
+  the exact values reported (1.09, 1.9) plus 1.2, and confirmed the
+  underlying RAID math correctly uses the full decimal value (8 \u00d7
+  1.09 TB in RAID 5 \u2192 8.72 TB raw, 7.63 TB usable).
+- 6 new tests (widget type, each reported decimal value, the
+  calculation actually using the decimal size, and Reset leaving a
+  sensible default) - 775 passed total.
+
+## v4.16.1 (Fixed: selection color still showed blue after picking a different one)
+
+Reported directly right after v4.14.0 shipped: picking green, then
+red, in Settings' color picker - selection stayed the platform's
+default blue either way.
+
+- **Root cause**: `QPalette.Highlight` alone isn't honored by some
+  native OS styles (Windows' "windowsvista", macOS's native style) for
+  `QAbstractItemView` (table/list) row selection - the palette value
+  was being set correctly, but the active platform style was ignoring
+  it for item-view painting specifically.
+- **Fixed**: `apply_accent_color()` now ALSO injects an explicit QSS
+  rule (`QTableView::item:selected` etc.) alongside the palette
+  change - QSS-based selection styling is honored the same way
+  regardless of platform style, so this is the part that actually
+  guarantees the color changes everywhere. Re-picking a color cleanly
+  replaces the previous QSS block (marked with a comment) rather than
+  accumulating stale rules on every change.
+- Verified with a real rendered screenshot showing a selected table
+  row in green.
+- 4 new tests (QSS injection, clean replacement on re-pick, the rest
+  of the stylesheet staying intact, idempotent re-application) - 769
+  passed total.
+
+## v4.16.0 (Storage: multiple pools per array, per-pool VM assignment, RAID Calculator moved out)
+
+A full redesign of Storage's disk-sizing workflow, requested directly:
+"koncept raid calculatora bi tu maknuo... trebamo imati opciju
+dodavanja vise storage poolova prema serverima, odnosno odredeni
+diskovi/pool prema VMovima."
+
+- **New: `StoragePool`** - a carved-out slice of one array's disks
+  (e.g. an SSD tier and a bulk SATA tier, or a pool zoned to a
+  specific set of servers), embedded in its parent `Storage` the same
+  way `StorageShelf` already is. A VM can now reference a specific
+  pool (`storage_pool_uid`) narrower than just picking the array as a
+  whole (`storage_uid`) - fully additive, an array with no pools
+  defined behaves exactly as before.
+  - New "Storage Pools" management section inside `StorageDialog` -
+    Add/Edit/Delete via a small `StoragePoolDialog` (name, raw/usable
+    capacity, a checkable server-zoning list mirroring the existing
+    HCI server checklist), listed in a mini table alongside a live
+    Used/Free utilization column.
+  - New `VMDialog` "Pool" dropdown, populated dynamically from
+    whichever array is currently selected - shown only when that
+    array actually has pools defined, hidden otherwise. Renamed the
+    existing array-selector's label from "Storage Pool" to "Storage
+    Array" to resolve the naming collision this created.
+  - New `ClusterProject.pool_demand_gb()`/`pool_utilization_ratio()` -
+    the same "one busy pool can hide behind a healthy array-wide
+    average" pattern already used for Clusters, now one level deeper.
+    The existing array-wide `storage_pool_demand_gb()` is unaffected
+    by whether VMs are further split across sub-pools.
+- **Removed the old inline disk-count/RAID-level calculator** from
+  `StorageDialog` entirely - replaced by an "Open RAID Calculator..."
+  button that launches the existing, far more capable standalone tool
+  (real RAID 0/1/5/6/10/50/60, hot spares, apply-to-project). Caught
+  and fixed the same "silently reset on save" bug class hit earlier
+  with `cluster_name`: removing the old widgets meant `get_storage()`
+  would reset `disk_count`/`disk_size_tb`/`raid_level`/`pools` to
+  defaults on every save unless explicitly preserved.
+- **Widened `StorageDialog`** (520\u2192640px) per direct request to
+  comfortably fit the new section without cramping.
+- Cleaned up `test_disk_calculator.py` (13 obsolete tests removed for
+  the deleted calculator, 11 relevant ones for the Server disk
+  calculator and FTT calculator kept and fixed).
+- 55 new tests across the model (StoragePool, persistence round-trip
+  fresh and backward-compatible, pool-level calculations), the pool
+  management UI (Add/Edit/Delete/cancel, existing-pool loading, the
+  Used/Free column with and without service access), the RAID
+  Calculator button integration, and the VM dialog's dynamic pool
+  selector (population, visibility gating, switching arrays, stale
+  references, Advanced Mode) - 765 passed total.
+
+## v4.15.0 (Fast VM-to-Storage-Pool assignment; new "Storage Pool" table column)
+
+Reported directly - assigning several VMs to a specific storage pool
+required opening each VM's dialog individually, matching the exact gap
+already solved for Cluster/Site.
+
+- **New: "Add Storage Pool" toolbar row** on the VMs tab, right after
+  "Bulk move Cluster" - a storage dropdown plus "Selected"/"All"
+  buttons, identical pattern to the existing Site/Cluster rows. Both
+  use the existing `bulk_set_vm_fields()` service method, so assigning
+  many VMs at once is one call, one undo step.
+- **New: "Storage Pool" column** on the VMs table (right after
+  Cluster) - previously the assignment existed in the data model but
+  had no visible column anywhere on this table, so there was no way to
+  actually see which pool a VM was on without opening its dialog.
+- Storage Pool assignment is an opt-in, advanced concept like Cluster/
+  VLAN - the new toolbar row and column are both hidden by default,
+  shown together with Advanced Mode.
+- 13 new tests (combo population/selection-preservation, both bulk
+  actions in both directions including cancel/undo, the Advanced Mode
+  visibility toggle, and the new table column showing assigned/
+  unassigned/stale-reference states) - 733 passed total.
+
+## v4.14.1 (Tooltip cleanup app-wide; RAID/EC Overhead's "missing arrows" fixed)
+
+Reported directly: the Storage disk calculator's "Calc" button hint
+was "waaaaay to long" - checking the rest of the app confirmed it
+wasn't the only one.
+
+- **Fixed**: `RAID/EC Overhead` on the Storage dialog looked like a
+  normal white, active field with no spinner arrows and no visible
+  reason it wouldn't accept input - actually `setReadOnly(True)`,
+  which doesn't get the app's grey "disabled" styling the way
+  `setEnabled(False)` does. Switched to the latter, matching every
+  other calculated/non-editable field in the app - now visibly greyed
+  out with faint arrows, immediately readable as "this is computed,
+  not something you type into."
+- **Shortened 21 tooltips app-wide** down to 1-2 sentences each - a
+  scan turned up 27 over 150 characters, several genuinely huge (460,
+  411, 376 chars) from writing very thorough explanations that had
+  turned into wall-of-text hover popups. Touched storage_dialog.py,
+  cluster_preparation_dialog.py, server_dialog.py, connection_dialog.py,
+  vm_dialog.py, switch_dialog.py, site_capacity_widget.py, main_window.py,
+  summary_page.py, reports_page.py, rvtools_import_dialog.py,
+  virtual_machines_page.py, and servers_page.py.
+- **New regression test** (`test_tooltip_length.py`) scanning every
+  `setToolTip()` call in `src/` and failing if any exceeds 150
+  characters, so this doesn't quietly creep back over time.
+- 3 new tests (the length-limit scanner, plus confirming the Overhead
+  field's disabled state doesn't break its auto-calculated value) -
+  720 passed total.
+
+## v4.14.0 (Configurable selection color)
+
+Reported directly: Qt's default selection highlight (a blue, from the
+platform's native palette) "ta plava mi smeta" - wasn't previously
+something the app controlled or exposed.
+
+- **New: "Appearance" box on Settings** - a color picker for the
+  selection highlight used across the whole app (table rows, list
+  items, text selection). Applied via `QPalette.Highlight`/
+  `HighlightedText` rather than per-widget stylesheet rules, so one
+  setting covers every widget type consistently instead of needing a
+  separate `::selected` rule for each. Applied immediately on pick, no
+  restart needed - verified with a real rendered screenshot showing a
+  table row's selection color actually change.
+  - Persisted as an app-level preference (same `~/.clustersizer/
+    preferences.json` used for Advanced Mode), defaulting to the exact
+    blue already used elsewhere in the app's own stylesheet, so nothing
+    visibly changes until someone explicitly picks a different color.
+  - Applied at startup (`main.py`) and live from Settings via the same
+    shared `apply_accent_color()` function, so both paths can never
+    drift out of sync with each other.
+- 10 new tests (persistence, the palette-applying function directly,
+  and the full Settings picker flow including cancel-changes-nothing)
+  - 717 passed total.
+- **Also raised**: a dark/light theme toggle. Scoped as a separate,
+  larger follow-up rather than folded in here - a theme worth the name
+  needs a deliberately-designed second palette (contrast, disabled
+  states, warning/critical colors all re-checked for a dark background),
+  not a mechanical inversion of the existing light QSS.
+
 ## v4.13.0 (Server's two "cluster" concepts consolidated into one)
 
 Reported directly: "Cluster" and "Cluster Name" sitting next to each

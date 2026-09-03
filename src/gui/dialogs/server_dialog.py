@@ -159,10 +159,8 @@ class ServerDialog(QDialog):
         self.ht_check = QCheckBox("Hyperthreading Enabled")
         self.ht_check.setChecked(True)
         self.ht_check.setToolTip(
-            "When checked, this server's effective CPU capacity for "
-            "oversubscription math is cores \u00d7 threads/core. When "
-            "unchecked, it's physical cores only - Threads/Core is ignored "
-            "(but kept, in case you re-enable HT later)."
+            "Checked: effective CPU is cores \u00d7 threads/core. Unchecked: "
+            "physical cores only (Threads/Core stays saved for later)."
         )
         self.ht_check.toggled.connect(self.threads_spin.setEnabled)
         layout.addRow("", self.ht_check)
@@ -219,12 +217,8 @@ class ServerDialog(QDialog):
         for cluster in self._clusters:
             self.cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
         self.cluster_combo.setToolTip(
-            "Which isolated cluster (a vSphere Cluster, a Nutanix cluster, a Proxmox "
-            "cluster, one of several independent Hyper-V Failover Clusters) this "
-            "server belongs to, if you want to track per-cluster CPU/RAM separately "
-            "from the site-wide totals. RVTools/CSV import creates one of these "
-            "automatically from the source Cluster column. Manage the list of "
-            "Clusters above the servers table."
+            "Isolated cluster this server belongs to, for per-cluster CPU/RAM "
+            "tracking. Manage the list above the servers table."
         )
         layout.addRow("Cluster", self.cluster_combo)
         layout.setRowVisible(self.cluster_combo, app_preferences.load_advanced_mode())
@@ -275,9 +269,8 @@ class ServerDialog(QDialog):
         self.local_disk_spin.setSuffix(" TB")
         self.local_disk_spin.setSpecialValueText("(not set)")
         self.local_disk_spin.setToolTip(
-            "For HCI clusters (vSAN, Storage Spaces Direct, Nutanix AHV, etc.) "
-            "where the disks live in the server rather than a separate array - "
-            "link this server on an HCI Storage entry to count it there."
+            "For HCI (vSAN, S2D, Nutanix AHV) where disks live in the server - "
+            "link it on an HCI Storage entry to count it there."
         )
         layout.addRow("Local Disk (Raw)", self.local_disk_spin)
 

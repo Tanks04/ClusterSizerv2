@@ -9,7 +9,7 @@ from src.models.cluster_project import ClusterProject, ON_PREMISE, PRIMARY, DR
 from src.models.failover_assignment import FailoverAssignment
 import uuid
 from src.models.server import Server
-from src.models.storage import Storage, StorageShelf
+from src.models.storage import Storage, StorageShelf, StoragePool
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
@@ -188,11 +188,17 @@ def _build_storage(row: dict) -> Storage:
     is a list of nested StorageShelf objects, which would otherwise come
     back as plain dicts (breaking .rack_units/.power_watts attribute
     access) since JSON has no concept of a nested dataclass. Reconstruct
-    those explicitly; everything else goes through the normal helper."""
+    those explicitly; everything else goes through the normal helper.
+    Storage.pools (nested StoragePool objects) needs the same treatment."""
     storage = _build(Storage, _migrate_price(row))
     known_shelf_fields = {f.name for f in fields(StorageShelf)}
     storage.expansion_shelves = [
         StorageShelf(**{k: v for k, v in _migrate_price(shelf).items() if k in known_shelf_fields})
         for shelf in row.get("expansion_shelves", [])
+    ]
+    known_pool_fields = {f.name for f in fields(StoragePool)}
+    storage.pools = [
+        StoragePool(**{k: v for k, v in pool.items() if k in known_pool_fields})
+        for pool in row.get("pools", [])
     ]
     return storage

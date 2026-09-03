@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from src.calculations.thresholds import Thresholds, Status
 from src.models.server import Server
-from src.models.storage import Storage
+from src.models.storage import Storage, StoragePool
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
 from src.models.network_connection import NetworkConnection
@@ -290,6 +290,23 @@ class ClusterProject:
         if usable_gb == 0:
             return None
         return self.storage_pool_demand_gb(storage.uid) / usable_gb
+
+    def pool_demand_gb(self, pool_uid: str) -> float:
+        """Same idea as storage_pool_demand_gb, but for a specific
+        StoragePool WITHIN an array (VM.storage_pool_uid) rather than
+        the whole array (VM.storage_uid) - lets one busy pool on an
+        otherwise-healthy array be spotted, the same "aggregate can
+        hide a real problem" pattern as Cluster/array-level tracking."""
+        return sum(
+            vm.disk_gb for vm in self.vms
+            if vm.storage_pool_uid == pool_uid
+        )
+
+    def pool_utilization_ratio(self, pool: StoragePool) -> float | None:
+        usable_gb = pool.usable_capacity_tb * 1024
+        if usable_gb == 0:
+            return None
+        return self.pool_demand_gb(pool.uid) / usable_gb
 
     # ------------------------------------------------------------------
     # Per-cluster CPU/RAM utilization - opt-in, only meaningful once a

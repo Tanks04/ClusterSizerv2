@@ -108,9 +108,8 @@ class VMDialog(QDialog):
             label = f"{vlan.name} ({vlan.network})" if vlan.network else vlan.name
             self.vlan_combo.addItem(label, userData=vlan.uid)
         self.vlan_combo.setToolTip(
-            "Which network segment this VM belongs to - independent of IP "
-            "Address above, doesn't need one entered to assign a VLAN. "
-            "Manage the list of VLANs on the Network tab."
+            "Network segment this VM belongs to - independent of IP Address. "
+            "Manage the list on the Network tab."
         )
         layout.addRow("VLAN", self.vlan_combo)
         layout.setRowVisible(self.vlan_combo, app_preferences.load_advanced_mode())
@@ -121,24 +120,28 @@ class VMDialog(QDialog):
             label = f"{storage.name} ({storage.site})"
             self.storage_combo.addItem(label, userData=storage.uid)
         self.storage_combo.setToolTip(
-            "Which specific storage pool/array this VM's disk lives on, if you "
-            "want to track that - some VMs on one array, others on a different "
-            "one, is common in practice. When left as \"(none)\", this VM's disk "
-            "only counts toward the site-wide aggregate, as it always has. "
-            "Manage the list of Storage entries on the Storage tab."
+            "Which storage array this VM's disk lives on. Manage the list "
+            "on the Storage tab."
         )
-        layout.addRow("Storage Pool", self.storage_combo)
+        self.storage_combo.currentIndexChanged.connect(self._refresh_storage_pool_combo)
+        layout.addRow("Storage Array", self.storage_combo)
         layout.setRowVisible(self.storage_combo, app_preferences.load_advanced_mode())
+
+        self.storage_pool_combo = QComboBox()
+        self.storage_pool_combo.setToolTip(
+            "Specific pool within the array above, if it's been carved into "
+            "several (e.g. SSD tier, SATA tier)."
+        )
+        layout.addRow("Pool", self.storage_pool_combo)
+        self._refresh_storage_pool_combo()
 
         self.cluster_combo = QComboBox()
         self.cluster_combo.addItem("(none)", userData="")
         for cluster in self._clusters:
             self.cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
         self.cluster_combo.setToolTip(
-            "Which isolated cluster (a vSphere Cluster, a Nutanix cluster, a Proxmox "
-            "cluster, one of several independent Hyper-V Failover Clusters) this VM "
-            "runs in, if you want to track per-cluster CPU/RAM separately from the "
-            "site-wide totals. Manage the list of Clusters on the Servers tab."
+            "Isolated cluster this VM runs in, for per-cluster CPU/RAM tracking. "
+            "Manage the list on the Servers tab."
         )
         layout.addRow("Cluster", self.cluster_combo)
         layout.setRowVisible(self.cluster_combo, app_preferences.load_advanced_mode())
@@ -148,9 +151,8 @@ class VMDialog(QDialog):
         self.dr_category_combo.addItems(DR_CATEGORIES)
         self.dr_category_combo.setCurrentText("")
         self.dr_category_combo.setToolTip(
-            "Purely informational - doesn't gate what this VM can be "
-            "assigned to fail over to. Type your own label if these four "
-            "don't fit (e.g. a specific compliance framework's categories)."
+            "Informational - doesn't gate failover. Type your own label if "
+            "these don't fit."
         )
         layout.addRow("DR Category", self.dr_category_combo)
 
@@ -180,6 +182,23 @@ class VMDialog(QDialog):
                 f"{tier.default_ratio:.0f}:1 for sizing - adjustable in Cluster Preparation)."
             )
 
+    def _refresh_storage_pool_combo(self) -> None:
+        current_pool_uid = self.storage_pool_combo.currentData()
+        self.storage_pool_combo.blockSignals(True)
+        self.storage_pool_combo.clear()
+        storage_uid = self.storage_combo.currentData()
+        storage = next((s for s in self._storages if s.uid == storage_uid), None)
+        pools = storage.pools if storage else []
+        self.storage_pool_combo.addItem("(none - whole array aggregate)", userData="")
+        for pool in pools:
+            self.storage_pool_combo.addItem(pool.name or "(unnamed)", userData=pool.uid)
+        restored = self.storage_pool_combo.findData(current_pool_uid)
+        self.storage_pool_combo.setCurrentIndex(restored if restored >= 0 else 0)
+        self.storage_pool_combo.blockSignals(False)
+
+        show_row = app_preferences.load_advanced_mode() and len(pools) > 0
+        self.form_layout.setRowVisible(self.storage_pool_combo, show_row)
+
     def load(self, vm: VirtualMachine) -> None:
         self._uid = vm.uid
         self.name_edit.setText(vm.name)
@@ -194,6 +213,9 @@ class VMDialog(QDialog):
         self.vlan_combo.setCurrentIndex(vlan_index if vlan_index >= 0 else 0)
         storage_index = self.storage_combo.findData(vm.storage_uid)
         self.storage_combo.setCurrentIndex(storage_index if storage_index >= 0 else 0)
+        self._refresh_storage_pool_combo()
+        pool_index = self.storage_pool_combo.findData(vm.storage_pool_uid)
+        self.storage_pool_combo.setCurrentIndex(pool_index if pool_index >= 0 else 0)
         cluster_index = self.cluster_combo.findData(vm.cluster_uid)
         self.cluster_combo.setCurrentIndex(cluster_index if cluster_index >= 0 else 0)
         self.notes_edit.setPlainText(vm.notes)
@@ -219,6 +241,7 @@ class VMDialog(QDialog):
         vm.os = self.os_edit.text()
         vm.vlan_uid = self.vlan_combo.currentData() or ""
         vm.storage_uid = self.storage_combo.currentData() or ""
+        vm.storage_pool_uid = self.storage_pool_combo.currentData() or ""
         vm.cluster_uid = self.cluster_combo.currentData() or ""
         vm.notes = self.notes_edit.toPlainText()
         vm.workload_tier = self.workload_combo.currentText()

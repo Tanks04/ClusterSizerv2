@@ -101,10 +101,8 @@ class SummaryPage(QWidget):
         self.failover_preview_toggle_button = QPushButton("Preview Failover")
         self.failover_preview_toggle_button.setCheckable(True)
         self.failover_preview_toggle_button.setToolTip(
-            "Shows what EVERY site's card would look like if its assigned "
-            "failover VMs were activated there right now - same physical "
-            "hardware per site, but demand includes the failover load, not "
-            "just what's actually running there today."
+            "Shows each site as if its assigned failover VMs were activated "
+            "there right now - same hardware, added demand."
         )
         self.failover_preview_toggle_button.setStyleSheet(
             "QPushButton {"

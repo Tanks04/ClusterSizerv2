@@ -91,7 +91,7 @@ def test_vm_cluster_column_shows_name_and_color():
     model = VMTableModel([vm], clusters_provider=lambda: [cluster])
 
     assert model.HEADERS[12] == "Cluster"
-    assert model.HEADERS[13] == "Notes"
+    assert model.HEADERS[14] == "Notes"
     assert _data(model, 0, 12) == "Cluster-B"
     assert _data(model, 0, 12, Qt.ItemDataRole.BackgroundRole) == QColor("#64b5f6")
 
@@ -117,7 +117,7 @@ def test_vm_notes_column_unaffected_by_shift():
     vm.notes = "some notes"
     model = VMTableModel([vm])
 
-    assert _data(model, 0, 13) == "some notes"
+    assert _data(model, 0, 14) == "some notes"
 
 
 def test_vm_editable_columns_unaffected_by_column_shift():

@@ -1,5 +1,8 @@
 from PySide6.QtCore import QEvent, QObject
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QApplication,
+    QColorDialog,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
@@ -18,6 +21,8 @@ from PySide6.QtWidgets import (
 from src.calculations.thresholds import PRESETS
 from src.models.workload_tier import WORKLOAD_TIER_NAMES, WORKLOAD_TIERS
 from src.models.cluster_project import DEPLOYMENT_MODELS, PRIMARY
+from src.persistence import app_preferences
+from src.gui.theming import apply_accent_color
 from src.services.project_service import ProjectService
 
 
@@ -263,6 +268,24 @@ class SettingsPage(QWidget):
             self.tier_ratio_spins[tier_name] = spin
             tiers_form.addRow(tier_name, spin)
 
+        appearance_box = QGroupBox("Appearance")
+        appearance_form = QFormLayout(appearance_box)
+        appearance_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
+        appearance_note = QLabel(
+            "Selection color used across the whole app (table rows, list "
+            "items, text selection) - Qt's own default is a blue that "
+            "doesn't suit everyone. Applied immediately."
+        )
+        appearance_note.setWordWrap(True)
+        appearance_note.setStyleSheet("color: #757575; font-style: italic;")
+        appearance_form.addRow(appearance_note)
+
+        self._accent_color = app_preferences.load_accent_color()
+        self.accent_color_button = QPushButton()
+        self.accent_color_button.clicked.connect(self._pick_accent_color)
+        self._update_accent_color_button()
+        appearance_form.addRow("Selection color", self.accent_color_button)
+
         row1 = QHBoxLayout()
         row1.addWidget(sites_box, 1)
         row1.addWidget(self.deployment_box, 1)
@@ -283,12 +306,34 @@ class SettingsPage(QWidget):
         row4.addWidget(self.tiers_box, 1)
         layout.addLayout(row4)
 
+        row5 = QHBoxLayout()
+        row5.addWidget(appearance_box, 1)
+        row5.addStretch(1)
+        layout.addLayout(row5)
+
         apply_button = QPushButton("Apply")
         apply_button.clicked.connect(self._apply)
         layout.addWidget(apply_button)
 
         layout.addStretch()
         self._update_preset_description()
+
+    def _update_accent_color_button(self) -> None:
+        self.accent_color_button.setText(self._accent_color)
+        self.accent_color_button.setStyleSheet(
+            f"background-color: {self._accent_color}; color: white; font-weight: bold;"
+        )
+
+    def _pick_accent_color(self) -> None:
+        chosen = QColorDialog.getColor(QColor(self._accent_color), self, "Selection Color")
+        if not chosen.isValid():
+            return
+        self._accent_color = chosen.name()
+        self._update_accent_color_button()
+        app_preferences.set_accent_color(self._accent_color)
+        app = QApplication.instance()
+        if app is not None:
+            apply_accent_color(app, self._accent_color)
 
     def _add_site(self):
         name = self.new_site_edit.text().strip()

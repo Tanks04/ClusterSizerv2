@@ -37,3 +37,19 @@ def set_advanced_mode(enabled: bool) -> None:
     data = _load()
     data["advanced_mode"] = enabled
     _save(data)
+
+
+def load_accent_color() -> str:
+    """Hex color used for selection highlighting (table rows, list
+    items, text selection) across the whole app - Qt's own default
+    (a blue, varies slightly by platform/style) reported directly as
+    not to everyone's taste. Defaults to the same blue already used
+    elsewhere in the app's own stylesheet, so nothing visibly changes
+    until someone explicitly picks a different one."""
+    return _load().get("accent_color", "#1976d2")
+
+
+def set_accent_color(hex_color: str) -> None:
+    data = _load()
+    data["accent_color"] = hex_color
+    _save(data)

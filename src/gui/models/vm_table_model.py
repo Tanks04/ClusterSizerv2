@@ -1,12 +1,21 @@
 from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtGui import QColor
 from src.models.virtual_machine import VirtualMachine
+
+# Custom role carrying a border color (or None) for a VM's row - read
+# by PassthroughBorderDelegate. A distinct purple, not derived from any
+# name-based hash like the switch redundancy border, since the useful
+# signal here is simply "this VM has PCI passthrough" rather than
+# telling several different passthrough setups apart from each other.
+PASSTHROUGH_BORDER_COLOR_ROLE = Qt.ItemDataRole.UserRole
+PASSTHROUGH_BORDER_COLOR = "#7c4dff"
 
 
 class VMTableModel(QAbstractTableModel):
 
-    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Category", "Failover Sites", "IP Address", "OS", "VLAN", "Cluster", "Notes"]
+    HEADERS = ["Name", "Site", "vCPU", "Workload", "RAM (GB)", "Disk (GB)", "Power", "DR Category", "Failover Sites", "IP Address", "OS", "VLAN", "Cluster", "Storage Pool", "Notes"]
 
     EDITABLE_COLUMNS = {2, 4, 5}  # vCPU, RAM, Disk
 
@@ -17,6 +26,7 @@ class VMTableModel(QAbstractTableModel):
         vlans_provider: Callable[[], list] | None = None,
         failover_assignments_provider: Callable[[], list] | None = None,
         clusters_provider: Callable[[], list] | None = None,
+        storages_provider: Callable[[], list] | None = None,
     ):
         super().__init__()
         self._vms = list(vms) if vms else []
@@ -24,6 +34,7 @@ class VMTableModel(QAbstractTableModel):
         self._vlans_provider = vlans_provider or (lambda: [])
         self._failover_assignments_provider = failover_assignments_provider or (lambda: [])
         self._clusters_provider = clusters_provider or (lambda: [])
+        self._storages_provider = storages_provider or (lambda: [])
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self._vms)
@@ -51,8 +62,15 @@ class VMTableModel(QAbstractTableModel):
         vm = self._vms[index.row()]
         column = index.column()
 
+        if role == PASSTHROUGH_BORDER_COLOR_ROLE:
+            has_passthrough = any(
+                pool.is_passthrough and pool.passthrough_vm_uid == vm.uid
+                for storage in self._storages_provider()
+                for pool in storage.pools
+            )
+            return QColor(PASSTHROUGH_BORDER_COLOR) if has_passthrough else None
+
         if role == Qt.ItemDataRole.BackgroundRole and column == 12 and vm.cluster_uid:
-            from PySide6.QtGui import QColor
             cluster = next((c for c in self._clusters_provider() if c.uid == vm.cluster_uid), None)
             if cluster:
                 return QColor(cluster.color)
@@ -98,6 +116,11 @@ class VMTableModel(QAbstractTableModel):
                 cluster = next((c for c in self._clusters_provider() if c.uid == vm.cluster_uid), None)
                 return cluster.name if cluster else "-"
             case 13:
+                if not vm.storage_uid:
+                    return "-"
+                storage = next((s for s in self._storages_provider() if s.uid == vm.storage_uid), None)
+                return storage.name if storage else "-"
+            case 14:
                 return vm.notes or "-"
 
         return None

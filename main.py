@@ -1,4 +1,4 @@
-# ClusterSizer v4.13.0 - see src/version.py for the single source of truth
+# ClusterSizer v4.17.0 - see src/version.py for the single source of truth
 import faulthandler
 import sys
 import traceback
@@ -8,7 +8,9 @@ from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from src.gui.main_window import MainWindow
+from src.gui.theming import apply_accent_color
 from src.services.project_service import ProjectService
+from src.persistence import app_preferences
 
 CRASH_LOG_PATH = Path.home() / ".clustersizer" / "crash.log"
 
@@ -105,6 +107,7 @@ def main() -> None:
 
     _load_application_font(app)
     _load_stylesheet(app)
+    apply_accent_color(app, app_preferences.load_accent_color())
 
     project_service = ProjectService()
 

@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -42,9 +43,10 @@ class RaidCalculatorDialog(QDialog):
         self.disk_type_combo.currentTextChanged.connect(self._recompute)
         form.addRow("Disk type", self.disk_type_combo)
 
-        self.disk_size_spin = QSpinBox()
-        self.disk_size_spin.setRange(1, 1000)
-        self.disk_size_spin.setValue(4)
+        self.disk_size_spin = QDoubleSpinBox()
+        self.disk_size_spin.setDecimals(2)
+        self.disk_size_spin.setRange(0.01, 1000.0)
+        self.disk_size_spin.setValue(4.0)
         self.disk_size_spin.setSuffix(" TB")
         self.disk_size_spin.valueChanged.connect(self._recompute)
         form.addRow("Disk size", self.disk_size_spin)
@@ -184,7 +186,7 @@ class RaidCalculatorDialog(QDialog):
 
     def _reset(self):
         self.disk_type_combo.setCurrentIndex(0)
-        self.disk_size_spin.setValue(4)
+        self.disk_size_spin.setValue(4.0)
         self.disk_count_spin.setValue(8)
         self.raid_level_combo.setCurrentText("RAID 5")
         self.hot_spares_spin.setValue(0)

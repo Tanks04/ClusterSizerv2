@@ -103,11 +103,8 @@ class ConnectionDialog(QDialog):
 
         self.dedicated_link_check = QCheckBox("Dedicated/Proprietary link (e.g. a stacking cable, HA-sync port)")
         self.dedicated_link_check.setToolTip(
-            "Check this for a proprietary or dedicated cable (Cisco StackWise, a "
-            "firewall HA-sync port, a cluster heartbeat link) that does NOT "
-            "consume one of the device's declared 1G/10G/etc ports - excluded "
-            "from the port-usage/over-commit counting below, even though "
-            "Speed/Media above can still be filled in for reference."
+            "A stacking cable or HA-sync port that doesn't consume a declared "
+            "port - excluded from port-usage counting."
         )
         layout.addRow("", self.dedicated_link_check)
 

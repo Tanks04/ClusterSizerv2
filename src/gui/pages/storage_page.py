@@ -108,7 +108,7 @@ class StoragePage(QWidget):
         return [self.model.storage_at(row) for row in self.table.selected_rows()]
 
     def _add_storage(self):
-        dialog = StorageDialog(servers=self.service.project.servers, sites=self.service.project.site_names, parent=self)
+        dialog = StorageDialog(servers=self.service.project.servers, sites=self.service.project.site_names, service=self.service, parent=self)
         if dialog.exec():
             self.service.add_storage(dialog.get_storage())
 
@@ -120,7 +120,7 @@ class StoragePage(QWidget):
 
         row = rows[0]
         storage = self.model.storage_at(row)
-        dialog = StorageDialog(storage, servers=self.service.project.servers, sites=self.service.project.site_names, parent=self)
+        dialog = StorageDialog(storage, servers=self.service.project.servers, sites=self.service.project.site_names, service=self.service, parent=self)
         if dialog.exec():
             self.service.update_storage(row, dialog.get_storage())
 

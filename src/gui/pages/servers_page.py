@@ -100,9 +100,8 @@ class ServersPage(QWidget):
 
         self.ht_global_check = QCheckBox("Hyperthreading (all servers)")
         self.ht_global_check.setToolTip(
-            "Checked when EVERY server currently has HT on. Click to set "
-            "HT on or off for ALL servers at once - one bulk change, "
-            "undoable with Ctrl+Z like any other action."
+            "Checked when every server has HT on. Click to set HT for "
+            "ALL servers at once - undoable with Ctrl+Z."
         )
         self.ht_global_check.clicked.connect(self._on_ht_global_clicked)
         toolbar.addWidget(self.ht_global_check)

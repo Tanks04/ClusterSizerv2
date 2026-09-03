@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
     QDoubleSpinBox,
     QPushButton,
@@ -23,20 +24,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.models.storage import Storage, StorageShelf, RAID_LEVELS, raid_usable_disk_count, FTT_LEVELS, ftt_usable_factor
+from src.models.storage import Storage, StorageShelf, StoragePool, FTT_LEVELS, ftt_usable_factor
+from src.gui.dialogs.storage_pool_dialog import StoragePoolDialog
 from src.calculations.hci_storage import compute_hci_raw_capacity
 
 
 class StorageDialog(QDialog):
 
-    def __init__(self, storage: Storage | None = None, servers: list | None = None, sites: list | None = None, parent=None):
+    def __init__(self, storage: Storage | None = None, servers: list | None = None, sites: list | None = None, service=None, parent=None):
         super().__init__(parent)
 
         self._servers = servers or []
+        self._service = service
 
         self.setWindowTitle("Storage")
 
-        self.resize(520, 620)
+        self.resize(640, 640)
 
         # See ServerDialog for why this is scrollable - the form has
         # grown taller than a lot of screens can show at once, with no
@@ -69,11 +72,8 @@ class StorageDialog(QDialog):
 
         self.is_hci_check = QCheckBox("HCI (vSAN, Storage Spaces Direct, Nutanix AHV, etc.)")
         self.is_hci_check.setToolTip(
-            "No separate physical array - the disks live in the servers, "
-            "but the cluster still behaves like one shared storage pool. "
-            "Check which servers contribute below; Raw Capacity is then "
-            "auto-summed from their Local Disk (Raw) field instead of "
-            "typed in directly."
+            "No separate array - disks live in the servers, pooled together. "
+            "Raw Capacity auto-sums from the linked servers' Local Disk (Raw)."
         )
         self.is_hci_check.toggled.connect(self._on_hci_toggled)
         layout.addRow("", self.is_hci_check)
@@ -98,50 +98,13 @@ class StorageDialog(QDialog):
         self.raw_spin.valueChanged.connect(self._recalc_overhead)
         layout.addRow("Raw Capacity", self.raw_spin)
 
-        calc_container = QWidget()
-        calc_layout = QVBoxLayout(calc_container)
-        calc_layout.setContentsMargins(0, 0, 0, 0)
-
-        size_row = QHBoxLayout()
-        self.disk_count_spin = QSpinBox()
-        self.disk_count_spin.setRange(0, 1000)
-        self.disk_count_spin.setSuffix(" disks")
-        self.disk_count_spin.setMaximumWidth(85)
-        size_row.addWidget(self.disk_count_spin)
-        size_row.addWidget(QLabel("\u00d7"))
-        self.disk_size_spin = QDoubleSpinBox()
-        self.disk_size_spin.setRange(0.0, 1000.0)
-        self.disk_size_spin.setDecimals(2)
-        self.disk_size_spin.setSuffix(" TB")
-        self.disk_size_spin.setMaximumWidth(85)
-        size_row.addWidget(self.disk_size_spin)
-        size_row.addStretch()
-        calc_layout.addLayout(size_row)
-
-        raid_row = QHBoxLayout()
-        raid_row.addWidget(QLabel("RAID:"))
-        self.raid_level_combo = QComboBox()
-        self.raid_level_combo.addItem("(none - Raw only)", userData="")
-        for level in RAID_LEVELS[1:]:
-            self.raid_level_combo.addItem(level, userData=level)
-        raid_row.addWidget(self.raid_level_combo)
-        self.disk_calc_button = QPushButton("Calc")
-        self.disk_calc_button.setToolTip(
-            "Fills Raw Capacity above with disks \u00d7 size - Raw stays "
-            "independently editable afterward if you need to adjust for "
-            "spares or rounding. Works the same for a traditional array "
-            "or HCI (though HCI's Raw is normally auto-summed from linked "
-            "servers instead). Pick a RAID level to also fill Usable "
-            "Capacity with a rough estimate (e.g. RAID5 = disk count - 1 "
-            "disks usable) - Usable stays independently editable too, "
-            "this is a starting estimate, not the final word."
+        self.raid_calc_button = QPushButton("Open RAID Calculator...")
+        self.raid_calc_button.setToolTip(
+            "Full RAID sizing (RAID 0/1/5/6/10/50/60, hot spares) in its own "
+            "window - Apply there writes Raw/Usable back to this Storage."
         )
-        self.disk_calc_button.clicked.connect(self._calculate_raw_capacity)
-        raid_row.addWidget(self.disk_calc_button)
-        raid_row.addStretch()
-        calc_layout.addLayout(raid_row)
-
-        layout.addRow("Disk Calculator", calc_container)
+        self.raid_calc_button.clicked.connect(self._open_raid_calculator)
+        layout.addRow("", self.raid_calc_button)
 
         ftt_row = QHBoxLayout()
         ftt_row.addWidget(QLabel("FTT:"))
@@ -152,10 +115,8 @@ class StorageDialog(QDialog):
         ftt_row.addWidget(self.ftt_level_combo)
         self.ftt_calc_button = QPushButton("Calc Usable")
         self.ftt_calc_button.setToolTip(
-            "Fills Usable Capacity below with Raw Capacity \u00d7 this FTT level's "
-            "estimated overhead (e.g. FTT=1 Mirroring = 50% usable) - Usable stays "
-            "independently editable afterward, this is a starting estimate, not "
-            "the final word."
+            "Fills Usable with Raw \u00d7 this FTT level's overhead estimate. "
+            "Stays editable afterward."
         )
         self.ftt_calc_button.clicked.connect(self._calculate_hci_usable)
         ftt_row.addWidget(self.ftt_calc_button)
@@ -179,8 +140,7 @@ class StorageDialog(QDialog):
         self.overhead_spin.setDecimals(1)
         self.overhead_spin.setRange(0.0, 100.0)
         self.overhead_spin.setSuffix(" %")
-        self.overhead_spin.setReadOnly(True)
-        self.overhead_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
+        self.overhead_spin.setEnabled(False)
         self.overhead_spin.setToolTip(
             "Calculated automatically from Raw/Usable (RAID, erasure coding, etc.)"
         )
@@ -301,6 +261,34 @@ class StorageDialog(QDialog):
         shelves_layout.addLayout(shelves_button_row)
         outer.addWidget(shelves_box)
 
+        pools_box = QGroupBox("Storage Pools (optional - carve this array into several)")
+        pools_layout = QVBoxLayout(pools_box)
+
+        self.pools_table = QTableWidget(0, 5)
+        self.pools_table.setHorizontalHeaderLabels(["Name", "Raw (TB)", "Usable (TB)", "Servers", "Used/Free"])
+        self.pools_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.pools_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.pools_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.pools_table.setMaximumHeight(140)
+        pools_layout.addWidget(self.pools_table)
+
+        pools_button_row = QHBoxLayout()
+        add_pool_button = QPushButton("+ Add Pool")
+        add_pool_button.clicked.connect(self._add_pool)
+        pools_button_row.addWidget(add_pool_button)
+
+        edit_pool_button = QPushButton("Edit Selected")
+        edit_pool_button.clicked.connect(self._edit_pool)
+        pools_button_row.addWidget(edit_pool_button)
+
+        remove_pool_button = QPushButton("- Remove Selected")
+        remove_pool_button.clicked.connect(self._remove_selected_pool)
+        pools_button_row.addWidget(remove_pool_button)
+        pools_button_row.addStretch()
+
+        pools_layout.addLayout(pools_button_row)
+        outer.addWidget(pools_box)
+
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setFixedHeight(60)
         layout.addRow("Notes", self.notes_edit)
@@ -314,6 +302,10 @@ class StorageDialog(QDialog):
         dialog_layout.addWidget(buttons)
 
         self._uid = None
+        self._loaded_disk_count = 0
+        self._loaded_disk_size_tb = 0.0
+        self._loaded_raid_level = ""
+        self._pools = []
 
         if storage is not None:
             self.load(storage)
@@ -338,7 +330,7 @@ class StorageDialog(QDialog):
         # even though it's meant to be fully auto-computed while HCI is
         # checked. setEnabled() properly blocks all of that.
         self.raw_spin.setEnabled(not checked)
-        self.form_layout.setRowVisible(self.disk_calc_button.parentWidget(), not checked)
+        self.form_layout.setRowVisible(self.raid_calc_button, not checked)
         self.form_layout.setRowVisible(self.ftt_container, checked)
         self.raw_spin.setToolTip(
             "Auto-summed from the checked servers' Local Disk (Raw) - "
@@ -409,16 +401,57 @@ class StorageDialog(QDialog):
         for row in rows:
             self.shelves_table.removeRow(row)
 
-    def _calculate_raw_capacity(self) -> None:
-        count = self.disk_count_spin.value()
-        size = self.disk_size_spin.value()
-        if count > 0 and size > 0:
-            self.raw_spin.setValue(count * size)
+    def _refresh_pools_table(self) -> None:
+        self.pools_table.setRowCount(0)
+        for pool in self._pools:
+            row = self.pools_table.rowCount()
+            self.pools_table.insertRow(row)
+            self.pools_table.setItem(row, 0, QTableWidgetItem(pool.name or "(unnamed)"))
+            self.pools_table.setItem(row, 1, QTableWidgetItem(f"{pool.raw_capacity_tb:g}"))
+            self.pools_table.setItem(row, 2, QTableWidgetItem(f"{pool.usable_capacity_tb:g}"))
+            self.pools_table.setItem(row, 3, QTableWidgetItem(str(len(pool.server_uids))))
+            usage_text = "-"
+            if self._service is not None:
+                ratio = self._service.project.pool_utilization_ratio(pool)
+                if ratio is not None:
+                    usage_text = f"{ratio * 100:.0f}%"
+            self.pools_table.setItem(row, 4, QTableWidgetItem(usage_text))
 
-        raid_level = self.raid_level_combo.currentData()
-        if raid_level and count > 0 and size > 0:
-            usable_disks = raid_usable_disk_count(raid_level, count)
-            self.usable_spin.setValue(usable_disks * size)
+    def _add_pool(self) -> None:
+        vms = self._service.project.vms if self._service else []
+        dialog = StoragePoolDialog(servers=self._servers, vms=vms, parent=self)
+        if dialog.exec():
+            self._pools.append(dialog.get_pool())
+            self._refresh_pools_table()
+
+    def _edit_pool(self) -> None:
+        rows = sorted({idx.row() for idx in self.pools_table.selectedIndexes()})
+        if len(rows) != 1:
+            QMessageBox.information(self, "Edit Pool", "Select exactly one pool in the table.")
+            return
+        row = rows[0]
+        vms = self._service.project.vms if self._service else []
+        dialog = StoragePoolDialog(self._pools[row], servers=self._servers, vms=vms, parent=self)
+        if dialog.exec():
+            self._pools[row] = dialog.get_pool()
+            self._refresh_pools_table()
+
+    def _remove_selected_pool(self) -> None:
+        rows = sorted({idx.row() for idx in self.pools_table.selectedIndexes()}, reverse=True)
+        for row in rows:
+            del self._pools[row]
+        self._refresh_pools_table()
+
+    def _open_raid_calculator(self) -> None:
+        if self._service is None:
+            QMessageBox.information(
+                self, "RAID Calculator",
+                "Open this from the Storage tab so it can find this project's servers/storage.",
+            )
+            return
+        from src.gui.dialogs.raid_calculator_dialog import RaidCalculatorDialog
+        dialog = RaidCalculatorDialog(self._service, parent=self)
+        dialog.exec()
 
     def _calculate_hci_usable(self) -> None:
         ftt_level = self.ftt_level_combo.currentData()
@@ -428,6 +461,11 @@ class StorageDialog(QDialog):
 
     def load(self, storage: Storage) -> None:
         self._uid = storage.uid
+        self._loaded_disk_count = storage.disk_count
+        self._loaded_disk_size_tb = storage.disk_size_tb
+        self._loaded_raid_level = storage.raid_level
+        self._pools = list(storage.pools)
+        self._refresh_pools_table()
         self.name_edit.setText(storage.name)
         self.site_combo.setCurrentText(storage.site)
         self.vendor_edit.setText(storage.vendor)
@@ -438,10 +476,6 @@ class StorageDialog(QDialog):
         self.hci_servers_box.setVisible(storage.is_hci)
         self.raw_spin.setReadOnly(storage.is_hci)
         self.raw_spin.setValue(storage.raw_capacity_tb)
-        self.disk_count_spin.setValue(storage.disk_count)
-        self.disk_size_spin.setValue(storage.disk_size_tb)
-        raid_index = self.raid_level_combo.findData(storage.raid_level)
-        self.raid_level_combo.setCurrentIndex(raid_index if raid_index >= 0 else 0)
         ftt_index = self.ftt_level_combo.findData(storage.ftt_level)
         self.ftt_level_combo.setCurrentIndex(ftt_index if ftt_index >= 0 else 0)
         self.usable_spin.setValue(storage.usable_capacity_tb)
@@ -488,9 +522,10 @@ class StorageDialog(QDialog):
         )
         storage.usable_capacity_tb = self.usable_spin.value()
         storage.raid_overhead_percent = self.overhead_spin.value()
-        storage.disk_count = self.disk_count_spin.value()
-        storage.disk_size_tb = self.disk_size_spin.value()
-        storage.raid_level = self.raid_level_combo.currentData() or ""
+        storage.disk_count = self._loaded_disk_count
+        storage.disk_size_tb = self._loaded_disk_size_tb
+        storage.raid_level = self._loaded_raid_level
+        storage.pools = self._pools
         storage.ftt_level = self.ftt_level_combo.currentData() or ""
 
         storage.ports_1g = self.ports_1g_spin.value()

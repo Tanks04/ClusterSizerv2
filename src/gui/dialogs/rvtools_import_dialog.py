@@ -90,9 +90,8 @@ class RVToolsImportDialog(QDialog):
 
         self.import_switches_check = QCheckBox("Also import Switches (name only)")
         self.import_switches_check.setToolTip(
-            "Creates a Network Switch entry for each distinct switch name "
-            "found - name only; port counts/speed aren't in RVTools' data "
-            "in a form this app can use directly, so review those manually."
+            "Creates a Network Switch entry per distinct switch name - name "
+            "only, review port counts/speed manually."
         )
         form.addRow("", self.import_switches_check)
 

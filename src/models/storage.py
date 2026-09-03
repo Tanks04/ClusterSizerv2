@@ -68,6 +68,38 @@ class StorageShelf:
 
 
 @dataclass
+class StoragePool:
+    """One carved-out slice of a Storage array's disks - a real array
+    commonly splits its physical disks into several pools (e.g. a
+    fast SSD tier and a bulk SATA tier, or one pool per set of servers
+    it's zoned to), each with its own capacity. Embedded in its parent
+    Storage the same way StorageShelf is, since a pool never exists
+    independently of the array it's carved from. server_uids records
+    which servers this pool is presented to (zoning/masking) - a VM
+    can optionally reference a specific pool via storage_pool_uid,
+    narrower than just picking the Storage array as a whole. Purely
+    additive: a Storage with an empty pools list behaves exactly as
+    before this existed - its own raw/usable capacity is still the
+    array-wide total."""
+    uid: str
+    name: str = ""
+    raw_capacity_tb: float = 0.0
+    usable_capacity_tb: float = 0.0
+    server_uids: list[str] = field(default_factory=list)
+    notes: str = ""
+
+    # PCI passthrough - the opposite assignment direction from
+    # server_uids above. A normal pool is zoned to hosts, which the
+    # hypervisor then presents to VMs as shared datastore capacity; a
+    # passthrough pool bypasses that entirely, wired directly to ONE
+    # VM (common for security appliances or storage-heavy workloads
+    # needing raw disk access) - the hosts/cluster never see it at
+    # all. server_uids is meaningless when this is set.
+    is_passthrough: bool = False
+    passthrough_vm_uid: str = ""
+
+
+@dataclass
 class Storage:
     """Represents one storage system (SAN/NAS/local) at the Primary or DR site."""
 
@@ -143,6 +175,11 @@ class Storage:
     power_watts: float = 0.0  # nameplate/max draw from the datasheet, not "typical" - safer for circuit/PDU planning
 
     expansion_shelves: list[StorageShelf] = field(default_factory=list)
+
+    # Optional carved-out slices of this array's disks - empty by
+    # default, meaning the whole array is treated as one pool (this
+    # Storage's own raw/usable fields), exactly as before this existed.
+    pools: list[StoragePool] = field(default_factory=list)
 
     # Pricing (EUR) - see Server.price for the reasoning. Covers the
     # head unit only - each StorageShelf has its own.

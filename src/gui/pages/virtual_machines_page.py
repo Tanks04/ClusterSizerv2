@@ -29,6 +29,7 @@ from src.gui.dialogs.cluster_preparation_dialog import ClusterPreparationWizard
 from src.gui.dialogs.failover_assignment_dialog import FailoverAssignmentDialog
 from src.models.failover_assignment import FailoverAssignment
 from src.gui.models.vm_table_model import VMTableModel
+from src.gui.widgets.passthrough_border_delegate import PassthroughBorderDelegate
 from src.gui.models.failover_assignment_table_model import FailoverAssignmentTableModel
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.gui.widgets.multi_select_table import MultiSelectTableView
@@ -48,6 +49,7 @@ class VirtualMachinesPage(QWidget):
             vlans_provider=lambda: self.service.project.vlans,
             failover_assignments_provider=lambda: self.service.project.failover_assignments,
             clusters_provider=lambda: self.service.project.clusters,
+            storages_provider=lambda: self.service.project.storages,
         )
         self.failover_model = FailoverAssignmentTableModel(
             vms_provider=lambda: self.service.project.vms,
@@ -168,9 +170,8 @@ class VirtualMachinesPage(QWidget):
 
         bulk_failover_selected_button = QPushButton("Selected")
         bulk_failover_selected_button.setToolTip(
-            "Applies the chosen Add/Remove action to the SELECTED VM(s) only - one "
-            "undo step. Manage individual footprint numbers (vCPU/RAM/disk per "
-            "site) in the Failover Assignments table below."
+            "Applies Add/Remove to the SELECTED VM(s) only. Manage footprints "
+            "in the Failover Assignments table below."
         )
         bulk_failover_selected_button.clicked.connect(self._set_failover_for_selected_from_checkbox)
         bulk_row.addWidget(bulk_failover_selected_button)
@@ -187,9 +188,8 @@ class VirtualMachinesPage(QWidget):
 
         site_label = QLabel("Bulk move site:")
         site_label.setToolTip(
-            "Relocates the VM to a different site - separate from DR Protected/"
-            "Failover Assignment, which just flags a VM as replicated while it "
-            "stays on its current site."
+            "Relocates the VM to a different site - separate from Failover "
+            "Assignment, which just flags it as replicated."
         )
         move_row.addWidget(site_label)
 
@@ -214,9 +214,8 @@ class VirtualMachinesPage(QWidget):
 
         cluster_label = QLabel("Bulk move Cluster:")
         cluster_label.setToolTip(
-            "Assigns the VM to an isolated cluster (e.g. a separate vSphere/"
-            "Nutanix/Proxmox/Hyper-V cluster at the same site) - manage the list "
-            "of Clusters on the Servers tab."
+            "Assigns the VM to an isolated cluster - manage the list on the "
+            "Servers tab."
         )
         cluster_move_row.addWidget(cluster_label)
 
@@ -237,11 +236,70 @@ class VirtualMachinesPage(QWidget):
         cluster_move_row.addWidget(bulk_cluster_all_button)
 
         move_row.addWidget(self.cluster_move_widgets)
+        move_row.addSpacing(16)
+
+        self.storage_move_widgets = QWidget()
+        storage_move_row = QHBoxLayout(self.storage_move_widgets)
+        storage_move_row.setContentsMargins(0, 0, 0, 0)
+
+        storage_label = QLabel("Add Storage Array:")
+        storage_label.setToolTip(
+            "Assigns the VM's disk to a specific storage array - manage "
+            "the list on the Storage tab."
+        )
+        storage_move_row.addWidget(storage_label)
+
+        self.bulk_storage_combo = QComboBox()
+        storage_move_row.addWidget(self.bulk_storage_combo)
+
+        bulk_storage_selected_button = QPushButton("Selected")
+        bulk_storage_selected_button.setToolTip(
+            "Assigns the SELECTED VM(s) to the chosen array - one undo step."
+        )
+        bulk_storage_selected_button.clicked.connect(self._set_storage_for_selected_from_combo)
+        storage_move_row.addWidget(bulk_storage_selected_button)
+
+        bulk_storage_all_button = QPushButton("All")
+        bulk_storage_all_button.setToolTip("Assigns EVERY VM to the chosen array at once - one undo step.")
+        bulk_storage_all_button.clicked.connect(self._set_all_vms_storage)
+        storage_move_row.addWidget(bulk_storage_all_button)
+
+        move_row.addWidget(self.storage_move_widgets)
+        move_row.addSpacing(16)
+
+        self.pool_move_widgets = QWidget()
+        pool_move_row = QHBoxLayout(self.pool_move_widgets)
+        pool_move_row.setContentsMargins(0, 0, 0, 0)
+
+        pool_label = QLabel("Add Pool:")
+        pool_label.setToolTip(
+            "Assigns the VM to a specific pool WITHIN an array (and that "
+            "array too) - manage pools on the array's own dialog (Storage tab)."
+        )
+        pool_move_row.addWidget(pool_label)
+
+        self.bulk_pool_combo = QComboBox()
+        pool_move_row.addWidget(self.bulk_pool_combo)
+
+        bulk_pool_selected_button = QPushButton("Selected")
+        bulk_pool_selected_button.setToolTip(
+            "Assigns the SELECTED VM(s) to the chosen pool - one undo step."
+        )
+        bulk_pool_selected_button.clicked.connect(self._set_pool_for_selected_from_combo)
+        pool_move_row.addWidget(bulk_pool_selected_button)
+
+        bulk_pool_all_button = QPushButton("All")
+        bulk_pool_all_button.setToolTip("Assigns EVERY VM to the chosen pool at once - one undo step.")
+        bulk_pool_all_button.clicked.connect(self._set_all_vms_pool)
+        pool_move_row.addWidget(bulk_pool_all_button)
+
+        move_row.addWidget(self.pool_move_widgets)
         move_row.addStretch()
         main_layout.addLayout(move_row)
 
         self.table = MultiSelectTableView()
         self.table.set_source_model(self.model)
+        self.table.setItemDelegate(PassthroughBorderDelegate(self.table))
         self.table.edit_requested.connect(self._edit_vm)
         self.table.delete_requested.connect(self._delete_selected)
         self.table.copy_requested.connect(self._duplicate_selected)
@@ -536,6 +594,62 @@ class VirtualMachinesPage(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.service.bulk_set_vm_fields(self.service.project.vms, {"cluster_uid": cluster_uid})
 
+    def _set_storage_for_selected_from_combo(self):
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "Add Storage Array", "Select at least one VM in the table.")
+            return
+        storage_uid = self.bulk_storage_combo.currentData()
+        if not storage_uid:
+            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
+            return
+        self.service.bulk_set_vm_fields(vms, {"storage_uid": storage_uid})
+
+    def _set_all_vms_storage(self):
+        if not self.service.project.vms:
+            return
+        storage_uid = self.bulk_storage_combo.currentData()
+        if not storage_uid:
+            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
+            return
+        storage_name = self.bulk_storage_combo.currentText()
+        reply = QMessageBox.question(
+            self, "Add Storage Array",
+            f"Assign ALL {len(self.service.project.vms)} VM(s) to {storage_name}?",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.bulk_set_vm_fields(self.service.project.vms, {"storage_uid": storage_uid})
+
+    def _set_pool_for_selected_from_combo(self):
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "Add Pool", "Select at least one VM in the table.")
+            return
+        data = self.bulk_pool_combo.currentData()
+        if not data:
+            QMessageBox.information(self, "Add Pool", "Add a Storage Pool first (Storage tab).")
+            return
+        storage_uid, pool_uid = data
+        self.service.bulk_set_vm_fields(vms, {"storage_uid": storage_uid, "storage_pool_uid": pool_uid})
+
+    def _set_all_vms_pool(self):
+        if not self.service.project.vms:
+            return
+        data = self.bulk_pool_combo.currentData()
+        if not data:
+            QMessageBox.information(self, "Add Pool", "Add a Storage Pool first (Storage tab).")
+            return
+        storage_uid, pool_uid = data
+        pool_name = self.bulk_pool_combo.currentText()
+        reply = QMessageBox.question(
+            self, "Add Pool",
+            f"Assign ALL {len(self.service.project.vms)} VM(s) to {pool_name}?",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.bulk_set_vm_fields(
+                self.service.project.vms, {"storage_uid": storage_uid, "storage_pool_uid": pool_uid},
+            )
+
     def _add_selected_to_cluster(self, cluster_uid: str):
         vms = self._selected_vms()
         if not vms:
@@ -637,6 +751,8 @@ class VirtualMachinesPage(QWidget):
 
         self._refresh_site_combos(project.site_names)
         self._refresh_cluster_combo(project.clusters)
+        self._refresh_storage_combo(project.storages)
+        self._refresh_pool_combo(project.storages)
         self._refresh_custom_actions(project.site_names, project.clusters)
 
         self.cluster_prep_action.setEnabled(len(project.vms) > 0)
@@ -671,6 +787,40 @@ class VirtualMachinesPage(QWidget):
         if restored >= 0:
             self.bulk_cluster_combo.setCurrentIndex(restored)
         self.bulk_cluster_combo.blockSignals(False)
+
+    def _refresh_storage_combo(self, storages: list) -> None:
+        current_uid = self.bulk_storage_combo.currentData()
+        existing_uids = [self.bulk_storage_combo.itemData(i) for i in range(self.bulk_storage_combo.count())]
+        new_uids = [s.uid for s in storages]
+        if existing_uids == new_uids:
+            return
+        self.bulk_storage_combo.blockSignals(True)
+        self.bulk_storage_combo.clear()
+        for storage in storages:
+            self.bulk_storage_combo.addItem(storage.name or "(unnamed)", userData=storage.uid)
+        restored = self.bulk_storage_combo.findData(current_uid)
+        if restored >= 0:
+            self.bulk_storage_combo.setCurrentIndex(restored)
+        self.bulk_storage_combo.blockSignals(False)
+
+    def _refresh_pool_combo(self, storages: list) -> None:
+        current_data = self.bulk_pool_combo.currentData()
+        new_items = [
+            (storage.uid, pool.uid, storage.name, pool.name)
+            for storage in storages for pool in storage.pools
+        ]
+        existing_data = [self.bulk_pool_combo.itemData(i) for i in range(self.bulk_pool_combo.count())]
+        if existing_data == [(s, p) for s, p, _, _ in new_items]:
+            return
+        self.bulk_pool_combo.blockSignals(True)
+        self.bulk_pool_combo.clear()
+        for storage_uid, pool_uid, storage_name, pool_name in new_items:
+            label = f"{pool_name or '(unnamed)'} ({storage_name or '(unnamed)'})"
+            self.bulk_pool_combo.addItem(label, userData=(storage_uid, pool_uid))
+        restored = self.bulk_pool_combo.findData(current_data)
+        if restored >= 0:
+            self.bulk_pool_combo.setCurrentIndex(restored)
+        self.bulk_pool_combo.blockSignals(False)
 
     def _refresh_custom_actions(self, site_names: list[str], clusters: list | None = None) -> None:
         actions = [
@@ -750,15 +900,19 @@ class VirtualMachinesPage(QWidget):
         self.service.set_failover_assignment_confirmed(assignments, confirmed)
 
     def set_advanced_mode(self, enabled: bool) -> None:
-        """Cluster/VLAN assignment are opt-in, advanced concepts -
-        hidden by default (the bulk-move widgets, table columns, and
-        right-click "Add to Cluster" actions) so a simple project's
-        VMs tab isn't cluttered with sections it will never use. VLAN
-        is 11, Cluster is 12 on the table - see VMTableModel.HEADERS.
-        refresh() runs first since it can reset the model, which would
-        otherwise undo the column-hidden state set right after it."""
+        """Cluster/VLAN/Storage Pool assignment are opt-in, advanced
+        concepts - hidden by default (the bulk-move widgets, table
+        columns, and right-click "Add to Cluster" actions) so a simple
+        project's VMs tab isn't cluttered with sections it will never
+        use. VLAN is 11, Cluster is 12, Storage Pool is 13 on the
+        table - see VMTableModel.HEADERS. refresh() runs first since
+        it can reset the model, which would otherwise undo the
+        column-hidden state set right after it."""
         self._advanced_mode = enabled
         self.cluster_move_widgets.setVisible(enabled)
+        self.storage_move_widgets.setVisible(enabled)
+        self.pool_move_widgets.setVisible(enabled)
         self.refresh()
         self.table.setColumnHidden(11, not enabled)
         self.table.setColumnHidden(12, not enabled)
+        self.table.setColumnHidden(13, not enabled)

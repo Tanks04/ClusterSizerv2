@@ -98,9 +98,8 @@ class MainWindow(QMainWindow):
 
         save_scenario_action = QAction("Save Scenario Copy As...", self)
         save_scenario_action.setToolTip(
-            "Save a snapshot of the current project to a new file, without "
-            "switching your active project to it - branch off a scenario to "
-            "compare later on the Compare tab, keep editing the original here."
+            "Snapshot the current project to a new file without switching to it - "
+            "compare later, keep editing the original here."
         )
         save_scenario_action.triggered.connect(self._save_scenario_copy)
         file_menu.addAction(save_scenario_action)
@@ -165,10 +164,8 @@ class MainWindow(QMainWindow):
         self.advanced_mode_action.setCheckable(True)
         self.advanced_mode_action.setChecked(app_preferences.load_advanced_mode())
         self.advanced_mode_action.setToolTip(
-            "Shows Clusters (isolated failure domains), Storage Pool assignment, "
-            "and VLAN assignment - opt-in concepts most projects never need. Off "
-            "by default to keep things simple; nothing already set up is lost by "
-            "toggling this off, it's just hidden."
+            "Shows Clusters, Storage Pool assignment, and VLAN assignment - "
+            "features most projects don't need. Toggling off just hides them."
         )
         self.advanced_mode_action.toggled.connect(self._toggle_advanced_mode)
         view_menu.addAction(self.advanced_mode_action)
