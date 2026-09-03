@@ -1,7 +1,9 @@
 """Real Qt tests for the structured "Cluster" column on ServerTableModel
 and VMTableModel - a colored badge (BackgroundRole) showing the linked
-Cluster entity's color, coexisting with Server's pre-existing free-text
-"Cluster Name" column without any collision."""
+Cluster entity's color. Server's free-text "Cluster Name" was removed
+from the GUI entirely (consolidated into this one structured column -
+RVTools/CSV import now auto-creates/links a real Cluster from it
+instead of leaving it as a separate, confusing field)."""
 
 import pytest
 
@@ -32,40 +34,32 @@ def _data(model, row, col, role=Qt.ItemDataRole.DisplayRole):
 # ServerTableModel
 # ----------------------------------------------------------------------
 
-def test_server_cluster_name_and_structured_cluster_coexist():
+def test_server_cluster_name_column_no_longer_exists():
+    model = ServerTableModel()
+
+    assert "Cluster Name" not in model.HEADERS
+    assert model.HEADERS[16] == "Cluster"
+
+
+def test_server_cluster_column_shows_name_and_colored_background():
     cluster = Cluster.create_default(0)
     cluster.name = "Cluster-A"
-    cluster.color = "#e57373"
-    server = Server.create_default()
-    server.cluster_name = "legacy-freetext"
-    server.cluster_uid = cluster.uid
-
-    model = ServerTableModel([server], clusters_provider=lambda: [cluster])
-
-    assert model.HEADERS[16] == "Cluster Name"
-    assert model.HEADERS[17] == "Cluster"
-    assert _data(model, 0, 16) == "legacy-freetext"
-    assert _data(model, 0, 17) == "Cluster-A"
-
-
-def test_server_cluster_column_shows_colored_background():
-    cluster = Cluster.create_default(0)
     cluster.color = "#4db6ac"
     server = Server.create_default()
     server.cluster_uid = cluster.uid
 
     model = ServerTableModel([server], clusters_provider=lambda: [cluster])
 
-    bg = _data(model, 0, 17, Qt.ItemDataRole.BackgroundRole)
-    assert bg == QColor("#4db6ac")
+    assert _data(model, 0, 16) == "Cluster-A"
+    assert _data(model, 0, 16, Qt.ItemDataRole.BackgroundRole) == QColor("#4db6ac")
 
 
 def test_server_unassigned_shows_dash_and_no_background():
     server = Server.create_default()
     model = ServerTableModel([server])
 
-    assert _data(model, 0, 17) == "-"
-    assert _data(model, 0, 17, Qt.ItemDataRole.BackgroundRole) is None
+    assert _data(model, 0, 16) == "-"
+    assert _data(model, 0, 16, Qt.ItemDataRole.BackgroundRole) is None
 
 
 def test_server_stale_cluster_reference_shows_dash():
@@ -73,14 +67,14 @@ def test_server_stale_cluster_reference_shows_dash():
     server.cluster_uid = "deleted-uid"
     model = ServerTableModel([server], clusters_provider=lambda: [])
 
-    assert _data(model, 0, 17) == "-"
+    assert _data(model, 0, 16) == "-"
 
 
 def test_server_editable_columns_unaffected_by_column_shift():
-    """Sockets/Cores/Threads/RAM/GHz/Rack/Power stay editable after the
-    new Cluster column shifted indices 17-19 to 18-20."""
+    """Sockets/Cores/Threads/RAM/GHz/Rack/Power stay editable after
+    Cluster Name's removal shifted indices 18-19 down to 17-18."""
     model = ServerTableModel()
-    assert model.EDITABLE_COLUMNS == {6, 7, 8, 12, 13, 18, 19}
+    assert model.EDITABLE_COLUMNS == {6, 7, 8, 12, 13, 17, 18}
 
 
 # ----------------------------------------------------------------------
@@ -146,12 +140,12 @@ def test_servers_page_cluster_column_live_refreshes():
     server = Server.create_default()
     service.add_server(server)
     page = ServersPage(service)
-    assert _data(page.model, 0, 17) == "-"
+    assert _data(page.model, 0, 16) == "-"
 
     server.cluster_uid = cluster.uid
     service.touch_servers()
 
-    assert _data(page.model, 0, 17) == "Cluster-A"
+    assert _data(page.model, 0, 16) == "Cluster-A"
 
 
 def test_vms_page_cluster_column_live_refreshes():

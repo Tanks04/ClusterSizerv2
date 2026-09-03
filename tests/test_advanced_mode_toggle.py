@@ -81,7 +81,7 @@ def test_servers_page_hides_cluster_section_by_default():
     QApplication.processEvents()
 
     assert page.cluster_section.isVisible() is False
-    assert page.table.isColumnHidden(17) is True
+    assert page.table.isColumnHidden(16) is True
 
 
 def test_servers_page_shows_cluster_section_when_enabled():
@@ -96,7 +96,7 @@ def test_servers_page_shows_cluster_section_when_enabled():
     QApplication.processEvents()
 
     assert page.cluster_section.isVisible() is True
-    assert page.table.isColumnHidden(17) is False
+    assert page.table.isColumnHidden(16) is False
 
 
 def test_servers_page_picks_up_saved_preference_at_construction():
@@ -107,7 +107,7 @@ def test_servers_page_picks_up_saved_preference_at_construction():
     service = ProjectService()
     page = ServersPage(service)
 
-    assert page.table.isColumnHidden(17) is False
+    assert page.table.isColumnHidden(16) is False
 
 
 # ----------------------------------------------------------------------
@@ -294,11 +294,11 @@ def test_toggling_updates_an_already_built_page_live():
     window = MainWindow(service)
     window._on_tab_changed(1)  # Servers tab
     servers_page = window._tab_containers[1].page
-    assert servers_page.table.isColumnHidden(17) is True
+    assert servers_page.table.isColumnHidden(16) is True
 
     window.advanced_mode_action.setChecked(True)
 
-    assert servers_page.table.isColumnHidden(17) is False
+    assert servers_page.table.isColumnHidden(16) is False
 
 
 def test_a_page_built_after_toggling_picks_up_the_preference_automatically():
@@ -327,11 +327,11 @@ def test_toggling_off_hides_an_already_built_page_again():
     window._on_tab_changed(1)
     servers_page = window._tab_containers[1].page
     window.advanced_mode_action.setChecked(True)
-    assert servers_page.table.isColumnHidden(17) is False
+    assert servers_page.table.isColumnHidden(16) is False
 
     window.advanced_mode_action.setChecked(False)
 
-    assert servers_page.table.isColumnHidden(17) is True
+    assert servers_page.table.isColumnHidden(16) is True
 
 
 def test_toggle_does_not_lose_or_unassign_existing_cluster_data():

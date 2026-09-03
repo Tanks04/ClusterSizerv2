@@ -22,6 +22,7 @@ from src.gui.import_conflict import confirm_import_conflict, ImportConflictChoic
 from src.gui.dialogs.new_project_wizard_dialog import NewProjectWizardDialog
 from src.calculations.thresholds import PRESETS
 from src.calculations.vm_generation import generate_vms, generate_servers
+from src.models.cluster import find_or_create_clusters_by_name
 from src.persistence import app_preferences
 from src.gui.pages.storage_page import StoragePage
 from src.gui.pages.backup_page import BackupPage
@@ -460,12 +461,17 @@ class MainWindow(QMainWindow):
         if choice == ImportConflictChoice.CANCEL:
             return
 
+        new_clusters = find_or_create_clusters_by_name(self.project_service.project.clusters, servers)
+
         self.project_service.add_servers_and_vms(
             servers, vms, switches, replace=choice == ImportConflictChoice.REPLACE,
+            new_clusters=new_clusters,
         )
+        cluster_note = f" Linked to {len(new_clusters)} new Cluster(s)." if new_clusters else ""
         message = (
             f"Imported {len(servers)} server(s) and {len(vms)} VM(s)"
             + (f" and {len(switches)} switch(es)" if switches else "")
+            + cluster_note
             + " - review Workload Tier and DR Protected on the VMs tab, "
             "RVTools has no equivalent for those."
         )

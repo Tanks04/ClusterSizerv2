@@ -10,7 +10,7 @@ from src.models.storage import Storage
 from src.models.backup_destination import BackupDestination
 from src.models.maintenance_item import MaintenanceItem
 from src.models.vlan import Vlan
-from src.models.cluster import Cluster
+from src.models.cluster import Cluster, find_or_create_clusters_by_name
 from src.models.failover_assignment import FailoverAssignment
 from src.models.virtual_machine import VirtualMachine
 from src.models.network_switch import NetworkSwitch
@@ -236,13 +236,18 @@ class ProjectService(QObject):
     def add_servers_and_vms(
         self, servers: list[Server], vms: list[VirtualMachine],
         switches: list[NetworkSwitch] | None = None, replace: bool = False,
+        new_clusters: list[Cluster] | None = None,
     ) -> None:
         """Same idea as add_servers_and_storages, for RVTools import -
         one file can produce hosts, VMs, and (optionally) switches, one
         undo step for the whole import. replace=True clears all three
         existing lists first - cascades to FailoverAssignment records
         the same way clear_vms() does, since an assignment pointing at
-        a VM that no longer exists would be orphaned."""
+        a VM that no longer exists would be orphaned. new_clusters are
+        appended (never replaced/cleared, even when replace=True) -
+        these come from find_or_create_clusters_by_name() converting
+        each server's cluster_name into a real Cluster assignment, in
+        the same undo step as the servers/VMs themselves."""
         self._push_undo_snapshot()
         if replace:
             self._project.servers = list(servers)
@@ -255,10 +260,14 @@ class ProjectService(QObject):
             self._project.vms.extend(vms)
             if switches:
                 self._project.switches.extend(switches)
+        if new_clusters:
+            self._project.clusters.extend(new_clusters)
         self.servers_changed.emit()
         self.vms_changed.emit()
         if switches:
             self.network_changed.emit()
+        if new_clusters:
+            self.clusters_changed.emit()
         self._notify()
 
     def replace_servers_and_storages_at_site(
@@ -372,9 +381,14 @@ class ProjectService(QObject):
 
     def import_servers_csv(self, path: str | Path, replace: bool = False) -> int:
         new_servers = csv_io.import_servers(path)
+        new_clusters = find_or_create_clusters_by_name(self._project.clusters, new_servers)
         self._push_undo_snapshot()
         self._project.servers = new_servers if replace else self._project.servers + new_servers
+        if new_clusters:
+            self._project.clusters.extend(new_clusters)
         self._notify(self.servers_changed)
+        if new_clusters:
+            self.clusters_changed.emit()
         return len(new_servers)
 
     def export_servers_csv(self, path: str | Path) -> None:

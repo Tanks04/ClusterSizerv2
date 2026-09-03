@@ -1,5 +1,43 @@
 # ROADMAP
 
+## v4.13.0 (Server's two "cluster" concepts consolidated into one)
+
+Reported directly: "Cluster" and "Cluster Name" sitting next to each
+other on the Servers table was confusing, and the reasoning for
+keeping them separate (RVTools populates one as plain text; the other
+is the real, colored, calculation-aware entity) didn't hold up - as
+pointed out, imported data is editable like anything else, so there
+was no real reason import couldn't populate the structured one
+directly instead of a dead-end text field.
+
+- **New: `find_or_create_clusters_by_name()`** (`models/cluster.py`) -
+  given a batch of freshly-parsed servers, groups them by (site,
+  cluster_name), reuses an existing Cluster if one already has that
+  exact name at that site, otherwise creates one (auto-colored from
+  the rotation), and links each server via `cluster_uid`. Re-importing
+  into an already-linked cluster name reuses it rather than creating a
+  duplicate.
+- **RVTools import** and **CSV import** (`Servers` tab) now both run
+  this automatically - the "Cluster" column from either source creates
+  or reuses a real, colored Cluster entity, in the same undo step as
+  the servers themselves.
+- **Removed the free-text "Cluster Name" column and dialog field**
+  entirely from the GUI - only the one structured, colored "Cluster"
+  column/dropdown remains. The underlying model field survives for
+  backward compatibility (old files still load fine) and now stays in
+  sync automatically: selecting a Cluster on ServerDialog updates it
+  to match, and any legacy value from before this change is preserved
+  rather than blanked out when no Cluster is explicitly selected.
+- Found and fixed a subtlety while wiring CSV import: the page's
+  preview parse and the service's own internal re-parse produced
+  different Server objects, so cluster-linking had to happen inside
+  `import_servers_csv()` itself (on the objects that actually get
+  added) rather than on the GUI's separate preview copy.
+- 12 new tests (the grouping/reuse helper, both import paths including
+  undo atomicity, and confirming the GUI truly has only one Cluster
+  surface) plus fixes to 2 existing tests that referenced the removed
+  field - 707 passed total.
+
 ## v4.12.0 (Settings: 2-per-row layout; editable Workload Tier ratios)
 
 - **New: 2-per-row Settings layout** - sections that easily fit side

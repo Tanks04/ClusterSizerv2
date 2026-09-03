@@ -463,9 +463,9 @@ class ServersPage(QWidget):
         """Clusters are an opt-in, advanced concept (isolated failure
         domains within a site) - hidden by default so a simple, single-
         cluster project's Servers tab isn't cluttered with a section it
-        will never use. The "Cluster" column (index 17, the structured
+        will never use. The "Cluster" column (index 16, the structured
         one - not "Cluster Name" at 16, which stays visible either way
         since it's a plain free-text field, not part of this feature)
         is hidden the same way."""
         self.cluster_section.setVisible(enabled)
-        self.table.setColumnHidden(17, not enabled)
+        self.table.setColumnHidden(16, not enabled)

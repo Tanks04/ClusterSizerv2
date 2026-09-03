@@ -10,12 +10,12 @@ class ServerTableModel(QAbstractTableModel):
         "Name", "Status", "Site", "Vendor", "Model", "CPU",
         "Sockets", "Cores/Socket", "Threads/Core", "HT",
         "Total Cores", "Effective Cores",
-        "RAM (GB)", "GHz", "Warranty", "IP Address", "Cluster Name", "Cluster",
+        "RAM (GB)", "GHz", "Warranty", "IP Address", "Cluster",
         "Rack (U)", "Power (W)", "Notes",
     ]
 
     # Kolone koje se mogu direktno urediti u tablici (bez otvaranja dijaloga)
-    EDITABLE_COLUMNS = {6, 7, 8, 12, 13, 18, 19}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz, Rack(U), Power(W)
+    EDITABLE_COLUMNS = {6, 7, 8, 12, 13, 17, 18}  # Sockets, Cores/Socket, Threads/Core, RAM, GHz, Rack(U), Power(W)
 
     def __init__(
         self,
@@ -61,7 +61,7 @@ class ServerTableModel(QAbstractTableModel):
         server = self._servers[index.row()]
         column = index.column()
 
-        if role == Qt.ItemDataRole.BackgroundRole and column == 17 and server.cluster_uid:
+        if role == Qt.ItemDataRole.BackgroundRole and column == 16 and server.cluster_uid:
             from PySide6.QtGui import QColor
             cluster = next((c for c in self._clusters_provider() if c.uid == server.cluster_uid), None)
             if cluster:
@@ -104,15 +104,13 @@ class ServerTableModel(QAbstractTableModel):
             case 15:
                 return server.ip_address or "-"
             case 16:
-                return server.cluster_name or "-"
-            case 17:
                 cluster = next((c for c in self._clusters_provider() if c.uid == server.cluster_uid), None)
                 return cluster.name if cluster else "-"
-            case 18:
+            case 17:
                 return server.rack_units if server.rack_units else "-"
-            case 19:
+            case 18:
                 return server.power_watts if server.power_watts else "-"
-            case 20:
+            case 19:
                 return server.notes or "-"
 
         return None

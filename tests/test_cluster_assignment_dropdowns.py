@@ -72,17 +72,34 @@ def test_server_dialog_stale_cluster_reference_falls_back_to_none():
     assert dialog.cluster_combo.currentIndex() == 0
 
 
-def test_server_dialog_cluster_name_text_field_unaffected():
-    """The existing free-text cluster_name field must keep working
-    completely independently of the new structured dropdown."""
+def test_server_dialog_preserves_legacy_cluster_name_when_no_cluster_selected():
+    """The free-text field is gone from the GUI, but its underlying
+    model value (e.g. from an old import not yet linked to a
+    structured Cluster) is preserved rather than blanked out."""
     server = Server.create_default()
     server.cluster_name = "vSAN_HPM"
     dialog = ServerDialog(server, clusters=[])
 
-    assert dialog.cluster_name_edit.text() == "vSAN_HPM"
     result = dialog.get_server()
+
     assert result.cluster_name == "vSAN_HPM"
     assert result.cluster_uid == ""
+
+
+def test_server_dialog_syncs_cluster_name_from_selected_cluster():
+    """Selecting a structured Cluster keeps the legacy cluster_name
+    field meaningful for anyone still reading/exporting it, instead of
+    a separate manual text entry that could drift out of sync."""
+    cluster = Cluster.create_default(0)
+    cluster.name = "vSAN_HPM"
+    server = Server.create_default()
+    dialog = ServerDialog(server, clusters=[cluster])
+
+    dialog.cluster_combo.setCurrentIndex(1)
+    result = dialog.get_server()
+
+    assert result.cluster_uid == cluster.uid
+    assert result.cluster_name == "vSAN_HPM"
 
 
 # ----------------------------------------------------------------------
