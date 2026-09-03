@@ -1,4 +1,4 @@
-# ClusterSizer v4.17.1 - see src/version.py for the single source of truth
+# ClusterSizer v4.18.0 - see src/version.py for the single source of truth
 import faulthandler
 import sys
 import traceback
@@ -43,7 +43,7 @@ def _enable_crash_diagnostics() -> None:
 
     try:
         CRASH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _crash_log_file = open(CRASH_LOG_PATH, "a", encoding="utf-8", buffering=1)
+        _crash_log_file = open(CRASH_LOG_PATH, "a", encoding="utf-8", buffering=1)  # noqa: SIM115 - kept open for the app's whole lifetime, not this function's scope
         faulthandler.enable(file=_crash_log_file, all_threads=True)
     except OSError:
         _crash_log_file = None  # degrade to stderr-only below, never fail startup
@@ -65,7 +65,7 @@ def _resource_root() -> Path:
     is wrong when frozen by PyInstaller - a frozen build unpacks data files
     (see ClusterSizer.spec's datas=[...]) under sys._MEIPASS instead."""
     if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS)
+        return Path(getattr(sys, "_MEIPASS"))  # noqa: B009 - getattr avoids Pylance's reportAttributeAccessIssue for this PyInstaller-injected attribute
     return Path(__file__).parent
 
 

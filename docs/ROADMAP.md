@@ -1,5 +1,74 @@
 # ROADMAP
 
+## v4.18.0 (Storage array zoning moved to Servers tab; Cluster-based bulk assign)
+
+Requested directly: array-level storage zoning is fundamentally a
+server/host concept (which hosts a storage array is presented to), not
+a VM one - "Add Storage Array" moved off the VMs tab entirely, onto
+Servers where it belongs. Also introduces a Cluster as a bulk-assign
+shortcut: "pools are basically assigned to either a server or a
+Cluster."
+
+- **New: `Storage.server_uids`** - array-wide host zoning, parallel to
+  the existing `StoragePool.server_uids` one level down (a specific
+  pool within the array). Meaningful for an array that hasn't been
+  split into pools; once pools exist, per-pool zoning is normally more
+  precise, but this stays available as a simpler default.
+- **New: "Add Storage Array" row on the Servers tab** - a storage
+  dropdown with "Selected"/"All" buttons for individually-picked
+  servers, PLUS an "or Cluster:" picker that expands to every server
+  CURRENTLY in that cluster and zones them all at once. Explicitly a
+  one-time starting point, not a standing link - a server added to the
+  cluster afterward does NOT retroactively get zoned; existing zoning
+  can still be edited/removed per-server afterward. New
+  `ProjectService.add_servers_to_storage_zoning()` - additive, no
+  duplicates, one undo step regardless of how many servers.
+- **Removed "Add Storage Array" from the VMs tab** entirely (the
+  array-level bulk-assign row and its methods) - only the pool-
+  specific row remains there, relabeled **"VM Pool:"** for clarity now
+  that array-level zoning lives elsewhere.
+- Found and fixed the same "silently reset on save" bug class hit
+  twice before (`cluster_name`, then `disk_count`/`raid_level`/pools):
+  `StorageDialog.get_storage()` was resetting `server_uids` to empty
+  on every save, since no widget in that dialog edits it directly -
+  preserved the same way as the earlier fixes.
+- Deleted `test_vm_bulk_storage_assignment.py` entirely (13 tests for
+  the now-removed VMs-tab feature) and fixed one test in
+  `test_vm_bulk_pool_assignment.py` that referenced the old label.
+- 16 new tests (additive zoning with no duplicates, undo, all three
+  Servers-tab bulk-assign paths including the cluster snapshot-not-
+  sync behavior, and the `server_uids` preservation fix) - 808 passed
+  total.
+
+## v4.17.2 (Two more lint warnings in main.py - both legitimate false positives)
+
+Flagged directly: Pylance's `reportAttributeAccessIssue` on `sys.
+_MEIPASS` (line 68) and ruff's `SIM115` on a raw `open()` call (line
+46).
+
+- **`sys._MEIPASS`**: PyInstaller injects this attribute into `sys`
+  only at runtime for a frozen build - it has no type stubs, so
+  Pylance can't know it's valid even though the code already guards
+  access behind `if getattr(sys, "frozen", False)`. Switched to
+  `getattr(sys, "_MEIPASS")`, which sidesteps Pylance's static check.
+  That in turn triggered ruff's own B009 ("don't use getattr with a
+  constant name, it's not safer") - a real case of two tools
+  disagreeing, since ruff has no way to know the getattr was chosen
+  specifically to satisfy Pylance. Suppressed with an explanatory
+  `# noqa: B009` rather than picking one tool's opinion by trial and
+  error every time this file is touched.
+- **The raw `open()`**: intentional, not an oversight - the crash log
+  file is meant to stay open for the ENTIRE application lifetime
+  (`faulthandler` and the custom excepthook both write to it
+  continuously), not scoped to the function that opens it. A `with`
+  block would close it immediately, defeating persistent crash
+  logging entirely. Suppressed with `# noqa: SIM115` and an inline
+  reason instead of restructuring working, correct code to satisfy a
+  rule that doesn't apply to this pattern.
+- Scanned the rest of `src/`/`tests/` for the same two rule categories
+  - none found, both were isolated to these two lines. 805 passed,
+    unchanged.
+
 ## v4.17.1 (Import order cleanup - ruff)
 
 Flagged directly by ruff in an editor: unsorted imports at the top of

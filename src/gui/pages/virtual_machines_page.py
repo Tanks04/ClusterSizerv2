@@ -236,40 +236,11 @@ class VirtualMachinesPage(QWidget):
         move_row.addWidget(self.cluster_move_widgets)
         move_row.addSpacing(16)
 
-        self.storage_move_widgets = QWidget()
-        storage_move_row = QHBoxLayout(self.storage_move_widgets)
-        storage_move_row.setContentsMargins(0, 0, 0, 0)
-
-        storage_label = QLabel("Add Storage Array:")
-        storage_label.setToolTip(
-            "Assigns the VM's disk to a specific storage array - manage "
-            "the list on the Storage tab."
-        )
-        storage_move_row.addWidget(storage_label)
-
-        self.bulk_storage_combo = QComboBox()
-        storage_move_row.addWidget(self.bulk_storage_combo)
-
-        bulk_storage_selected_button = QPushButton("Selected")
-        bulk_storage_selected_button.setToolTip(
-            "Assigns the SELECTED VM(s) to the chosen array - one undo step."
-        )
-        bulk_storage_selected_button.clicked.connect(self._set_storage_for_selected_from_combo)
-        storage_move_row.addWidget(bulk_storage_selected_button)
-
-        bulk_storage_all_button = QPushButton("All")
-        bulk_storage_all_button.setToolTip("Assigns EVERY VM to the chosen array at once - one undo step.")
-        bulk_storage_all_button.clicked.connect(self._set_all_vms_storage)
-        storage_move_row.addWidget(bulk_storage_all_button)
-
-        move_row.addWidget(self.storage_move_widgets)
-        move_row.addSpacing(16)
-
         self.pool_move_widgets = QWidget()
         pool_move_row = QHBoxLayout(self.pool_move_widgets)
         pool_move_row.setContentsMargins(0, 0, 0, 0)
 
-        pool_label = QLabel("Add Pool:")
+        pool_label = QLabel("VM Pool:")
         pool_label.setToolTip(
             "Assigns the VM to a specific pool WITHIN an array (and that "
             "array too) - manage pools on the array's own dialog (Storage tab)."
@@ -592,31 +563,6 @@ class VirtualMachinesPage(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.service.bulk_set_vm_fields(self.service.project.vms, {"cluster_uid": cluster_uid})
 
-    def _set_storage_for_selected_from_combo(self):
-        vms = self._selected_vms()
-        if not vms:
-            QMessageBox.information(self, "Add Storage Array", "Select at least one VM in the table.")
-            return
-        storage_uid = self.bulk_storage_combo.currentData()
-        if not storage_uid:
-            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
-            return
-        self.service.bulk_set_vm_fields(vms, {"storage_uid": storage_uid})
-
-    def _set_all_vms_storage(self):
-        if not self.service.project.vms:
-            return
-        storage_uid = self.bulk_storage_combo.currentData()
-        if not storage_uid:
-            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
-            return
-        storage_name = self.bulk_storage_combo.currentText()
-        reply = QMessageBox.question(
-            self, "Add Storage Array",
-            f"Assign ALL {len(self.service.project.vms)} VM(s) to {storage_name}?",
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.service.bulk_set_vm_fields(self.service.project.vms, {"storage_uid": storage_uid})
 
     def _set_pool_for_selected_from_combo(self):
         vms = self._selected_vms()
@@ -749,7 +695,6 @@ class VirtualMachinesPage(QWidget):
 
         self._refresh_site_combos(project.site_names)
         self._refresh_cluster_combo(project.clusters)
-        self._refresh_storage_combo(project.storages)
         self._refresh_pool_combo(project.storages)
         self._refresh_custom_actions(project.site_names, project.clusters)
 
@@ -785,21 +730,6 @@ class VirtualMachinesPage(QWidget):
         if restored >= 0:
             self.bulk_cluster_combo.setCurrentIndex(restored)
         self.bulk_cluster_combo.blockSignals(False)
-
-    def _refresh_storage_combo(self, storages: list) -> None:
-        current_uid = self.bulk_storage_combo.currentData()
-        existing_uids = [self.bulk_storage_combo.itemData(i) for i in range(self.bulk_storage_combo.count())]
-        new_uids = [s.uid for s in storages]
-        if existing_uids == new_uids:
-            return
-        self.bulk_storage_combo.blockSignals(True)
-        self.bulk_storage_combo.clear()
-        for storage in storages:
-            self.bulk_storage_combo.addItem(storage.name or "(unnamed)", userData=storage.uid)
-        restored = self.bulk_storage_combo.findData(current_uid)
-        if restored >= 0:
-            self.bulk_storage_combo.setCurrentIndex(restored)
-        self.bulk_storage_combo.blockSignals(False)
 
     def _refresh_pool_combo(self, storages: list) -> None:
         current_data = self.bulk_pool_combo.currentData()
@@ -908,7 +838,6 @@ class VirtualMachinesPage(QWidget):
         column-hidden state set right after it."""
         self._advanced_mode = enabled
         self.cluster_move_widgets.setVisible(enabled)
-        self.storage_move_widgets.setVisible(enabled)
         self.pool_move_widgets.setVisible(enabled)
         self.refresh()
         self.table.setColumnHidden(11, not enabled)

@@ -129,6 +129,16 @@ class Storage:
     is_hci: bool = False
     hci_server_uids: list[str] = field(default_factory=list)
 
+    # Which servers/hosts are zoned to see this WHOLE array - the same
+    # idea as StoragePool.server_uids, one level coarser (the array as
+    # a whole rather than a specific pool carved from it). Meaningful
+    # for an array that hasn't been split into pools at all; once
+    # pools exist, per-pool zoning is normally more precise, but this
+    # stays available as a simpler default. Bulk-assignable from the
+    # Servers tab - can auto-populate from a Cluster's current member
+    # servers as a starting point, then be edited per-server afterward.
+    server_uids: list[str] = field(default_factory=list)
+
     # Optional calculator inputs - when both are set, the GUI can fill
     # raw_capacity_tb with their product (disk_count * disk_size_tb) as
     # a convenience, for both traditional arrays and HCI alike.

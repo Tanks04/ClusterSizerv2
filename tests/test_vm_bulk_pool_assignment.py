@@ -173,13 +173,14 @@ def test_pool_widgets_shown_when_advanced_enabled():
     assert page.pool_move_widgets.isVisible() is True
 
 
-def test_storage_array_label_renamed_for_consistency():
-    """The array-level row was originally labeled "Add Storage Pool"
-    before pools existed as their own concept - renamed to "Add
-    Storage Array" to avoid colliding with the new pool-specific row."""
+def test_add_storage_array_row_removed_and_pool_row_renamed():
+    """The array-level bulk-assign row moved to the Servers tab
+    entirely (servers get zoned to arrays there) - only the
+    pool-specific row remains here, relabeled "VM Pool:"."""
     service = ProjectService()
     page = VirtualMachinesPage(service)
 
+    assert not hasattr(page, "storage_move_widgets")
     from PySide6.QtWidgets import QLabel
-    label_texts = [w.text() for w in page.storage_move_widgets.findChildren(QLabel)]
-    assert "Add Storage Array:" in label_texts
+    label_texts = [w.text() for w in page.pool_move_widgets.findChildren(QLabel)]
+    assert "VM Pool:" in label_texts

@@ -4,11 +4,13 @@ import uuid
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QMessageBox,
+    QPushButton,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -108,6 +110,45 @@ class ServersPage(QWidget):
         toolbar.addWidget(self.ht_status_label)
 
         main_layout.addWidget(toolbar)
+
+        storage_zone_row = QHBoxLayout()
+        storage_zone_label = QLabel("Add Storage Array:")
+        storage_zone_label.setToolTip(
+            "Zones a storage array to servers/hosts - manage the list of "
+            "Storage entries on the Storage tab."
+        )
+        storage_zone_row.addWidget(storage_zone_label)
+
+        self.zone_storage_combo = QComboBox()
+        storage_zone_row.addWidget(self.zone_storage_combo)
+
+        zone_selected_button = QPushButton("Selected")
+        zone_selected_button.setToolTip(
+            "Zones the chosen array to the SELECTED server(s) - one undo step."
+        )
+        zone_selected_button.clicked.connect(self._zone_storage_to_selected_servers)
+        storage_zone_row.addWidget(zone_selected_button)
+
+        zone_all_button = QPushButton("All")
+        zone_all_button.setToolTip("Zones the chosen array to EVERY server at once - one undo step.")
+        zone_all_button.clicked.connect(self._zone_storage_to_all_servers)
+        storage_zone_row.addWidget(zone_all_button)
+
+        storage_zone_row.addSpacing(16)
+        storage_zone_row.addWidget(QLabel("or Cluster:"))
+
+        self.zone_cluster_combo = QComboBox()
+        storage_zone_row.addWidget(self.zone_cluster_combo)
+
+        zone_cluster_button = QPushButton("Assign")
+        zone_cluster_button.setToolTip(
+            "Zones the array to that cluster's current servers - a one-time "
+            "starting point, editable per-server afterward."
+        )
+        zone_cluster_button.clicked.connect(self._zone_storage_to_cluster_servers)
+        storage_zone_row.addWidget(zone_cluster_button)
+        storage_zone_row.addStretch()
+        main_layout.addLayout(storage_zone_row)
 
         #
         # Table
@@ -249,6 +290,49 @@ class ServersPage(QWidget):
             "Capacity (the FTT calculator there can estimate it for you).",
         )
 
+    def _zone_storage_to_selected_servers(self) -> None:
+        storage_uid = self.zone_storage_combo.currentData()
+        if not storage_uid:
+            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
+            return
+        servers = self._selected_servers()
+        if not servers:
+            QMessageBox.information(self, "Add Storage Array", "Select at least one server in the table.")
+            return
+        self.service.add_servers_to_storage_zoning(storage_uid, [s.uid for s in servers])
+
+    def _zone_storage_to_all_servers(self) -> None:
+        storage_uid = self.zone_storage_combo.currentData()
+        if not storage_uid:
+            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
+            return
+        if not self.service.project.servers:
+            return
+        storage_name = self.zone_storage_combo.currentText()
+        reply = QMessageBox.question(
+            self, "Add Storage Array",
+            f"Zone {storage_name} to ALL {len(self.service.project.servers)} server(s)?",
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.service.add_servers_to_storage_zoning(
+                storage_uid, [s.uid for s in self.service.project.servers],
+            )
+
+    def _zone_storage_to_cluster_servers(self) -> None:
+        storage_uid = self.zone_storage_combo.currentData()
+        if not storage_uid:
+            QMessageBox.information(self, "Add Storage Array", "Add a Storage entry first (Storage tab).")
+            return
+        cluster_uid = self.zone_cluster_combo.currentData()
+        if not cluster_uid:
+            QMessageBox.information(self, "Add Storage Array", "Add a Cluster first (below).")
+            return
+        member_uids = [s.uid for s in self.service.project.servers if s.cluster_uid == cluster_uid]
+        if not member_uids:
+            QMessageBox.information(self, "Add Storage Array", "That cluster has no servers in it yet.")
+            return
+        self.service.add_servers_to_storage_zoning(storage_uid, member_uids)
+
     def _bulk_edit_selected(self):
         servers = self._selected_servers()
         if not servers:
@@ -378,6 +462,38 @@ class ServersPage(QWidget):
         self.card_ram.set_value(f"{project.total_ram} GB")
 
         self._refresh_ht_global()
+        self._refresh_zone_storage_combo(project.storages)
+        self._refresh_zone_cluster_combo(project.clusters)
+
+    def _refresh_zone_storage_combo(self, storages: list) -> None:
+        current_uid = self.zone_storage_combo.currentData()
+        existing_uids = [self.zone_storage_combo.itemData(i) for i in range(self.zone_storage_combo.count())]
+        new_uids = [s.uid for s in storages]
+        if existing_uids == new_uids:
+            return
+        self.zone_storage_combo.blockSignals(True)
+        self.zone_storage_combo.clear()
+        for storage in storages:
+            self.zone_storage_combo.addItem(storage.name or "(unnamed)", userData=storage.uid)
+        restored = self.zone_storage_combo.findData(current_uid)
+        if restored >= 0:
+            self.zone_storage_combo.setCurrentIndex(restored)
+        self.zone_storage_combo.blockSignals(False)
+
+    def _refresh_zone_cluster_combo(self, clusters: list) -> None:
+        current_uid = self.zone_cluster_combo.currentData()
+        existing_uids = [self.zone_cluster_combo.itemData(i) for i in range(self.zone_cluster_combo.count())]
+        new_uids = [c.uid for c in clusters]
+        if existing_uids == new_uids:
+            return
+        self.zone_cluster_combo.blockSignals(True)
+        self.zone_cluster_combo.clear()
+        for cluster in clusters:
+            self.zone_cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
+        restored = self.zone_cluster_combo.findData(current_uid)
+        if restored >= 0:
+            self.zone_cluster_combo.setCurrentIndex(restored)
+        self.zone_cluster_combo.blockSignals(False)
 
     def _refresh_ht_global(self):
         summary = self.service.project.hyperthreading_summary()

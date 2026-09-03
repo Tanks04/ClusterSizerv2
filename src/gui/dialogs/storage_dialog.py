@@ -311,6 +311,7 @@ class StorageDialog(QDialog):
         self._loaded_disk_count = 0
         self._loaded_disk_size_tb = 0.0
         self._loaded_raid_level = ""
+        self._loaded_server_uids = []
         self._pools = []
 
         if storage is not None:
@@ -470,6 +471,7 @@ class StorageDialog(QDialog):
         self._loaded_disk_count = storage.disk_count
         self._loaded_disk_size_tb = storage.disk_size_tb
         self._loaded_raid_level = storage.raid_level
+        self._loaded_server_uids = list(storage.server_uids)
         self._pools = list(storage.pools)
         self._refresh_pools_table()
         self.name_edit.setText(storage.name)
@@ -531,6 +533,7 @@ class StorageDialog(QDialog):
         storage.disk_count = self._loaded_disk_count
         storage.disk_size_tb = self._loaded_disk_size_tb
         storage.raid_level = self._loaded_raid_level
+        storage.server_uids = self._loaded_server_uids
         storage.pools = self._pools
         storage.ftt_level = self.ftt_level_combo.currentData() or ""
 

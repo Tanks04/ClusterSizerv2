@@ -415,6 +415,22 @@ class ProjectService(QObject):
         self._project.storages[index] = storage
         self._notify(self.storages_changed)
 
+    def add_servers_to_storage_zoning(self, storage_uid: str, server_uids: list[str]) -> None:
+        """Adds the given servers to a Storage's server_uids (array-
+        wide host zoning) - additive, doesn't clear whatever's already
+        zoned there. One undo step, regardless of how many servers.
+        Used by all three Servers-tab bulk-assign paths (Selected/All/
+        By Cluster) - the cluster-expansion into member server uids
+        happens in the caller, this just appends without duplicates."""
+        storage = next((s for s in self._project.storages if s.uid == storage_uid), None)
+        if storage is None:
+            return
+        self._push_undo_snapshot()
+        for uid in server_uids:
+            if uid not in storage.server_uids:
+                storage.server_uids.append(uid)
+        self._notify(self.storages_changed)
+
     def remove_storages(self, storages: list[Storage]) -> None:
         self._push_undo_snapshot()
         removed = set(id(s) for s in storages)
