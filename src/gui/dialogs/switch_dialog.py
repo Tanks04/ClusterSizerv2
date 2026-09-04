@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -65,6 +66,13 @@ class SwitchDialog(QDialog):
             "VRRP; Active/Passive = firewall HA; Member = MLAG/stacking."
         )
         layout.addRow("Redundancy Role", self.redundancy_role_combo)
+
+        self.combo_ports_check = QCheckBox("Combo ports (same physical ports, multiple speeds)")
+        self.combo_ports_check.setToolTip(
+            "Check if the ports below are the SAME flexible ports (e.g. "
+            "1/10/25G on one port) rather than separate banks per speed."
+        )
+        layout.addRow("", self.combo_ports_check)
 
         self.ports_1g_spin = QSpinBox()
         self.ports_1g_spin.setRange(0, 512)
@@ -141,6 +149,7 @@ class SwitchDialog(QDialog):
         self.redundancy_group_edit.setText(switch.redundancy_group)
         role_index = self.redundancy_role_combo.findData(switch.redundancy_role)
         self.redundancy_role_combo.setCurrentIndex(role_index if role_index >= 0 else 0)
+        self.combo_ports_check.setChecked(switch.is_combo_ports)
         self.ports_1g_spin.setValue(switch.ports_1g)
         self.ports_10g_spin.setValue(switch.ports_10g)
         self.ports_25g_spin.setValue(switch.ports_25g)
@@ -165,6 +174,7 @@ class SwitchDialog(QDialog):
         switch.switch_type = self.type_combo.currentText()
         switch.redundancy_group = self.redundancy_group_edit.text()
         switch.redundancy_role = self.redundancy_role_combo.currentData() or ""
+        switch.is_combo_ports = self.combo_ports_check.isChecked()
         switch.ports_1g = self.ports_1g_spin.value()
         switch.ports_10g = self.ports_10g_spin.value()
         switch.ports_25g = self.ports_25g_spin.value()

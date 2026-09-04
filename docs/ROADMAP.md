@@ -1,5 +1,56 @@
 # ROADMAP
 
+## v4.22.0 (RAID Calculator can target a Storage Pool directly; switch combo ports)
+
+Reported directly with a concrete example: applying a RAID Calculator
+result to a Storage kept the resulting capacity but lost how many
+disks/what size it was built from - important to keep, since pools
+don't all use the same disk type (a 7x15TB NVMe pool alongside a
+10x SAS-SSD pool on the same array). Also: switch ports that
+auto-negotiate several speeds on the SAME physical port (a 24-port
+switch doing 1/10/25G) had no way to be declared as anything other
+than separate port banks per speed, making a 24-port switch look like
+48 ports.
+
+- **New: `StoragePool.disk_count`/`disk_size_tb`/`raid_level`** - each
+  pool now remembers its own disk composition, not just the array as
+  a whole.
+- **RAID Calculator gained "Storage Pool" as an apply target** - pick
+  any pool across any array, labeled "SAN01 \u203a NVMe-Pool". Selecting
+  an existing pool with disks already saved auto-preloads its disk
+  count/size/RAID level into the calculator - the "someone bought 4
+  more disks to expand this pool" workflow starts from what's already
+  there (bump 7 to 11) instead of from scratch.
+- **`StoragePoolDialog` gained its own "Open RAID Calculator..."
+  button**, placed directly above the Raw/Usable fields as requested -
+  opens the calculator pre-targeted at that exact pool, and refreshes
+  this dialog's own fields from the result once the calculator closes.
+- **Found and fixed a real, pre-existing undo bug** while building
+  this: all three RAID Calculator "Apply to" paths (Storage/Server,
+  and now Pool) mutated the live project object in place BEFORE
+  calling `update_storage()`/`update_server()` - since those methods
+  take their undo snapshot at the moment they're called, the snapshot
+  already reflected the NEW values, so Ctrl+Z did nothing after
+  applying a RAID calculation. Fixed by deep-copying before mutating
+  in all three paths.
+- **New: `NetworkSwitch.is_combo_ports`** - a checkbox meaning the
+  declared Ethernet speed counts (1G/10G/25G/40G/100G) describe the
+  SAME flexible physical ports, not separate dedicated banks. When
+  checked: `total_ports` uses the highest populated count instead of
+  summing them, and port usage tracking pools connections across all
+  those speeds into one shared total/used figure instead of tracking
+  each speed separately. FC/SAS ports stay genuinely additive always
+  (different physical media, never the same ports as Ethernet). The
+  Switches table's "Ports (declared)" column shows this clearly, e.g.
+  "1G/25G:24 (combo)" instead of "1G:1 25G:24" (which summed to a
+  misleading 25). Off by default - existing projects are unaffected.
+- 27 new tests covering the pool-targeting workflow end to end (list,
+  auto-preload, expand-and-apply, the no-existing-disks case not
+  clobbering manual entry), all three undo-fix scenarios, and combo
+  ports (model, port usage pooling, the exact reported Nexus example,
+  FC staying separate, overcommit detection, dialog and table display)
+  - 905 passed total.
+
 ## v4.21.0 (Word report: row numbers, Cluster as a table, full VM detail with smart column filtering, landscape)
 
 Second installment of the same large request - every table in the

@@ -426,7 +426,7 @@ class StorageDialog(QDialog):
 
     def _add_pool(self) -> None:
         vms = self._service.project.vms if self._service else []
-        dialog = StoragePoolDialog(servers=self._servers, vms=vms, parent=self)
+        dialog = StoragePoolDialog(servers=self._servers, vms=vms, service=self._service, parent=self)
         if dialog.exec():
             self._pools.append(dialog.get_pool())
             self._refresh_pools_table()
@@ -438,7 +438,7 @@ class StorageDialog(QDialog):
             return
         row = rows[0]
         vms = self._service.project.vms if self._service else []
-        dialog = StoragePoolDialog(self._pools[row], servers=self._servers, vms=vms, parent=self)
+        dialog = StoragePoolDialog(self._pools[row], servers=self._servers, vms=vms, service=self._service, parent=self)
         if dialog.exec():
             self._pools[row] = dialog.get_pool()
             self._refresh_pools_table()

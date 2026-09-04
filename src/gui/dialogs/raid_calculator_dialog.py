@@ -1,3 +1,5 @@
+import copy
+
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -100,7 +102,7 @@ class RaidCalculatorDialog(QDialog):
         target_form = QFormLayout(target_box)
 
         self.target_type_combo = QComboBox()
-        self.target_type_combo.addItems(["None (just calculating)", "Server", "Storage"])
+        self.target_type_combo.addItems(["None (just calculating)", "Server", "Storage", "Storage Pool"])
         self.target_type_combo.currentTextChanged.connect(self._on_target_type_changed)
         target_form.addRow("Target", self.target_type_combo)
 
@@ -167,6 +169,9 @@ class RaidCalculatorDialog(QDialog):
         self._update_apply_enabled()
 
     def _on_target_type_changed(self, target_type: str):
+        if getattr(self, "_pool_signal_connected", False):
+            self.target_entity_combo.currentIndexChanged.disconnect(self._on_pool_target_changed)
+            self._pool_signal_connected = False
         self.target_entity_combo.clear()
 
         if target_type == "Server":
@@ -177,10 +182,37 @@ class RaidCalculatorDialog(QDialog):
             self.target_entity_combo.setEnabled(True)
             for i, storage in enumerate(self.service.project.storages):
                 self.target_entity_combo.addItem(f"{storage.name} ({storage.site})", i)
+        elif target_type == "Storage Pool":
+            self.target_entity_combo.setEnabled(True)
+            for storage_index, storage in enumerate(self.service.project.storages):
+                for pool_index, pool in enumerate(storage.pools):
+                    label = f"{storage.name} \u203a {pool.name or '(unnamed)'}"
+                    self.target_entity_combo.addItem(label, (storage_index, pool_index))
+            self.target_entity_combo.currentIndexChanged.connect(self._on_pool_target_changed)
+            self._pool_signal_connected = True
+            if self.target_entity_combo.count() > 0:
+                self._on_pool_target_changed(0)
         else:
             self.target_entity_combo.setEnabled(False)
 
         self._update_apply_enabled()
+
+    def _on_pool_target_changed(self, index: int) -> None:
+        """Auto-preloads the selected pool's OWN saved disk_count/
+        disk_size_tb/raid_level into the input fields - the "someone
+        bought 4 more disks to expand this pool" workflow starts from
+        what's already there (e.g. 7 disks shown, bump to 11) rather
+        than from scratch every time."""
+        data = self.target_entity_combo.itemData(index)
+        if data is None:
+            return
+        storage_index, pool_index = data
+        pool = self.service.project.storages[storage_index].pools[pool_index]
+        if pool.disk_count > 0:
+            self.disk_count_spin.setValue(pool.disk_count)
+            self.disk_size_spin.setValue(pool.disk_size_tb)
+            if pool.raid_level:
+                self.raid_level_combo.setCurrentText(pool.raid_level)
 
     def _update_apply_enabled(self):
         target_type = self.target_type_combo.currentText()
@@ -209,9 +241,11 @@ class RaidCalculatorDialog(QDialog):
             self._apply_to_storage(index)
         elif target_type == "Server":
             self._apply_to_server(index)
+        elif target_type == "Storage Pool":
+            self._apply_to_pool(index)
 
     def _apply_to_storage(self, index: int):
-        storage = self.service.project.storages[index]
+        storage = copy.deepcopy(self.service.project.storages[index])
         result = self._current_result
 
         has_existing = storage.raw_capacity_tb > 0 or storage.usable_capacity_tb > 0
@@ -233,8 +267,35 @@ class RaidCalculatorDialog(QDialog):
 
         QMessageBox.information(self, "Apply RAID Calculation", f"Applied to {storage.name}.")
 
+    def _apply_to_pool(self, target_data: tuple[int, int]):
+        storage_index, pool_index = target_data
+        storage = copy.deepcopy(self.service.project.storages[storage_index])
+        pool = storage.pools[pool_index]
+        result = self._current_result
+
+        has_existing = pool.raw_capacity_tb > 0 or pool.usable_capacity_tb > 0
+        if has_existing:
+            reply = QMessageBox.question(
+                self, "Apply RAID Calculation",
+                f"{pool.name or '(unnamed)'} already has capacity set "
+                f"({pool.raw_capacity_tb:.1f} TB raw / "
+                f"{pool.usable_capacity_tb:.1f} TB usable). "
+                "Overwrite with the calculated values?",
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        pool.raw_capacity_tb = round(result.raw_capacity, 2)
+        pool.usable_capacity_tb = round(result.usable_capacity, 2)
+        pool.disk_count = self.disk_count_spin.value()
+        pool.disk_size_tb = self.disk_size_spin.value()
+        pool.raid_level = self.raid_level_combo.currentText()
+        self.service.update_storage(storage_index, storage)
+
+        QMessageBox.information(self, "Apply RAID Calculation", f"Applied to {pool.name or '(unnamed)'}.")
+
     def _apply_to_server(self, index: int):
-        server = self.service.project.servers[index]
+        server = copy.deepcopy(self.service.project.servers[index])
         result = self._current_result
 
         note = (

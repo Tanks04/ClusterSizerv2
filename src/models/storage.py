@@ -88,6 +88,22 @@ class StoragePool:
     server_uids: list[str] = field(default_factory=list)
     notes: str = ""
 
+    # What this pool is actually built from - unlike Storage's own
+    # disk_count/disk_size_tb/raid_level (which describe the array as
+    # ONE undivided whole), a pool needs its own copy since different
+    # pools on the same array commonly use different disk types
+    # entirely (e.g. a 7x15TB NVMe pool alongside a 10x SAS-SSD pool).
+    # Filled in via the RAID Calculator (opened from the pool's own
+    # dialog) - reported directly as important to keep, since "how
+    # many disks, what size" got lost once a RAID result was applied
+    # and only the resulting raw/usable capacity survived. Editing
+    # this pool's disks later (e.g. an admin buying 4 more 15TB disks
+    # to expand it) starts from these saved values instead of from
+    # scratch.
+    disk_count: int = 0
+    disk_size_tb: float = 0.0
+    raid_level: str = ""
+
     # PCI passthrough - the opposite assignment direction from
     # server_uids above. A normal pool is zoned to hosts, which the
     # hypervisor then presents to VMs as shared datastore capacity; a

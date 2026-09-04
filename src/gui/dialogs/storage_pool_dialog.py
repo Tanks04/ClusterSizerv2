@@ -10,7 +10,9 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
+    QPushButton,
     QVBoxLayout,
 )
 
@@ -25,10 +27,11 @@ class StoragePoolDialog(QDialog):
     masking), purely informational for capacity math - a VM picks a
     specific pool via its own Storage Pool field once one exists here."""
 
-    def __init__(self, pool: StoragePool | None = None, servers: list | None = None, vms: list | None = None, parent=None):
+    def __init__(self, pool: StoragePool | None = None, servers: list | None = None, vms: list | None = None, service=None, parent=None):
         super().__init__(parent)
         self._servers = servers or []
         self._vms = vms or []
+        self._service = service
 
         self.setWindowTitle("Storage Pool")
         self.resize(420, 480)
@@ -39,6 +42,14 @@ class StoragePoolDialog(QDialog):
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("e.g. SSD-Tier, SATA-Tier, App-Servers-Pool...")
         layout.addRow("Name", self.name_edit)
+
+        self.raid_calc_button = QPushButton("Open RAID Calculator...")
+        self.raid_calc_button.setToolTip(
+            "Full RAID sizing, pre-loaded with this pool's own disk count if "
+            "already saved - e.g. add 4 more disks to expand it."
+        )
+        self.raid_calc_button.clicked.connect(self._open_raid_calculator)
+        layout.addRow("", self.raid_calc_button)
 
         self.raw_spin = QDoubleSpinBox()
         self.raw_spin.setDecimals(2)
@@ -94,6 +105,9 @@ class StoragePoolDialog(QDialog):
         layout.addRow(buttons)
 
         self._uid = None
+        self._loaded_disk_count = 0
+        self._loaded_disk_size_tb = 0.0
+        self._loaded_raid_level = ""
         if pool is not None:
             self.load(pool)
 
@@ -101,8 +115,41 @@ class StoragePoolDialog(QDialog):
         self.form_layout.setRowVisible(self.passthrough_vm_combo, checked)
         self.form_layout.setRowVisible(self._servers_box, not checked)
 
+    def _open_raid_calculator(self) -> None:
+        if self._service is None:
+            QMessageBox.information(
+                self, "RAID Calculator",
+                "Open this from the Storage tab so it can find this project's data.",
+            )
+            return
+        from src.gui.dialogs.raid_calculator_dialog import RaidCalculatorDialog
+        dialog = RaidCalculatorDialog(self._service, parent=self)
+        if self._uid:
+            idx = dialog.target_type_combo.findText("Storage Pool")
+            dialog.target_type_combo.setCurrentIndex(idx)
+            for i in range(dialog.target_entity_combo.count()):
+                storage_index, pool_index = dialog.target_entity_combo.itemData(i)
+                if self._service.project.storages[storage_index].pools[pool_index].uid == self._uid:
+                    dialog.target_entity_combo.setCurrentIndex(i)
+                    break
+        dialog.exec()
+
+        if self._uid:
+            for storage in self._service.project.storages:
+                for pool in storage.pools:
+                    if pool.uid == self._uid:
+                        self.raw_spin.setValue(pool.raw_capacity_tb)
+                        self.usable_spin.setValue(pool.usable_capacity_tb)
+                        self._loaded_disk_count = pool.disk_count
+                        self._loaded_disk_size_tb = pool.disk_size_tb
+                        self._loaded_raid_level = pool.raid_level
+                        return
+
     def load(self, pool: StoragePool) -> None:
         self._uid = pool.uid
+        self._loaded_disk_count = pool.disk_count
+        self._loaded_disk_size_tb = pool.disk_size_tb
+        self._loaded_raid_level = pool.raid_level
         self.name_edit.setText(pool.name)
         self.raw_spin.setValue(pool.raw_capacity_tb)
         self.usable_spin.setValue(pool.usable_capacity_tb)
@@ -133,4 +180,7 @@ class StoragePoolDialog(QDialog):
             notes=self.notes_edit.toPlainText(),
             is_passthrough=self.passthrough_check.isChecked(),
             passthrough_vm_uid=self.passthrough_vm_combo.currentData() or "",
+            disk_count=self._loaded_disk_count,
+            disk_size_tb=self._loaded_disk_size_tb,
+            raid_level=self._loaded_raid_level,
         )

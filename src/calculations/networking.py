@@ -61,7 +61,40 @@ def _usage_by_speed(
 
 
 def switch_port_usage(switch: NetworkSwitch, connections: list[NetworkConnection]) -> list[PortUsage]:
-    return _usage_by_speed(switch, ["switch_uid", "switch_b_uid"], "ports_", connections)
+    if not switch.is_combo_ports:
+        return _usage_by_speed(switch, ["switch_uid", "switch_b_uid"], "ports_", connections)
+
+    ethernet_speeds = [s for s in SPEED_OPTIONS if s in ("1G", "10G", "25G", "40G", "100G")]
+    declared = {s: getattr(switch, f"ports_{SPEED_ATTR[s]}") for s in ethernet_speeds}
+    combo_total = max(declared.values(), default=0)
+
+    combo_used = 0
+    for conn in connections:
+        if conn.dedicated_link:
+            continue
+        if conn.speed in declared and any(
+            getattr(conn, attr) == switch.uid for attr in ("switch_uid", "switch_b_uid")
+        ):
+            combo_used += 1
+
+    populated_speeds = [s for s in ethernet_speeds if declared[s] > 0]
+    combo_label = "/".join(populated_speeds) + " (combo)" if populated_speeds else "combo"
+
+    result = []
+    if combo_total > 0 or combo_used > 0:
+        result.append(PortUsage(speed=combo_label, total=combo_total, used=combo_used))
+
+    for speed, port_prefix in (("FC", "ports_fc"), ("SAS", "ports_sas")):
+        total = getattr(switch, port_prefix)
+        used = sum(
+            1 for conn in connections
+            if not conn.dedicated_link and conn.speed == speed
+            and any(getattr(conn, attr) == switch.uid for attr in ("switch_uid", "switch_b_uid"))
+        )
+        if total > 0 or used > 0:
+            result.append(PortUsage(speed=speed, total=total, used=used))
+
+    return result
 
 
 def server_nic_usage(server: Server, connections: list[NetworkConnection]) -> list[PortUsage]:

@@ -79,17 +79,23 @@ class SwitchTableModel(QAbstractTableModel):
                 role_suffix = f" ({switch.redundancy_role})" if switch.redundancy_role else ""
                 return f"{switch.redundancy_group}{role_suffix}"
             case 6:
-                parts = []
-                if switch.ports_1g:
-                    parts.append(f"1G:{switch.ports_1g}")
-                if switch.ports_10g:
-                    parts.append(f"10G:{switch.ports_10g}")
-                if switch.ports_25g:
-                    parts.append(f"25G:{switch.ports_25g}")
-                if switch.ports_40g:
-                    parts.append(f"40G:{switch.ports_40g}")
-                if switch.ports_100g:
-                    parts.append(f"100G:{switch.ports_100g}")
+                if switch.is_combo_ports:
+                    ethernet = [switch.ports_1g, switch.ports_10g, switch.ports_25g, switch.ports_40g, switch.ports_100g]
+                    labels = ["1G", "10G", "25G", "40G", "100G"]
+                    populated = [labels[i] for i, v in enumerate(ethernet) if v]
+                    parts = [f"{'/'.join(populated)}:{max(ethernet)} (combo)"] if populated else []
+                else:
+                    parts = []
+                    if switch.ports_1g:
+                        parts.append(f"1G:{switch.ports_1g}")
+                    if switch.ports_10g:
+                        parts.append(f"10G:{switch.ports_10g}")
+                    if switch.ports_25g:
+                        parts.append(f"25G:{switch.ports_25g}")
+                    if switch.ports_40g:
+                        parts.append(f"40G:{switch.ports_40g}")
+                    if switch.ports_100g:
+                        parts.append(f"100G:{switch.ports_100g}")
                 if switch.ports_fc:
                     parts.append(f"FC:{switch.ports_fc}")
                 return " ".join(parts) if parts else "-"

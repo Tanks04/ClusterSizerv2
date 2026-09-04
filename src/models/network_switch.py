@@ -41,6 +41,21 @@ class NetworkSwitch:
     ports_fc: int = 0
     ports_sas: int = 0
 
+    # Reported directly: many real switches have flexible ports that
+    # auto-negotiate several Ethernet speeds on the SAME physical port
+    # (e.g. a 24-port switch where every port does 1/10/25G depending
+    # on what's plugged in) - entering "24" under both ports_1g and
+    # ports_25g to describe that ONE switch made total_ports look like
+    # 48, as if there were separate 1G-only and 25G-only port banks.
+    # When this is checked, the Ethernet speed fields (1g/10g/25g/40g/
+    # 100g) are read as DIFFERENT SPEED RATINGS OF THE SAME PORTS
+    # rather than separate port counts - total_ports uses the highest
+    # populated speed's count instead of summing them, and port usage
+    # tracking pools connections across all of them together. FC/SAS
+    # stay genuinely separate always (different physical media, never
+    # the same ports as Ethernet).
+    is_combo_ports: bool = False
+
     # Optional - a shared tag linking two (or more) devices into the
     # same redundant pair/set, e.g. an HSRP pair, a Palo Alto Active/
     # Passive HA pair, or an MLAG/VPC stack. Any devices sharing the
@@ -65,10 +80,9 @@ class NetworkSwitch:
 
     @property
     def total_ports(self) -> int:
-        return (
-            self.ports_1g + self.ports_10g + self.ports_25g
-            + self.ports_40g + self.ports_100g + self.ports_fc + self.ports_sas
-        )
+        ethernet_ports = [self.ports_1g, self.ports_10g, self.ports_25g, self.ports_40g, self.ports_100g]
+        ethernet_total = max(ethernet_ports) if self.is_combo_ports else sum(ethernet_ports)
+        return ethernet_total + self.ports_fc + self.ports_sas
 
     @staticmethod
     def create_default() -> "NetworkSwitch":
