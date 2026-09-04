@@ -12,6 +12,15 @@ from src.models.storage import Storage
 from src.models.virtual_machine import VirtualMachine
 
 
+def _all_table_text(document) -> str:
+    return "\n".join(
+        cell.text
+        for table in document.tables
+        for row in table.rows
+        for cell in row.cells
+    )
+
+
 def _build_sample_project() -> ClusterProject:
     project = ClusterProject(name="Test Project")
 
@@ -75,7 +84,7 @@ def test_build_docx_report_server_table_has_expected_row_count():
     # is the full server listing (1 header + 1 data row for our single server)
     server_detail_table = document.tables[1]
     assert len(server_detail_table.rows) == 2  # header + 1 server
-    assert server_detail_table.rows[1].cells[0].text == "esxi-p01"
+    assert server_detail_table.rows[1].cells[1].text == "esxi-p01"  # cell 0 is now the row number
 
 
 def test_build_docx_report_empty_project_does_not_crash():
@@ -153,21 +162,25 @@ def test_rack_sizing_shows_numbers_for_on_premise_site():
     project.servers.append(server)
 
     document = build_docx_report(project, Thresholds())
-    all_text = "\n".join(p.text for p in document.paragraphs)
+    all_text = "\n".join(p.text for p in document.paragraphs) + _all_table_text(document)
 
-    assert "Rack Sizing: 2 U, 500 W" in all_text
+    assert "2 U, 500 W" in all_text
 
 
 def test_rack_sizing_shows_cloud_for_a_cloud_site():
-    from src.models.cluster_project import CLOUD
+    from src.models.cluster_project import CLOUD, DR
+    from src.models.server import Server
 
     project = _build_sample_project()
     project.set_deployment_model(DR, CLOUD)
+    dr_server = Server.create_default()
+    dr_server.site = DR
+    project.servers.append(dr_server)
 
     document = build_docx_report(project, Thresholds())
-    all_text = "\n".join(p.text for p in document.paragraphs)
+    all_text = "\n".join(p.text for p in document.paragraphs) + _all_table_text(document)
 
-    assert "Rack Sizing: Cloud (not applicable)" in all_text
+    assert "Cloud (not applicable)" in all_text
 
 
 def test_rack_sizing_shows_used_and_capacity_when_capacity_is_set():
@@ -183,7 +196,7 @@ def test_rack_sizing_shows_used_and_capacity_when_capacity_is_set():
     project.set_rack_capacity_u(PRIMARY, 84)
 
     document = build_docx_report(project, Thresholds())
-    all_text = "\n".join(p.text for p in document.paragraphs)
+    all_text = "\n".join(p.text for p in document.paragraphs) + _all_table_text(document)
 
     assert "12 / 84 U, 500 W" in all_text
 
@@ -200,7 +213,7 @@ def test_rack_sizing_flags_over_capacity():
     project.set_rack_capacity_u(PRIMARY, 10)
 
     document = build_docx_report(project, Thresholds())
-    all_text = "\n".join(p.text for p in document.paragraphs)
+    all_text = "\n".join(p.text for p in document.paragraphs) + _all_table_text(document)
 
     assert "over capacity" in all_text
     assert "12 / 10 U" in all_text

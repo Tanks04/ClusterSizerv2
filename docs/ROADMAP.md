@@ -1,5 +1,102 @@
 # ROADMAP
 
+## v4.21.0 (Word report: row numbers, Cluster as a table, full VM detail with smart column filtering, landscape)
+
+Second installment of the same large request - every table in the
+report, the Cluster section's format, and the VM section's level of
+detail.
+
+- **Row numbers on every table** - a shared fix in the one `_add_table`
+  helper every section already uses, so it applies everywhere at once
+  rather than needing to touch each section individually. A dedicated
+  "Metric | Value" grid (Cluster's per-site metrics, the new VM
+  summary) opts out via `numbered=False`, since numbering a label:value
+  row doesn't mean anything.
+- **Cluster section rebuilt as a table** instead of a paragraph-by-
+  paragraph printout, matching how the app itself displays this data
+  (a metric/value grid) rather than a wall of "Label: value" lines.
+- **Empty sites (DR, most commonly) now show a short "Nothing
+  configured at {site} yet." note** instead of a full page of Rack
+  Sizing/CPU/RAM/Failover Readiness metrics that are all "n/a" or
+  zero - a site with 0 servers and 0 VMs has nothing meaningful to
+  report on.
+- **VM detail table gained every recorded field** - DR Category, IP
+  Address, OS, VLAN, Storage Array, Storage Pool, Cluster, Pinned
+  Server (new), Failover Sites, Notes, on top of the previous basic
+  set. Switches to landscape for this section (it's the last one, so
+  no need to switch back to portrait afterward).
+  - **Smart column filtering, added after direct feedback**: rather
+    than always showing all 10 optional columns (mostly "-" for a
+    typical project), each one only appears if AT LEAST ONE VM
+    actually has data in it - a project that's never touched VLANs/
+    Storage Pools/Notes gets a clean 7-column table instead of 17
+    mostly-empty ones. The 7 core columns (Name/Site/vCPU/RAM/Disk/
+    Power/Workload Tier) always show.
+  - For the case where everything genuinely IS filled in (all columns
+    survive the filter): explicit proportional column widths plus a
+    smaller 8pt font specifically for this table, cutting it from
+    2 pages of heavily-wrapped text down to 1 - verified by rendering
+    the actual PDF output and inspecting it, not just checking the
+    docx XML.
+- **New Summary block** at the end of the VMs section, mirroring the
+  VMs tab's own cards (VM count, vCPU/RAM demand, CPU oversubscription,
+  VM storage, Failover Assigned) - the report previously had no
+  aggregate view of the VM section at all, only the row-by-row detail.
+- Updated 6 existing tests that checked `document.paragraphs` text or
+  fixed cell indices - both legitimately changed by this work (data
+  moved into tables; the new row-number column shifted every other
+  column over by one).
+- 15 new tests covering row numbering, the empty-site skip, all three
+  column-filtering scenarios (nothing/some/everything filled), name
+  resolution for the new Pinned Server column, landscape orientation,
+  and the new summary block's totals (including powered-off VMs
+  correctly excluded from demand but still counted in the total) -
+  878 passed total.
+
+## v4.20.0 (VM disable/enable; VM-to-server pinning; Summary/Attention UI fixes)
+
+First installment of a large, multi-part request. Confirmed the
+Cluster-calculation gating already worked correctly (an empty cluster
+correctly returns None/shows "-", no attention noise) - added a
+regression test to lock that in rather than "fixing" something that
+wasn't broken.
+
+- **New: VM Disable/Enable** - right-click on one or several selected
+  VMs, mirroring Server's existing enable/disable pattern exactly.
+  Uses the VM's own pre-existing `powered_on` field (already excluded
+  from every capacity calculation) - this just adds the bulk toggle
+  action. New `ProjectService.set_powered_on_for_vms()`.
+- **New: `VirtualMachine.pinned_server_uid`** - pins a VM to one
+  specific physical server instead of floating at the Cluster level,
+  for seeing how loaded just that host would be from its own dedicated
+  VMs (e.g. a 3-server cluster where one host runs a couple of
+  specific pinned services alongside the cluster-wide workload).
+  Mutually exclusive with `cluster_uid` - `VMDialog`'s "Cluster"
+  dropdown became a combined "Cluster / Server" one (clusters, a
+  separator, then servers), picking either clears the other.
+  - New per-server calculations mirroring the existing per-cluster
+    ones one level down: `pinned_vms_for_server()`, `server_vcpu_
+    demand()`, `server_ram_demand_gb()`, `server_disk_demand_gb()`,
+    `server_cpu_ratio()`, `server_ram_ratio()`.
+  - Found and fixed a genuine PySide6 quirk while building this:
+    `QComboBox.findData()` unreliably fails to match tuple userData
+    once the combo also contains a separator item, even though the
+    stored data compares equal by hand (`itemData(i) == target` is
+    `True`, but `findData(target)` still returns -1). Confirmed by an
+    existing, previously-passing test breaking. Replaced with a plain
+    manual loop, which isn't affected.
+- **Summary page**: moved the "Show Rack Sizing" button to sit right
+  next to the "Rack Sizing" label (it was pushed to the far right of
+  the row, making Attention Needed below look like part of the Rack
+  Sizing section rather than its own thing).
+- **Attention panel**: title changed to bold, all-caps "ATTENTION
+  NEEDED" so it reads unambiguously as its own section. Right-click
+  any item for "Copy This Item" or "Copy All Items" - e.g. to paste
+  straight into an email.
+- 23 new tests covering all of the above, including the exact
+  `findData()` regression and the worked per-server load example
+  (2\u00d716c/512GB host, 4 pinned VMs) - 854 passed total.
+
 ## v4.19.0 (10 real defects from an external code review, including a guaranteed Compare-page crash)
 
 A friend ran two independent LLM code analyses of this repo and

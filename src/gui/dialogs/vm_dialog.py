@@ -26,12 +26,13 @@ from src.persistence import app_preferences
 
 class VMDialog(QDialog):
 
-    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, storages: list | None = None, clusters: list | None = None, sites: list | None = None, parent=None):
+    def __init__(self, vm: VirtualMachine | None = None, vlans: list | None = None, storages: list | None = None, clusters: list | None = None, servers: list | None = None, sites: list | None = None, parent=None):
         super().__init__(parent)
 
         self._vlans = vlans or []
         self._storages = storages or []
         self._clusters = clusters or []
+        self._servers = servers or []
 
         self.setWindowTitle("Virtual Machine")
 
@@ -140,14 +141,18 @@ class VMDialog(QDialog):
         self._refresh_storage_pool_combo()
 
         self.cluster_combo = QComboBox()
-        self.cluster_combo.addItem("(none)", userData="")
+        self.cluster_combo.addItem("(none)", userData=("", ""))
         for cluster in self._clusters:
-            self.cluster_combo.addItem(cluster.name or "(unnamed)", userData=cluster.uid)
+            self.cluster_combo.addItem(cluster.name or "(unnamed)", userData=("cluster", cluster.uid))
+        if self._clusters and self._servers:
+            self.cluster_combo.insertSeparator(self.cluster_combo.count())
+        for server in self._servers:
+            self.cluster_combo.addItem(f"\U0001f5a5 {server.name}", userData=("server", server.uid))
         self.cluster_combo.setToolTip(
-            "Isolated cluster this VM runs in, for per-cluster CPU/RAM tracking. "
-            "Manage the list on the Servers tab."
+            "Cluster-wide, or pin to one specific server to see just its own "
+            "dedicated VM load. Manage lists on the Servers tab."
         )
-        layout.addRow("Cluster", self.cluster_combo)
+        layout.addRow("Cluster / Server", self.cluster_combo)
         layout.setRowVisible(self.cluster_combo, app_preferences.load_advanced_mode())
 
         self.dr_category_combo = QComboBox()
@@ -220,8 +225,19 @@ class VMDialog(QDialog):
         self._refresh_storage_pool_combo()
         pool_index = self.storage_pool_combo.findData(vm.storage_pool_uid)
         self.storage_pool_combo.setCurrentIndex(pool_index if pool_index >= 0 else 0)
-        cluster_index = self.cluster_combo.findData(vm.cluster_uid)
-        self.cluster_combo.setCurrentIndex(cluster_index if cluster_index >= 0 else 0)
+        if vm.pinned_server_uid:
+            target = ("server", vm.pinned_server_uid)
+        elif vm.cluster_uid:
+            target = ("cluster", vm.cluster_uid)
+        else:
+            target = None
+        combo_index = -1
+        if target is not None:
+            for i in range(self.cluster_combo.count()):
+                if self.cluster_combo.itemData(i) == target:
+                    combo_index = i
+                    break
+        self.cluster_combo.setCurrentIndex(combo_index if combo_index >= 0 else 0)
         self.notes_edit.setPlainText(vm.notes)
 
         self.workload_combo.setCurrentText(vm.workload_tier)
@@ -246,7 +262,9 @@ class VMDialog(QDialog):
         vm.vlan_uid = self.vlan_combo.currentData() or ""
         vm.storage_uid = self.storage_combo.currentData() or ""
         vm.storage_pool_uid = self.storage_pool_combo.currentData() or ""
-        vm.cluster_uid = self.cluster_combo.currentData() or ""
+        combo_kind, combo_uid = self.cluster_combo.currentData() or ("", "")
+        vm.cluster_uid = combo_uid if combo_kind == "cluster" else ""
+        vm.pinned_server_uid = combo_uid if combo_kind == "server" else ""
         vm.notes = self.notes_edit.toPlainText()
         vm.workload_tier = self.workload_combo.currentText()
         vm.dr_category = self.dr_category_combo.currentText()

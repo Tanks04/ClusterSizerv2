@@ -17,6 +17,7 @@ from src.calculations.sizing import (
     build_reports,
 )
 from src.gui.widgets.attention_panel import AttentionPanel
+from src.gui.widgets.dedicated_server_widget import DedicatedServerWidget
 from src.gui.widgets.site_capacity_widget import SiteCapacityWidget
 from src.gui.widgets.summary_widget import SummaryWidget
 from src.services.project_service import ProjectService
@@ -129,6 +130,9 @@ class SummaryPage(QWidget):
         self.sites_grid = QGridLayout()
         layout.addLayout(self.sites_grid)
 
+        self.dedicated_server_widget = DedicatedServerWidget()
+        layout.addWidget(self.dedicated_server_widget)
+
         self.failover_preview_note_label = QLabel(
             "\u26a0 Showing the FAILOVER scenario for every site - live load + "
             "assigned failover VMs' footprint, not what's actually running today."
@@ -155,7 +159,7 @@ class SummaryPage(QWidget):
         rack_title.setFont(rack_title_font)
         rack_header.addWidget(rack_title)
 
-        rack_header.addStretch()
+        rack_header.addSpacing(12)
 
         self.rack_toggle_button = QPushButton("Show Rack Sizing")
         self.rack_toggle_button.setCheckable(True)
@@ -169,6 +173,7 @@ class SummaryPage(QWidget):
         )
         self.rack_toggle_button.toggled.connect(self._on_rack_toggle)
         rack_header.addWidget(self.rack_toggle_button)
+        rack_header.addStretch()
 
         layout.addLayout(rack_header)
 
@@ -253,6 +258,8 @@ class SummaryPage(QWidget):
         #
 
         self.title_label.setText(project.name or "ClusterSizer")
+
+        self.dedicated_server_widget.set_data(project, thresholds)
 
         self.card_servers.set_value(project.server_count)
         self.card_cores.set_value(project.total_cores)

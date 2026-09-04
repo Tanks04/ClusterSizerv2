@@ -88,6 +88,18 @@ class VirtualMachine:
     # toward the site-wide aggregate as it always has.
     cluster_uid: str = ""
 
+    # Optional reference to a Server.uid - pins this VM to ONE specific
+    # physical host rather than floating at the Cluster level. Mutually
+    # exclusive with cluster_uid above (the VM dialog's combined
+    # dropdown enforces this - picking a server clears any cluster
+    # assignment and vice versa): a cluster of several hosts might run
+    # most VMs cluster-wide, but a few specific services pinned to one
+    # particular host - this is for seeing how loaded THAT host would
+    # be from just its own dedicated VMs, separate from the cluster-
+    # wide aggregate. Same opt-in spirit as cluster_uid - empty by
+    # default, doesn't change anything until explicitly set.
+    pinned_server_uid: str = ""
+
     notes: str = ""
 
     @staticmethod

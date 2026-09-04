@@ -344,6 +344,36 @@ class ClusterProject:
         return self.cluster_ram_demand_gb(cluster_uid) / ram
 
     # ------------------------------------------------------------------
+    # Per-server pinned VM demand - for a VM pinned directly to ONE
+    # server (VM.pinned_server_uid) rather than floating at the Cluster
+    # or site level. Lets someone see "if only these specific VMs run
+    # on this one host, how loaded would it actually be" - independent
+    # of whatever the host's parent Cluster (if any) looks like overall.
+    # ------------------------------------------------------------------
+
+    def pinned_vms_for_server(self, server_uid: str) -> list:
+        return [v for v in self.vms if v.pinned_server_uid == server_uid and v.powered_on]
+
+    def server_vcpu_demand(self, server_uid: str) -> int:
+        return sum(v.vcpu for v in self.pinned_vms_for_server(server_uid))
+
+    def server_ram_demand_gb(self, server_uid: str) -> float:
+        return sum(v.ram_gb for v in self.pinned_vms_for_server(server_uid))
+
+    def server_disk_demand_gb(self, server_uid: str) -> float:
+        return sum(v.disk_gb for v in self.pinned_vms_for_server(server_uid))
+
+    def server_cpu_ratio(self, server: Server) -> float | None:
+        if server.effective_cores == 0:
+            return None
+        return self.server_vcpu_demand(server.uid) / server.effective_cores
+
+    def server_ram_ratio(self, server: Server) -> float | None:
+        if server.ram_gb == 0:
+            return None
+        return self.server_ram_demand_gb(server.uid) / server.ram_gb
+
+    # ------------------------------------------------------------------
     # N+1 check (does the cluster survive losing one host at this site)
     # ------------------------------------------------------------------
     # Hyperthreading state summary - "all_on" / "all_off" / "mixed" /

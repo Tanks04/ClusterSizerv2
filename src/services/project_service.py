@@ -364,6 +364,18 @@ class ProjectService(QObject):
             server.enabled = enabled
         self._notify(self.servers_changed)
 
+    def set_powered_on_for_vms(self, vms: list[VirtualMachine], powered_on: bool) -> None:
+        """Same idea as set_enabled_for_servers, for VM.powered_on -
+        already excluded from every vCPU/RAM/disk demand calculation
+        throughout the app; this is the bulk right-click toggle for it.
+        One undo snapshot for the whole selection."""
+        if not vms:
+            return
+        self._push_undo_snapshot()
+        for vm in vms:
+            vm.powered_on = powered_on
+        self._notify(self.vms_changed)
+
     def update_server(self, index: int, server: Server) -> None:
         self._push_undo_snapshot()
         self._project.servers[index] = server

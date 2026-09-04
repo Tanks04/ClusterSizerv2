@@ -345,7 +345,7 @@ class VirtualMachinesPage(QWidget):
         return [self.model.vm_at(row) for row in self.table.selected_rows()]
 
     def _add_vm(self):
-        dialog = VMDialog(vlans=self.service.project.vlans, storages=self.service.project.storages, clusters=self.service.project.clusters, sites=self.service.project.site_names, parent=self)
+        dialog = VMDialog(vlans=self.service.project.vlans, storages=self.service.project.storages, clusters=self.service.project.clusters, servers=self.service.project.servers, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.add_vm(dialog.get_vm())
 
@@ -357,7 +357,7 @@ class VirtualMachinesPage(QWidget):
 
         row = rows[0]
         vm = self.model.vm_at(row)
-        dialog = VMDialog(vm, vlans=self.service.project.vlans, storages=self.service.project.storages, clusters=self.service.project.clusters, sites=self.service.project.site_names, parent=self)
+        dialog = VMDialog(vm, vlans=self.service.project.vlans, storages=self.service.project.storages, clusters=self.service.project.clusters, servers=self.service.project.servers, sites=self.service.project.site_names, parent=self)
         if dialog.exec():
             self.service.update_vm(row, dialog.get_vm())
 
@@ -621,6 +621,13 @@ class VirtualMachinesPage(QWidget):
             "Assignments table below if needed.",
         )
 
+    def _set_powered_on_for_selected(self, powered_on: bool) -> None:
+        vms = self._selected_vms()
+        if not vms:
+            QMessageBox.information(self, "Disable" if not powered_on else "Enable", "Select at least one VM in the table.")
+            return
+        self.service.set_powered_on_for_vms(vms, powered_on)
+
     def _set_site_for_selected_from_combo(self):
         vms = self._selected_vms()
         if not vms:
@@ -752,9 +759,13 @@ class VirtualMachinesPage(QWidget):
 
     def _refresh_custom_actions(self, site_names: list[str], clusters: list | None = None) -> None:
         actions = [
+            ("\U0001f6d1 Disable (exclude from capacity)", lambda checked=False: self._set_powered_on_for_selected(False)),
+            ("\u2705 Enable", lambda checked=False: self._set_powered_on_for_selected(True)),
+        ]
+        actions.extend(
             (f"\U0001f4cd Move to {site}", lambda checked=False, s=site: self._set_site_for_selected(s))
             for site in site_names
-        ]
+        )
         actions.extend(
             (f"\u2708 Assign to Failover ({site})", lambda checked=False, s=site: self._assign_selected_to_failover(s))
             for site in site_names

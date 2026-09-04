@@ -114,7 +114,7 @@ def test_docx_report_includes_a_third_site():
     doc = build_docx_report(project, Thresholds(), app_version="test")
 
     found = any(
-        row.cells[0].text == "DR2"
+        row.cells[1].text == "DR2"
         for table in doc.tables
         for row in table.rows
     )
