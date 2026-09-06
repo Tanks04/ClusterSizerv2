@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -50,6 +51,10 @@ class StoragePoolDialog(QDialog):
         )
         self.raid_calc_button.clicked.connect(self._open_raid_calculator)
         layout.addRow("", self.raid_calc_button)
+
+        self.disk_summary_label = QLabel("")
+        self.disk_summary_label.setStyleSheet("color: #555;")
+        layout.addRow("Disks", self.disk_summary_label)
 
         self.raw_spin = QDoubleSpinBox()
         self.raw_spin.setDecimals(2)
@@ -110,6 +115,16 @@ class StoragePoolDialog(QDialog):
         self._loaded_raid_level = ""
         if pool is not None:
             self.load(pool)
+        self._refresh_disk_summary_label()
+
+    def _refresh_disk_summary_label(self) -> None:
+        if self._loaded_disk_count > 0:
+            level_text = f", {self._loaded_raid_level}" if self._loaded_raid_level else ""
+            self.disk_summary_label.setText(
+                f"{self._loaded_disk_count}x {self._loaded_disk_size_tb:g}TB{level_text}"
+            )
+        else:
+            self.disk_summary_label.setText("Not yet configured - use the RAID Calculator above")
 
     def _on_passthrough_toggled(self, checked: bool) -> None:
         self.form_layout.setRowVisible(self.passthrough_vm_combo, checked)
@@ -123,15 +138,23 @@ class StoragePoolDialog(QDialog):
             )
             return
         from src.gui.dialogs.raid_calculator_dialog import RaidCalculatorDialog
-        dialog = RaidCalculatorDialog(self._service, parent=self)
+        locked_target = None
         if self._uid:
-            idx = dialog.target_type_combo.findText("Storage Pool")
-            dialog.target_type_combo.setCurrentIndex(idx)
-            for i in range(dialog.target_entity_combo.count()):
-                storage_index, pool_index = dialog.target_entity_combo.itemData(i)
-                if self._service.project.storages[storage_index].pools[pool_index].uid == self._uid:
-                    dialog.target_entity_combo.setCurrentIndex(i)
-                    break
+            for storage_index, storage in enumerate(self._service.project.storages):
+                for pool_index, pool in enumerate(storage.pools):
+                    if pool.uid == self._uid:
+                        locked_target = ("Storage Pool", (storage_index, pool_index))
+                        break
+        if locked_target is None:
+            # Brand new pool - not yet in the project, so there's no
+            # real entity to target. Without this, the calculator's
+            # "Which one" list only shows EXISTING pools - picking one
+            # and applying would silently overwrite it instead of
+            # creating this new pool. Force calculation-only mode and
+            # read the result directly off the calculator's own
+            # widgets once it closes, instead of "applying" anywhere.
+            locked_target = ("None", None)
+        dialog = RaidCalculatorDialog(self._service, locked_target=locked_target, parent=self)
         dialog.exec()
 
         if self._uid:
@@ -143,7 +166,15 @@ class StoragePoolDialog(QDialog):
                         self._loaded_disk_count = pool.disk_count
                         self._loaded_disk_size_tb = pool.disk_size_tb
                         self._loaded_raid_level = pool.raid_level
+                        self._refresh_disk_summary_label()
                         return
+        elif dialog._current_result is not None:
+            self.raw_spin.setValue(round(dialog._current_result.raw_capacity, 2))
+            self.usable_spin.setValue(round(dialog._current_result.usable_capacity, 2))
+            self._loaded_disk_count = dialog.disk_count_spin.value()
+            self._loaded_disk_size_tb = dialog.disk_size_spin.value()
+            self._loaded_raid_level = dialog.raid_level_combo.currentText()
+            self._refresh_disk_summary_label()
 
     def load(self, pool: StoragePool) -> None:
         self._uid = pool.uid

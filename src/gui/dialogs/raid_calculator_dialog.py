@@ -31,9 +31,10 @@ class RaidCalculatorDialog(QDialog):
     to the project, and only after confirming if it would overwrite
     existing values."""
 
-    def __init__(self, service: ProjectService, parent=None):
+    def __init__(self, service: ProjectService, locked_target: tuple[str, object] | None = None, parent=None):
         super().__init__(parent)
         self.service = service
+        self._locked_target = locked_target
         self.setWindowTitle("RAID Calculator")
         self.resize(480, 480)
 
@@ -101,6 +102,11 @@ class RaidCalculatorDialog(QDialog):
         target_box = QGroupBox("Apply to")
         target_form = QFormLayout(target_box)
 
+        self.locked_target_label = QLabel("")
+        self.locked_target_label.setStyleSheet("font-weight: bold;")
+        self.locked_target_label.setVisible(False)
+        target_form.addRow("Applying to", self.locked_target_label)
+
         self.target_type_combo = QComboBox()
         self.target_type_combo.addItems(["None (just calculating)", "Server", "Storage", "Storage Pool"])
         self.target_type_combo.currentTextChanged.connect(self._on_target_type_changed)
@@ -133,6 +139,39 @@ class RaidCalculatorDialog(QDialog):
         self._current_result = None
         self._on_raid_level_changed(self.raid_level_combo.currentText())
         self._recompute()
+
+        if self._locked_target is not None:
+            self._setup_locked_target()
+
+    def _setup_locked_target(self) -> None:
+        target_type, target_value = self._locked_target
+
+        if target_type == "Storage Pool":
+            self.target_type_combo.setCurrentText(target_type)
+            storage_index, pool_index = target_value
+            for i in range(self.target_entity_combo.count()):
+                if self.target_entity_combo.itemData(i) == (storage_index, pool_index):
+                    self.target_entity_combo.setCurrentIndex(i)
+                    break
+            pool = self.service.project.storages[storage_index].pools[pool_index]
+            label_text = f"{self.service.project.storages[storage_index].name} \u203a {pool.name or '(unnamed)'}"
+        elif target_type == "Storage":
+            self.target_type_combo.setCurrentText(target_type)
+            self.target_entity_combo.setCurrentIndex(target_value)
+            label_text = self.service.project.storages[target_value].name or "(unnamed)"
+        elif target_type == "Server":
+            self.target_type_combo.setCurrentText(target_type)
+            self.target_entity_combo.setCurrentIndex(target_value)
+            label_text = self.service.project.servers[target_value].name or "(unnamed)"
+        else:
+            self.target_type_combo.setCurrentText("None (just calculating)")
+            label_text = "New pool - close this window to use these values"
+
+        self.locked_target_label.setText(label_text)
+        self.locked_target_label.setVisible(True)
+        target_form = self.target_type_combo.parentWidget().layout()
+        target_form.setRowVisible(self.target_type_combo, False)
+        target_form.setRowVisible(self.target_entity_combo, False)
 
     def _on_raid_level_changed(self, level: str):
         is_nested = level in ("RAID 50", "RAID 60")
@@ -169,9 +208,9 @@ class RaidCalculatorDialog(QDialog):
         self._update_apply_enabled()
 
     def _on_target_type_changed(self, target_type: str):
-        if getattr(self, "_pool_signal_connected", False):
-            self.target_entity_combo.currentIndexChanged.disconnect(self._on_pool_target_changed)
-            self._pool_signal_connected = False
+        if getattr(self, "_preload_signal_connected", False):
+            self.target_entity_combo.currentIndexChanged.disconnect(self._on_target_entity_changed)
+            self._preload_signal_connected = False
         self.target_entity_combo.clear()
 
         if target_type == "Server":
@@ -182,20 +221,48 @@ class RaidCalculatorDialog(QDialog):
             self.target_entity_combo.setEnabled(True)
             for i, storage in enumerate(self.service.project.storages):
                 self.target_entity_combo.addItem(f"{storage.name} ({storage.site})", i)
+            self._connect_preload(target_type)
         elif target_type == "Storage Pool":
             self.target_entity_combo.setEnabled(True)
             for storage_index, storage in enumerate(self.service.project.storages):
                 for pool_index, pool in enumerate(storage.pools):
                     label = f"{storage.name} \u203a {pool.name or '(unnamed)'}"
                     self.target_entity_combo.addItem(label, (storage_index, pool_index))
-            self.target_entity_combo.currentIndexChanged.connect(self._on_pool_target_changed)
-            self._pool_signal_connected = True
-            if self.target_entity_combo.count() > 0:
-                self._on_pool_target_changed(0)
+            self._connect_preload(target_type)
         else:
             self.target_entity_combo.setEnabled(False)
 
         self._update_apply_enabled()
+
+    def _connect_preload(self, target_type: str) -> None:
+        self._preload_target_type = target_type
+        self.target_entity_combo.currentIndexChanged.connect(self._on_target_entity_changed)
+        self._preload_signal_connected = True
+        if self.target_entity_combo.count() > 0:
+            self._on_target_entity_changed(0)
+
+    def _on_target_entity_changed(self, index: int) -> None:
+        """Auto-preloads the selected Storage's or Storage Pool's OWN
+        saved disk_count/disk_size_tb/raid_level into the input fields
+        - the "someone bought 4 more disks to expand this" workflow
+        starts from what's already there (e.g. 7 disks shown, bump to
+        11) rather than from scratch every time."""
+        if self._preload_target_type == "Storage":
+            if index < 0 or index >= len(self.service.project.storages):
+                return
+            entity = self.service.project.storages[index]
+        else:
+            data = self.target_entity_combo.itemData(index)
+            if data is None:
+                return
+            storage_index, pool_index = data
+            entity = self.service.project.storages[storage_index].pools[pool_index]
+
+        if entity.disk_count > 0:
+            self.disk_count_spin.setValue(entity.disk_count)
+            self.disk_size_spin.setValue(entity.disk_size_tb)
+            if entity.raid_level:
+                self.raid_level_combo.setCurrentText(entity.raid_level)
 
     def _on_pool_target_changed(self, index: int) -> None:
         """Auto-preloads the selected pool's OWN saved disk_count/
@@ -213,6 +280,7 @@ class RaidCalculatorDialog(QDialog):
             self.disk_size_spin.setValue(pool.disk_size_tb)
             if pool.raid_level:
                 self.raid_level_combo.setCurrentText(pool.raid_level)
+
 
     def _update_apply_enabled(self):
         target_type = self.target_type_combo.currentText()
@@ -263,6 +331,9 @@ class RaidCalculatorDialog(QDialog):
         storage.raw_capacity_tb = round(result.raw_capacity, 2)
         storage.usable_capacity_tb = round(result.usable_capacity, 2)
         storage.raid_overhead_percent = round(result.overhead_percent, 1)
+        storage.disk_count = self.disk_count_spin.value()
+        storage.disk_size_tb = self.disk_size_spin.value()
+        storage.raid_level = self.raid_level_combo.currentText()
         self.service.update_storage(index, storage)
 
         QMessageBox.information(self, "Apply RAID Calculation", f"Applied to {storage.name}.")

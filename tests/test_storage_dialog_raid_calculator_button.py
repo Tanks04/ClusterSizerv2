@@ -61,7 +61,7 @@ def test_opening_with_a_service_launches_the_real_dialog():
         MockDialog.return_value.exec.return_value = 0
         dialog._open_raid_calculator()
 
-    MockDialog.assert_called_once_with(service, parent=dialog)
+    MockDialog.assert_called_once_with(service, locked_target=None, parent=dialog)
 
 
 # ----------------------------------------------------------------------

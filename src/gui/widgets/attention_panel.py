@@ -29,8 +29,7 @@ class AttentionPanel(QGroupBox):
         self._item_labels: list[QLabel] = []
         self._messages: list[str] = []
 
-    def _show_context_menu(self, pos, message: str) -> None:
-        label = self.sender()
+    def _show_context_menu(self, pos, message: str, label: QLabel) -> None:
         menu = QMenu(self)
         menu.addAction("Copy This Item", lambda: QGuiApplication.clipboard().setText(message))
         if len(self._messages) > 1:
@@ -60,7 +59,7 @@ class AttentionPanel(QGroupBox):
             label.setWordWrap(True)
             label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             label.customContextMenuRequested.connect(
-                lambda pos, msg=item.message: self._show_context_menu(pos, msg)
+                lambda pos, msg=item.message, lbl=label: self._show_context_menu(pos, msg, lbl)
             )
             self._layout.addWidget(label)
             self._item_labels.append(label)

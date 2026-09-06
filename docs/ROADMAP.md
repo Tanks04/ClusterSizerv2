@@ -1,5 +1,117 @@
 # ROADMAP
 
+## v4.25.0 (Fixed: RAID Calculator silently overwrote an existing pool instead of creating a new one)
+
+Reported directly with exact reproduction steps: open Storage, Add
+Pool, open the RAID Calculator from within that new pool's form - the
+"Which one" target list only ever showed EXISTING pools (a brand new
+one has nowhere to be targeted, since it doesn't exist in the project
+yet), so picking one and applying silently overwrote it instead of
+setting up the new pool at all.
+
+- **Root cause fixed**: `StoragePoolDialog` opening the calculator for
+  a not-yet-saved pool now forces a new locked-target mode
+  (`("None", None)`) - the "Apply to" picker disappears entirely,
+  replaced by "New pool - close this window to use these values", and
+  the calculated numbers are read directly off the calculator's own
+  widgets once closed, with nothing in the project ever touched.
+  Verified the existing pool is completely untouched afterward, and
+  that the already-working "expand an existing pool" flow (added last
+  version) still works unchanged.
+- **Section title simplified** to "Storage Pools" (was "Storage Pools
+  (optional - carve this array into several)") - "we don't split, we
+  build."
+- **New: visible "Disks" line in `StoragePoolDialog`** (e.g. "10x
+  12TB, RAID 5"), mirroring the same fix already made to
+  `StorageDialog` - the composition was being saved and preserved
+  through edits but had nowhere to actually be seen at the pool level.
+- **New: "Disks" column in the pools table** showing each pool's own
+  composition at a glance, plus a **"Total across pools: N disks"**
+  summary line below it (or "Total (whole array, no pools): N disks"
+  for an array that isn't split into pools) - answers "how many disks
+  total in this storage" directly, across however many pools exist.
+- Widened the pools table's numeric columns to fit their content
+  precisely, giving the Name column its fair share back (the new
+  Disks column had squeezed pool names down to 2-3 visible
+  characters) - confirmed with a rendered screenshot.
+- 15 new tests covering the exact reported bug scenario end to end
+  (new pool gets its own values, existing pool untouched, existing-
+  pool flow still works), the simplified title, both new visibility
+  features, and the aggregate total in all three states (pools
+  present, whole-array fallback, nothing configured) - 945 passed
+  total.
+
+## v4.24.0 (Storage Pools now export to the Word report)
+
+Direct follow-up question after v4.23.0's pool visibility fixes: "will
+this also export to the document, with each storage?" - checked the
+actual report code before answering, and the answer was no - the
+Storage section only ever printed each array's own aggregate Raw/
+Usable/Overhead, with no per-pool breakdown at all.
+
+- **New "Storage Pools" table** in the report's Storage section, right
+  after "All Storage Systems" - one row per pool across every array,
+  showing which array it belongs to, its disk composition (e.g. "7x
+  15TB, RAID 5", matching the same format now shown in the app's own
+  Storage dialog), Raw/Usable capacity, and how it's zoned (server
+  count, "PCI Passthrough", or "-" for an unzoned pool).
+- The table is entirely absent for a project where no storage array
+  has any pools defined - most projects don't use this feature, and
+  an empty table with just headers would be noise.
+- 6 new tests: the table appearing with correct data, staying absent
+  with zero pools anywhere, listing pools from multiple arrays
+  correctly, and each of the three "Zoned To" states (passthrough,
+  server count, none) - plus a rendered PDF check confirming the
+  table reads cleanly. 930 passed total.
+
+## v4.23.0 (Fixed: Attention copy never worked; the actual root cause of the missing disk count)
+
+Direct feedback after v4.22.0 shipped: Attention item copy still
+didn't work, a new Storage still defaulted to 100/80, and - most
+importantly - disk count/size still didn't show up anywhere after
+applying a RAID calculation, even after v4.22.0's pool-targeting work.
+
+- **Attention copy - a real bug, not a stale claim.** `self.sender()`
+  inside the context-menu handler returned `None` in this connection
+  pattern (a lambda-wrapped signal connection), causing an
+  `AttributeError` that silently swallowed every right-click - copy
+  never worked despite the feature "existing" since v4.20.0. Confirmed
+  with a direct `QContextMenuEvent` reproduction before fixing; fixed
+  by passing the label explicitly through the lambda closure instead
+  of relying on `sender()`.
+- **New Storage still defaulted to 100/80TB** - the spinbox
+  construction-time defaults were still 100.0/80.0. Now 0/0, matching
+  the model's own field defaults. Also removed a now-redundant
+  HCI-toggle reset that existed only to paper over the old 80.0
+  default.
+- **The actual root cause of "disk count disappears"**: applying a RAID
+  calculation to a *Storage* (as opposed to a Storage Pool) never
+  wrote `disk_count`/`disk_size_tb`/`raid_level` onto the Storage at
+  all - only the resulting Raw/Usable capacity. v4.22.0's pool-
+  targeting work fixed this for pools but missed the plain Storage
+  path, which is what most people use day to day. Fixed - now saved
+  identically to how pools already worked.
+- **New: a visible "Disks" line in `StorageDialog`** showing the
+  current composition (e.g. "10x 12TB, RAID 5", or "Not yet
+  configured" for a blank one) right below the RAID Calculator button
+  - the data was always being saved and preserved through edits, but
+  there was nowhere to actually see it, which is what made the bug
+  above so easy to miss.
+- **Simplified the RAID Calculator's "Apply to" flow**, per direct
+  feedback ("ako smo već otvorili raid calc pod san-p01 onda on to
+  računa na njemu, zar ne?"): opening it from `StorageDialog`'s or
+  `StoragePoolDialog`'s own button now auto-locks the target to that
+  exact entity - no picker, just a plain "Applying to: SAN01" label
+  and a working Apply button. Also generalized disk-data auto-preload
+  (previously Pool-only) to the plain Storage target too, so re-
+  opening the calculator on an existing array starts from what's
+  already saved instead of scratch.
+- 19 new tests covering the Attention copy fix (with a real
+  `QContextMenuEvent`-style reproduction), both dialog defaults, the
+  disk-composition-on-Storage save/display/refresh cycle end to end,
+  and the locked-target flow for both Storage and Storage Pool - 924
+  passed total.
+
 ## v4.22.0 (RAID Calculator can target a Storage Pool directly; switch combo ports)
 
 Reported directly with a concrete example: applying a RAID Calculator

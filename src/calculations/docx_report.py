@@ -187,6 +187,29 @@ def _storage_section(document: Document, project: ClusterProject) -> None:
         ])
     _add_table(document, ["Name", "Site", "Vendor", "Model", "Raw", "Usable", "Overhead"], rows)
 
+    all_pools = [(s, pool) for s in project.storages for pool in s.pools]
+    if all_pools:
+        document.add_heading("Storage Pools", level=2)
+        pool_rows = []
+        for storage, pool in all_pools:
+            if pool.disk_count > 0:
+                level_text = f", {pool.raid_level}" if pool.raid_level else ""
+                disks_text = f"{pool.disk_count}x {pool.disk_size_tb:g}TB{level_text}"
+            else:
+                disks_text = "-"
+            if pool.is_passthrough:
+                zoning_text = "PCI Passthrough"
+            elif pool.server_uids:
+                zoning_text = f"{len(pool.server_uids)} server(s)"
+            else:
+                zoning_text = "-"
+            pool_rows.append([
+                storage.name, pool.name or "(unnamed)", disks_text,
+                f"{pool.raw_capacity_tb:.1f} TB", f"{pool.usable_capacity_tb:.1f} TB",
+                zoning_text,
+            ])
+        _add_table(document, ["Storage Array", "Pool", "Disks", "Raw", "Usable", "Zoned To"], pool_rows)
+
 
 def _network_section(document: Document, project: ClusterProject) -> None:
     document.add_heading("Network", level=1)

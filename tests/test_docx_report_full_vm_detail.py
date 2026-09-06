@@ -272,3 +272,126 @@ def test_vm_summary_excludes_powered_off_vms_from_demand():
     rows = {row.cells[0].text: row.cells[1].text for row in summary_table.rows[1:]}
     assert rows["VMs"] == "2"  # total count includes disabled
     assert rows["vCPU Demand (Powered On)"] == "8"  # demand excludes it
+
+
+# ----------------------------------------------------------------------
+# Storage Pools table - previously completely absent from the report
+# ----------------------------------------------------------------------
+
+def test_storage_pools_table_appears_when_pools_exist():
+    from src.models.storage import Storage, StoragePool
+
+    project = ClusterProject()
+    storage = Storage.create_default()
+    storage.name = "SAN01"
+    pool = StoragePool(uid="p1", name="NVMe-Pool", disk_count=7, disk_size_tb=15.0, raid_level="RAID 5",
+                        raw_capacity_tb=105.0, usable_capacity_tb=90.0)
+    storage.pools = [pool]
+    project.storages.append(storage)
+
+    document = build_docx_report(project, Thresholds(), app_version="test")
+
+    pool_table = next(
+        t for t in document.tables
+        if len(t.rows[0].cells) > 2 and t.rows[0].cells[1].text == "Storage Array"
+    )
+    row = [c.text for c in pool_table.rows[1].cells]
+    assert row[1] == "SAN01"
+    assert row[2] == "NVMe-Pool"
+    assert row[3] == "7x 15TB, RAID 5"
+    assert row[4] == "105.0 TB"
+    assert row[5] == "90.0 TB"
+
+
+def test_storage_pools_table_absent_when_no_storage_has_pools():
+    from src.models.storage import Storage
+
+    project = ClusterProject()
+    project.storages.append(Storage.create_default())
+
+    document = build_docx_report(project, Thresholds(), app_version="test")
+
+    has_pools_table = any(
+        len(t.rows[0].cells) > 1 and t.rows[0].cells[1].text == "Storage Array"
+        for t in document.tables
+    )
+    assert not has_pools_table
+
+
+def test_storage_pools_table_lists_pools_from_multiple_arrays():
+    from src.models.storage import Storage, StoragePool
+
+    project = ClusterProject()
+    s1 = Storage.create_default()
+    s1.name = "SAN01"
+    s1.pools = [StoragePool(uid="p1", name="Pool-A")]
+    s2 = Storage.create_default()
+    s2.name = "SAN02"
+    s2.pools = [StoragePool(uid="p2", name="Pool-B")]
+    project.storages.extend([s1, s2])
+
+    document = build_docx_report(project, Thresholds(), app_version="test")
+
+    pool_table = next(
+        t for t in document.tables
+        if len(t.rows[0].cells) > 2 and t.rows[0].cells[1].text == "Storage Array"
+    )
+    arrays = [row.cells[1].text for row in pool_table.rows[1:]]
+    assert arrays == ["SAN01", "SAN02"]
+
+
+def test_storage_pools_table_shows_passthrough_zoning():
+    from src.models.storage import Storage, StoragePool
+
+    project = ClusterProject()
+    storage = Storage.create_default()
+    pool = StoragePool(uid="p1", name="Sec_data_os", is_passthrough=True, passthrough_vm_uid="vm-1")
+    storage.pools = [pool]
+    project.storages.append(storage)
+
+    document = build_docx_report(project, Thresholds(), app_version="test")
+
+    pool_table = next(
+        t for t in document.tables
+        if len(t.rows[0].cells) > 2 and t.rows[0].cells[1].text == "Storage Array"
+    )
+    row = [c.text for c in pool_table.rows[1].cells]
+    assert row[6] == "PCI Passthrough"
+
+
+def test_storage_pools_table_shows_server_zoning_count():
+    from src.models.storage import Storage, StoragePool
+
+    project = ClusterProject()
+    storage = Storage.create_default()
+    pool = StoragePool(uid="p1", name="Pool-A", server_uids=["s1", "s2", "s3"])
+    storage.pools = [pool]
+    project.storages.append(storage)
+
+    document = build_docx_report(project, Thresholds(), app_version="test")
+
+    pool_table = next(
+        t for t in document.tables
+        if len(t.rows[0].cells) > 2 and t.rows[0].cells[1].text == "Storage Array"
+    )
+    row = [c.text for c in pool_table.rows[1].cells]
+    assert row[6] == "3 server(s)"
+
+
+def test_storage_pools_table_shows_dash_for_no_disk_data():
+    from src.models.storage import Storage, StoragePool
+
+    project = ClusterProject()
+    storage = Storage.create_default()
+    pool = StoragePool(uid="p1", name="Pool-A")  # disk_count defaults to 0
+    storage.pools = [pool]
+    project.storages.append(storage)
+
+    document = build_docx_report(project, Thresholds(), app_version="test")
+
+    pool_table = next(
+        t for t in document.tables
+        if len(t.rows[0].cells) > 2 and t.rows[0].cells[1].text == "Storage Array"
+    )
+    row = [c.text for c in pool_table.rows[1].cells]
+    assert row[3] == "-"

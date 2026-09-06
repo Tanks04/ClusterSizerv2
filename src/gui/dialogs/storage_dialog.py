@@ -100,7 +100,7 @@ class StorageDialog(QDialog):
         self.raw_spin.setRange(0.0, 100000.0)
         self.raw_spin.setSingleStep(1.0)
         self.raw_spin.setSuffix(" TB")
-        self.raw_spin.setValue(100.0)
+        self.raw_spin.setValue(0.0)
         self.raw_spin.valueChanged.connect(self._recalc_overhead)
         layout.addRow("Raw Capacity", self.raw_spin)
 
@@ -111,6 +111,10 @@ class StorageDialog(QDialog):
         )
         self.raid_calc_button.clicked.connect(self._open_raid_calculator)
         layout.addRow("", self.raid_calc_button)
+
+        self.disk_summary_label = QLabel("")
+        self.disk_summary_label.setStyleSheet("color: #555;")
+        layout.addRow("Disks", self.disk_summary_label)
 
         ftt_row = QHBoxLayout()
         ftt_row.addWidget(QLabel("FTT:"))
@@ -138,7 +142,7 @@ class StorageDialog(QDialog):
         self.usable_spin.setRange(0.0, 100000.0)
         self.usable_spin.setSingleStep(1.0)
         self.usable_spin.setSuffix(" TB")
-        self.usable_spin.setValue(80.0)
+        self.usable_spin.setValue(0.0)
         self.usable_spin.valueChanged.connect(self._recalc_overhead)
         layout.addRow("Usable Capacity", self.usable_spin)
 
@@ -267,16 +271,24 @@ class StorageDialog(QDialog):
         shelves_layout.addLayout(shelves_button_row)
         outer.addWidget(shelves_box)
 
-        pools_box = QGroupBox("Storage Pools (optional - carve this array into several)")
+        pools_box = QGroupBox("Storage Pools")
         pools_layout = QVBoxLayout(pools_box)
 
-        self.pools_table = QTableWidget(0, 5)
-        self.pools_table.setHorizontalHeaderLabels(["Name", "Raw (TB)", "Usable (TB)", "Servers", "Used/Free"])
-        self.pools_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.pools_table = QTableWidget(0, 6)
+        self.pools_table.setHorizontalHeaderLabels(["Name", "Disks", "Raw (TB)", "Usable (TB)", "Servers", "Used/Free"])
+        header = self.pools_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for col in (2, 3, 4, 5):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+        self.pools_table.setColumnWidth(1, 90)
         self.pools_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.pools_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.pools_table.setMaximumHeight(140)
         pools_layout.addWidget(self.pools_table)
+
+        self.total_disks_label = QLabel("")
+        self.total_disks_label.setStyleSheet("color: #555; font-style: italic;")
+        pools_layout.addWidget(self.total_disks_label)
 
         pools_button_row = QHBoxLayout()
         add_pool_button = QPushButton("+ Add Pool")
@@ -318,6 +330,8 @@ class StorageDialog(QDialog):
             self.load(storage)
         else:
             self._recalc_overhead()
+        self._refresh_disk_summary_label()
+        self._refresh_total_disks_label()
 
     def _recalc_overhead(self) -> None:
         raw = self.raw_spin.value()
@@ -326,8 +340,6 @@ class StorageDialog(QDialog):
         self.overhead_spin.blockSignals(True)
         self.overhead_spin.setValue(overhead)
         self.overhead_spin.blockSignals(False)
-
-    _UNTOUCHED_USABLE_DEFAULT = 80.0  # matches the QDoubleSpinBox's own construction-time default below
 
     def _on_hci_toggled(self, checked: bool) -> None:
         self.hci_servers_box.setVisible(checked)
@@ -353,18 +365,6 @@ class StorageDialog(QDialog):
                 # whatever was already checked.
                 self._populate_hci_server_list()
             self._recalc_hci_raw_capacity()
-            # The 80.0 default (a leftover from the pre-HCI days, sized
-            # for a traditional array) becomes actively misleading once
-            # Raw Capacity auto-sums to something much smaller from real
-            # servers - "80TB usable" sitting next to "0TB" or "32TB raw"
-            # looks like a real number but describes a physically
-            # impossible array. Only reset it if it's still the
-            # untouched default - never clobber a value the user already
-            # typed themselves, in this session or a previously saved one
-            # (load() sets the real saved value AFTER this fires, so an
-            # existing HCI storage being edited ends up correct either way).
-            if self.usable_spin.value() == self._UNTOUCHED_USABLE_DEFAULT:
-                self.usable_spin.setValue(0.0)
 
     def _populate_hci_server_list(self, checked_uids: set[str] | None = None) -> None:
         checked_uids = checked_uids or set()
@@ -414,15 +414,27 @@ class StorageDialog(QDialog):
             row = self.pools_table.rowCount()
             self.pools_table.insertRow(row)
             self.pools_table.setItem(row, 0, QTableWidgetItem(pool.name or "(unnamed)"))
-            self.pools_table.setItem(row, 1, QTableWidgetItem(f"{pool.raw_capacity_tb:g}"))
-            self.pools_table.setItem(row, 2, QTableWidgetItem(f"{pool.usable_capacity_tb:g}"))
-            self.pools_table.setItem(row, 3, QTableWidgetItem(str(len(pool.server_uids))))
+            disks_text = f"{pool.disk_count}x {pool.disk_size_tb:g}TB" if pool.disk_count > 0 else "-"
+            self.pools_table.setItem(row, 1, QTableWidgetItem(disks_text))
+            self.pools_table.setItem(row, 2, QTableWidgetItem(f"{pool.raw_capacity_tb:g}"))
+            self.pools_table.setItem(row, 3, QTableWidgetItem(f"{pool.usable_capacity_tb:g}"))
+            self.pools_table.setItem(row, 4, QTableWidgetItem(str(len(pool.server_uids))))
             usage_text = "-"
             if self._service is not None:
                 ratio = self._service.project.pool_utilization_ratio(pool)
                 if ratio is not None:
                     usage_text = f"{ratio * 100:.0f}%"
-            self.pools_table.setItem(row, 4, QTableWidgetItem(usage_text))
+            self.pools_table.setItem(row, 5, QTableWidgetItem(usage_text))
+        self._refresh_total_disks_label()
+
+    def _refresh_total_disks_label(self) -> None:
+        pool_disk_total = sum(pool.disk_count for pool in self._pools)
+        if pool_disk_total > 0:
+            self.total_disks_label.setText(f"Total across pools: {pool_disk_total} disks")
+        elif self._loaded_disk_count > 0:
+            self.total_disks_label.setText(f"Total (whole array, no pools): {self._loaded_disk_count} disks")
+        else:
+            self.total_disks_label.setText("")
 
     def _add_pool(self) -> None:
         vms = self._service.project.vms if self._service else []
@@ -449,6 +461,15 @@ class StorageDialog(QDialog):
             del self._pools[row]
         self._refresh_pools_table()
 
+    def _refresh_disk_summary_label(self) -> None:
+        if self._loaded_disk_count > 0:
+            level_text = f", {self._loaded_raid_level}" if self._loaded_raid_level else ""
+            self.disk_summary_label.setText(
+                f"{self._loaded_disk_count}x {self._loaded_disk_size_tb:g}TB{level_text}"
+            )
+        else:
+            self.disk_summary_label.setText("Not yet configured - use the RAID Calculator above")
+
     def _open_raid_calculator(self) -> None:
         if self._service is None:
             QMessageBox.information(
@@ -457,8 +478,26 @@ class StorageDialog(QDialog):
             )
             return
         from src.gui.dialogs.raid_calculator_dialog import RaidCalculatorDialog
-        dialog = RaidCalculatorDialog(self._service, parent=self)
+        locked_target = None
+        if self._uid:
+            for i, storage in enumerate(self._service.project.storages):
+                if storage.uid == self._uid:
+                    locked_target = ("Storage", i)
+                    break
+        dialog = RaidCalculatorDialog(self._service, locked_target=locked_target, parent=self)
         dialog.exec()
+
+        if self._uid:
+            for storage in self._service.project.storages:
+                if storage.uid == self._uid:
+                    self.raw_spin.setValue(storage.raw_capacity_tb)
+                    self.usable_spin.setValue(storage.usable_capacity_tb)
+                    self._loaded_disk_count = storage.disk_count
+                    self._loaded_disk_size_tb = storage.disk_size_tb
+                    self._loaded_raid_level = storage.raid_level
+                    self._refresh_disk_summary_label()
+                    self._refresh_total_disks_label()
+                    return
 
     def _calculate_hci_usable(self) -> None:
         ftt_level = self.ftt_level_combo.currentData()

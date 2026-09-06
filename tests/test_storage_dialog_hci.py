@@ -139,15 +139,17 @@ def test_raw_capacity_spinner_fully_blocked_while_hci_checked():
     assert dialog.raw_spin.isEnabled() is True
 
 
-def test_usable_capacity_default_resets_when_hci_freshly_checked():
-    """Found from real use: a brand new Storage entry defaults Usable
-    Capacity to 80.0 (sized for a traditional array) - once HCI auto-
-    sums Raw Capacity from real servers (often much smaller, e.g. 0 or
-    32), the untouched 80.0 default became actively misleading,
-    describing a physically impossible usable > raw configuration."""
+def test_usable_capacity_default_is_zero_before_and_after_hci_toggle():
+    """A brand new Storage entry now defaults Raw/Usable Capacity to 0
+    (matching the model's own default) rather than 100/80 - previously
+    those looked like real numbers on a freshly-added entry, and the
+    80.0 default in particular became actively misleading once HCI
+    auto-sums Raw Capacity from real servers (often much smaller, e.g.
+    0 or 32), describing a physically impossible usable > raw
+    configuration."""
     servers = _servers()  # local_disk_raw_tb = 0 initially
     dialog = StorageDialog(servers=servers)
-    assert dialog.usable_spin.value() == 80.0  # the untouched default, before HCI
+    assert dialog.usable_spin.value() == 0.0
 
     dialog.is_hci_check.setChecked(True)
 

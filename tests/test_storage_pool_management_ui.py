@@ -43,8 +43,8 @@ def test_add_pool_via_dialog():
     assert len(dialog._pools) == 1
     assert dialog.pools_table.rowCount() == 1
     assert dialog.pools_table.item(0, 0).text() == "SSD-Tier"
-    assert dialog.pools_table.item(0, 1).text() == "20"
-    assert dialog.pools_table.item(0, 2).text() == "15"
+    assert dialog.pools_table.item(0, 2).text() == "20"
+    assert dialog.pools_table.item(0, 3).text() == "15"
 
 
 def test_add_pool_cancelled_adds_nothing():
@@ -122,9 +122,9 @@ def test_existing_pools_load_into_the_table():
 
     assert dialog.pools_table.rowCount() == 2
     assert dialog.pools_table.item(0, 0).text() == "SSD-Tier"
-    assert dialog.pools_table.item(0, 3).text() == "1"
+    assert dialog.pools_table.item(0, 4).text() == "1"
     assert dialog.pools_table.item(1, 0).text() == "SATA-Tier"
-    assert dialog.pools_table.item(1, 3).text() == "0"
+    assert dialog.pools_table.item(1, 4).text() == "0"
 
 
 # ----------------------------------------------------------------------
@@ -189,7 +189,7 @@ def test_pools_table_shows_utilization_with_service():
 
     dialog = StorageDialog(storage, servers=[], service=service)
 
-    assert dialog.pools_table.item(0, 4).text() == "50%"
+    assert dialog.pools_table.item(0, 5).text() == "50%"
 
 
 def test_pools_table_shows_dash_without_service():
@@ -198,4 +198,4 @@ def test_pools_table_shows_dash_without_service():
 
     dialog = StorageDialog(storage, servers=[])
 
-    assert dialog.pools_table.item(0, 4).text() == "-"
+    assert dialog.pools_table.item(0, 5).text() == "-"
