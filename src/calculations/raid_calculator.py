@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 RAID_LEVELS = ["RAID 0", "RAID 1", "RAID 5", "RAID 6", "RAID 10", "RAID 50", "RAID 60"]
 
-DISK_TYPES = ["SATA HDD", "SAS HDD", "SAS SSD", "NVMe Flash"]
+DISK_TYPES = ["SATA HDD", "SAS HDD", "SAS SSD", "SATA SSD", "NVMe Flash", "FC HDD", "SCSI HDD"]
 
 _SPINNING_DISK_TYPES = {"SATA HDD", "SAS HDD"}
 _PARITY_LEVELS = {"RAID 5", "RAID 6", "RAID 50", "RAID 60"}

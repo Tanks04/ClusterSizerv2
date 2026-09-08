@@ -103,6 +103,7 @@ class StoragePool:
     disk_count: int = 0
     disk_size_tb: float = 0.0
     raid_level: str = ""
+    disk_type: str = ""
 
     # PCI passthrough - the opposite assignment direction from
     # server_uids above. A normal pool is zoned to hosts, which the
@@ -145,6 +146,13 @@ class Storage:
     is_hci: bool = False
     hci_server_uids: list[str] = field(default_factory=list)
 
+    # Excludes this array from all capacity math (usable storage,
+    # storage utilization, failover storage readiness) without
+    # deleting its configuration - same idea as Server.enabled/VM.
+    # powered_on, for quickly seeing "what happens if I lose/remove
+    # this array" without actually removing it.
+    enabled: bool = True
+
     # Which servers/hosts are zoned to see this WHOLE array - the same
     # idea as StoragePool.server_uids, one level coarser (the array as
     # a whole rather than a specific pool carved from it). Meaningful
@@ -173,6 +181,7 @@ class Storage:
     # authoritative computation, same spirit as raid_overhead_percent
     # being informational rather than binding.
     raid_level: str = ""
+    disk_type: str = ""
 
     # Same idea as raid_level, but for HCI (is_hci checked) - FTT
     # (Failures To Tolerate) level, applied as a factor on the auto-

@@ -46,7 +46,7 @@ def _usage_by_speed(
     device_uid = device.uid
     used_by_speed = {speed: 0 for speed in SPEED_OPTIONS}
     for conn in connections:
-        if conn.dedicated_link:
+        if conn.dedicated_link or not conn.enabled:
             continue
         if any(getattr(conn, attr) == device_uid for attr in uid_attrs) and conn.speed in used_by_speed:
             used_by_speed[conn.speed] += 1
@@ -70,7 +70,7 @@ def switch_port_usage(switch: NetworkSwitch, connections: list[NetworkConnection
 
     combo_used = 0
     for conn in connections:
-        if conn.dedicated_link:
+        if conn.dedicated_link or not conn.enabled:
             continue
         if conn.speed in declared and any(
             getattr(conn, attr) == switch.uid for attr in ("switch_uid", "switch_b_uid")
@@ -88,7 +88,7 @@ def switch_port_usage(switch: NetworkSwitch, connections: list[NetworkConnection
         total = getattr(switch, port_prefix)
         used = sum(
             1 for conn in connections
-            if not conn.dedicated_link and conn.speed == speed
+            if not conn.dedicated_link and conn.enabled and conn.speed == speed
             and any(getattr(conn, attr) == switch.uid for attr in ("switch_uid", "switch_b_uid"))
         )
         if total > 0 or used > 0:
@@ -118,6 +118,8 @@ def site_port_usage(switches: list[NetworkSwitch], connections: list[NetworkConn
     used = {speed: 0 for speed in SPEED_OPTIONS}
 
     for switch in switches:
+        if not switch.enabled:
+            continue
         for usage in switch_port_usage(switch, connections):
             totals[usage.speed] += usage.total
             used[usage.speed] += usage.used

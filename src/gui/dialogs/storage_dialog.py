@@ -323,6 +323,7 @@ class StorageDialog(QDialog):
         self._loaded_disk_count = 0
         self._loaded_disk_size_tb = 0.0
         self._loaded_raid_level = ""
+        self._loaded_disk_type = ""
         self._loaded_server_uids = []
         self._pools = []
 
@@ -414,7 +415,11 @@ class StorageDialog(QDialog):
             row = self.pools_table.rowCount()
             self.pools_table.insertRow(row)
             self.pools_table.setItem(row, 0, QTableWidgetItem(pool.name or "(unnamed)"))
-            disks_text = f"{pool.disk_count}x {pool.disk_size_tb:g}TB" if pool.disk_count > 0 else "-"
+            if pool.disk_count > 0:
+                type_text = f" {pool.disk_type}" if pool.disk_type else ""
+                disks_text = f"{pool.disk_count}x {pool.disk_size_tb:g}TB{type_text}"
+            else:
+                disks_text = "-"
             self.pools_table.setItem(row, 1, QTableWidgetItem(disks_text))
             self.pools_table.setItem(row, 2, QTableWidgetItem(f"{pool.raw_capacity_tb:g}"))
             self.pools_table.setItem(row, 3, QTableWidgetItem(f"{pool.usable_capacity_tb:g}"))
@@ -463,9 +468,10 @@ class StorageDialog(QDialog):
 
     def _refresh_disk_summary_label(self) -> None:
         if self._loaded_disk_count > 0:
+            type_text = f" {self._loaded_disk_type}" if self._loaded_disk_type else ""
             level_text = f", {self._loaded_raid_level}" if self._loaded_raid_level else ""
             self.disk_summary_label.setText(
-                f"{self._loaded_disk_count}x {self._loaded_disk_size_tb:g}TB{level_text}"
+                f"{self._loaded_disk_count}x {self._loaded_disk_size_tb:g}TB{type_text}{level_text}"
             )
         else:
             self.disk_summary_label.setText("Not yet configured - use the RAID Calculator above")
@@ -484,6 +490,15 @@ class StorageDialog(QDialog):
                 if storage.uid == self._uid:
                     locked_target = ("Storage", i)
                     break
+        if locked_target is None:
+            # Brand new storage - not yet in the project, so there's no
+            # real entity to target. Without this, the calculator's
+            # "Which one" list only shows EXISTING storages - picking
+            # one and applying would silently overwrite it instead of
+            # setting up this new one. Force calculation-only mode and
+            # read the result directly off the calculator's own
+            # widgets once it closes.
+            locked_target = ("None", None)
         dialog = RaidCalculatorDialog(self._service, locked_target=locked_target, parent=self)
         dialog.exec()
 
@@ -495,9 +510,19 @@ class StorageDialog(QDialog):
                     self._loaded_disk_count = storage.disk_count
                     self._loaded_disk_size_tb = storage.disk_size_tb
                     self._loaded_raid_level = storage.raid_level
+                    self._loaded_disk_type = storage.disk_type
                     self._refresh_disk_summary_label()
                     self._refresh_total_disks_label()
                     return
+        elif dialog._current_result is not None:
+            self.raw_spin.setValue(round(dialog._current_result.raw_capacity, 2))
+            self.usable_spin.setValue(round(dialog._current_result.usable_capacity, 2))
+            self._loaded_disk_count = dialog.disk_count_spin.value()
+            self._loaded_disk_size_tb = dialog.disk_size_spin.value()
+            self._loaded_raid_level = dialog.raid_level_combo.currentText()
+            self._loaded_disk_type = dialog.disk_type_combo.currentText()
+            self._refresh_disk_summary_label()
+            self._refresh_total_disks_label()
 
     def _calculate_hci_usable(self) -> None:
         ftt_level = self.ftt_level_combo.currentData()
@@ -510,6 +535,7 @@ class StorageDialog(QDialog):
         self._loaded_disk_count = storage.disk_count
         self._loaded_disk_size_tb = storage.disk_size_tb
         self._loaded_raid_level = storage.raid_level
+        self._loaded_disk_type = storage.disk_type
         self._loaded_server_uids = list(storage.server_uids)
         self._pools = list(storage.pools)
         self._refresh_pools_table()
@@ -572,6 +598,7 @@ class StorageDialog(QDialog):
         storage.disk_count = self._loaded_disk_count
         storage.disk_size_tb = self._loaded_disk_size_tb
         storage.raid_level = self._loaded_raid_level
+        storage.disk_type = self._loaded_disk_type
         storage.server_uids = self._loaded_server_uids
         storage.pools = self._pools
         storage.ftt_level = self.ftt_level_combo.currentData() or ""

@@ -190,7 +190,7 @@ class ClusterProject:
         return sum(s.ram_gb for s in self.servers_at(site))
 
     def usable_storage_gb(self, site: str) -> float:
-        return sum(s.usable_capacity_gb for s in self.storages_at(site))
+        return sum(s.usable_capacity_gb for s in self.storages_at(site) if s.enabled)
 
     # ------------------------------------------------------------------
     # Demand (VMs) by site - "what's actually running here today"

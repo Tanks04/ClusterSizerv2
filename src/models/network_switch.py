@@ -56,6 +56,12 @@ class NetworkSwitch:
     # the same ports as Ethernet).
     is_combo_ports: bool = False
 
+    # Excludes this device from all port capacity/usage math without
+    # deleting its configuration - same idea as Server.enabled/Storage.
+    # enabled, for quickly seeing "what happens if I lose/remove this
+    # switch" without actually removing it.
+    enabled: bool = True
+
     # Optional - a shared tag linking two (or more) devices into the
     # same redundant pair/set, e.g. an HSRP pair, a Palo Alto Active/
     # Passive HA pair, or an MLAG/VPC stack. Any devices sharing the

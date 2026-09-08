@@ -46,6 +46,10 @@ class RaidCalculatorDialog(QDialog):
 
         self.disk_type_combo = QComboBox()
         self.disk_type_combo.addItems(DISK_TYPES)
+        self.disk_type_combo.setEditable(True)
+        self.disk_type_combo.setToolTip(
+            "Pick a common type, or type your own (e.g. \"SCSI UW\")."
+        )
         self.disk_type_combo.currentTextChanged.connect(self._recompute)
         form.addRow("Disk type", self.disk_type_combo)
 
@@ -263,6 +267,8 @@ class RaidCalculatorDialog(QDialog):
             self.disk_size_spin.setValue(entity.disk_size_tb)
             if entity.raid_level:
                 self.raid_level_combo.setCurrentText(entity.raid_level)
+            if entity.disk_type:
+                self.disk_type_combo.setCurrentText(entity.disk_type)
 
     def _on_pool_target_changed(self, index: int) -> None:
         """Auto-preloads the selected pool's OWN saved disk_count/
@@ -334,6 +340,7 @@ class RaidCalculatorDialog(QDialog):
         storage.disk_count = self.disk_count_spin.value()
         storage.disk_size_tb = self.disk_size_spin.value()
         storage.raid_level = self.raid_level_combo.currentText()
+        storage.disk_type = self.disk_type_combo.currentText()
         self.service.update_storage(index, storage)
 
         QMessageBox.information(self, "Apply RAID Calculation", f"Applied to {storage.name}.")
@@ -361,6 +368,7 @@ class RaidCalculatorDialog(QDialog):
         pool.disk_count = self.disk_count_spin.value()
         pool.disk_size_tb = self.disk_size_spin.value()
         pool.raid_level = self.raid_level_combo.currentText()
+        pool.disk_type = self.disk_type_combo.currentText()
         self.service.update_storage(storage_index, storage)
 
         QMessageBox.information(self, "Apply RAID Calculation", f"Applied to {pool.name or '(unnamed)'}.")

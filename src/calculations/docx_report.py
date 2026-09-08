@@ -169,13 +169,14 @@ def _storage_section(document: Document, project: ClusterProject) -> None:
     agg_rows = []
     for site in project.site_names:
         site_storages = [s for s in project.storages if s.site == site]
+        enabled_storages = [s for s in site_storages if s.enabled]
         agg_rows.append([
             site,
-            str(len(site_storages)),
-            f"{sum(s.raw_capacity_tb for s in site_storages):.1f} TB",
-            f"{sum(s.usable_capacity_tb for s in site_storages):.1f} TB",
+            str(len(enabled_storages)),
+            f"{sum(s.raw_capacity_tb for s in enabled_storages):.1f} TB",
+            f"{sum(s.usable_capacity_tb for s in enabled_storages):.1f} TB",
         ])
-    _add_table(document, ["Site", "Storage Systems", "Raw", "Usable"], agg_rows)
+    _add_table(document, ["Site", "Storage Systems (enabled)", "Raw", "Usable"], agg_rows)
 
     document.add_heading("All Storage Systems", level=2)
     rows = []
@@ -184,8 +185,9 @@ def _storage_section(document: Document, project: ClusterProject) -> None:
             s.name, s.site, s.vendor or "-", s.model or "-",
             f"{s.raw_capacity_tb:.1f} TB", f"{s.usable_capacity_tb:.1f} TB",
             f"{s.raid_overhead_percent:.0f}%",
+            "Enabled" if s.enabled else "Disabled",
         ])
-    _add_table(document, ["Name", "Site", "Vendor", "Model", "Raw", "Usable", "Overhead"], rows)
+    _add_table(document, ["Name", "Site", "Vendor", "Model", "Raw", "Usable", "Overhead", "Status"], rows)
 
     all_pools = [(s, pool) for s in project.storages for pool in s.pools]
     if all_pools:
@@ -193,8 +195,9 @@ def _storage_section(document: Document, project: ClusterProject) -> None:
         pool_rows = []
         for storage, pool in all_pools:
             if pool.disk_count > 0:
+                type_text = f" {pool.disk_type}" if pool.disk_type else ""
                 level_text = f", {pool.raid_level}" if pool.raid_level else ""
-                disks_text = f"{pool.disk_count}x {pool.disk_size_tb:g}TB{level_text}"
+                disks_text = f"{pool.disk_count}x {pool.disk_size_tb:g}TB{type_text}{level_text}"
             else:
                 disks_text = "-"
             if pool.is_passthrough:

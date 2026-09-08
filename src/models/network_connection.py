@@ -72,6 +72,12 @@ class NetworkConnection:
     # though Speed/Media above can still be filled in for reference.
     dedicated_link: bool = False
 
+    # Excludes this specific link from port-usage counting without
+    # deleting it - for simulating "this one cable/uplink is down for
+    # maintenance" without disabling the whole switch (which would
+    # affect every other port on it too).
+    enabled: bool = True
+
     notes: str = ""
 
     @property

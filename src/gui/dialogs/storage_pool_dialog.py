@@ -113,15 +113,17 @@ class StoragePoolDialog(QDialog):
         self._loaded_disk_count = 0
         self._loaded_disk_size_tb = 0.0
         self._loaded_raid_level = ""
+        self._loaded_disk_type = ""
         if pool is not None:
             self.load(pool)
         self._refresh_disk_summary_label()
 
     def _refresh_disk_summary_label(self) -> None:
         if self._loaded_disk_count > 0:
+            type_text = f" {self._loaded_disk_type}" if self._loaded_disk_type else ""
             level_text = f", {self._loaded_raid_level}" if self._loaded_raid_level else ""
             self.disk_summary_label.setText(
-                f"{self._loaded_disk_count}x {self._loaded_disk_size_tb:g}TB{level_text}"
+                f"{self._loaded_disk_count}x {self._loaded_disk_size_tb:g}TB{type_text}{level_text}"
             )
         else:
             self.disk_summary_label.setText("Not yet configured - use the RAID Calculator above")
@@ -166,6 +168,7 @@ class StoragePoolDialog(QDialog):
                         self._loaded_disk_count = pool.disk_count
                         self._loaded_disk_size_tb = pool.disk_size_tb
                         self._loaded_raid_level = pool.raid_level
+                        self._loaded_disk_type = pool.disk_type
                         self._refresh_disk_summary_label()
                         return
         elif dialog._current_result is not None:
@@ -174,6 +177,7 @@ class StoragePoolDialog(QDialog):
             self._loaded_disk_count = dialog.disk_count_spin.value()
             self._loaded_disk_size_tb = dialog.disk_size_spin.value()
             self._loaded_raid_level = dialog.raid_level_combo.currentText()
+            self._loaded_disk_type = dialog.disk_type_combo.currentText()
             self._refresh_disk_summary_label()
 
     def load(self, pool: StoragePool) -> None:
@@ -181,6 +185,7 @@ class StoragePoolDialog(QDialog):
         self._loaded_disk_count = pool.disk_count
         self._loaded_disk_size_tb = pool.disk_size_tb
         self._loaded_raid_level = pool.raid_level
+        self._loaded_disk_type = pool.disk_type
         self.name_edit.setText(pool.name)
         self.raw_spin.setValue(pool.raw_capacity_tb)
         self.usable_spin.setValue(pool.usable_capacity_tb)
@@ -214,4 +219,5 @@ class StoragePoolDialog(QDialog):
             disk_count=self._loaded_disk_count,
             disk_size_tb=self._loaded_disk_size_tb,
             raid_level=self._loaded_raid_level,
+            disk_type=self._loaded_disk_type,
         )

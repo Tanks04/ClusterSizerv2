@@ -90,6 +90,10 @@ class StoragePage(QWidget):
         self.table.edit_requested.connect(self._edit_storage)
         self.table.delete_requested.connect(self._delete_selected)
         self.table.copy_requested.connect(self._duplicate_selected)
+        self.table.set_custom_actions([
+            ("\U0001f6d1 Disable (exclude from capacity)", lambda checked=False: self._set_enabled_for_selected(False)),
+            ("\u2705 Enable", lambda checked=False: self._set_enabled_for_selected(True)),
+        ])
 
         main_layout.addWidget(self.table)
 
@@ -105,6 +109,13 @@ class StoragePage(QWidget):
 
     def _selected_storages(self) -> list:
         return [self.model.storage_at(row) for row in self.table.selected_rows()]
+
+    def _set_enabled_for_selected(self, enabled: bool) -> None:
+        storages = self._selected_storages()
+        if not storages:
+            QMessageBox.information(self, "Disable" if not enabled else "Enable", "Select at least one storage entry in the table.")
+            return
+        self.service.set_enabled_for_storages(storages, enabled)
 
     def _add_storage(self):
         dialog = StorageDialog(servers=self.service.project.servers, sites=self.service.project.site_names, service=self.service, parent=self)

@@ -254,7 +254,7 @@ def test_disk_summary_label_refreshes_after_expanding_via_calculator():
     with patch.object(RaidCalculatorDialog, "exec", fake_exec):
         dialog._open_raid_calculator()
 
-    assert dialog.disk_summary_label.text() == "14x 12TB, RAID 5"
+    assert dialog.disk_summary_label.text() == "14x 12TB SATA HDD, RAID 5"
 
 
 # ----------------------------------------------------------------------
@@ -277,7 +277,7 @@ def test_storage_dialog_locks_target_to_itself():
     assert MockDialog.call_args.kwargs["locked_target"] == ("Storage", 0)
 
 
-def test_new_unsaved_storage_falls_back_to_unlocked():
+def test_new_unsaved_storage_forces_calculation_only_mode():
     from src.gui.dialogs.storage_dialog import StorageDialog
 
     service = ProjectService()
@@ -285,9 +285,10 @@ def test_new_unsaved_storage_falls_back_to_unlocked():
 
     with patch("src.gui.dialogs.raid_calculator_dialog.RaidCalculatorDialog") as MockDialog:
         MockDialog.return_value.exec.return_value = 0
+        MockDialog.return_value._current_result = None
         dialog._open_raid_calculator()
 
-    assert MockDialog.call_args.kwargs["locked_target"] is None
+    assert MockDialog.call_args.kwargs["locked_target"] == ("None", None)
 
 
 def test_pool_dialog_locks_target_to_itself():

@@ -1,5 +1,80 @@
 # ROADMAP
 
+## v4.27.0 (Fixed: same new-entity RAID Calculator bug in StorageDialog itself; disk type; connection-level disable)
+
+Reported directly with exact reproduction steps, plus two follow-up
+requests.
+
+- **Root cause fixed - identical bug class to last version's Storage
+  Pool fix, but in `StorageDialog` itself**: adding a brand new
+  Storage, then opening the RAID Calculator from within it, had
+  nowhere valid to target (the new array doesn't exist in the project
+  yet) - the "Which one" picker only offered EXISTING storages,
+  requiring a save-close-reopen dance before the calculator would
+  correctly target the new one. Same fix as before: forces
+  calculation-only mode for a not-yet-saved Storage, reads the result
+  directly off the calculator's own widgets. Verified the exact
+  reported scenario end to end, and that existing storages are never
+  touched by a new one's calculation.
+- **New: `disk_type`** on both `Storage` and `StoragePool` - "SATA
+  HDD, SAS HDD, SAS SSD, SATA SSD, NVMe Flash, FC HDD, SCSI HDD" plus
+  the field is now an *editable* combo box, so an unusual type (the
+  example given: "SCSI UW") can just be typed in directly rather than
+  being stuck with a fixed list. Saved and auto-preloaded through the
+  RAID Calculator exactly like disk_count/disk_size/raid_level
+  already were, and now shown everywhere the disk composition already
+  appears: `StorageDialog`'s and `StoragePoolDialog`'s "Disks" label,
+  the pools table's Disks column, and the Word report's Storage Pools
+  table (e.g. "10x 12TB SAS SSD, RAID 5").
+- **New: `NetworkConnection.enabled`** - one level more specific than
+  disabling a whole switch: simulate "this one cable/uplink is down"
+  without affecting any of that switch's other ports. Right-click
+  Disable/Enable on the Network tab's connections table, excluded from
+  `switch_port_usage()`'s counting (both the normal per-speed path and
+  the combo-ports path) the same way `dedicated_link` already was.
+- 25 new tests covering the exact reported bug scenario, disk type
+  end to end (editable combo, custom values, save/preload/display
+  across every surface, persistence), and connection-level disable
+  (usage exclusion in both counting modes, not affecting sibling
+  connections, right-click UI, undo, persistence) - 996 passed total.
+
+## v4.26.0 (Disable/Enable for Storage and Network switches)
+
+Requested directly - the ability to quickly simulate "what happens if
+I remove this" already existed for Servers and VMs, but not Storage
+arrays or network switches.
+
+- **New: `Storage.enabled`** - right-click Disable/Enable on the
+  Storage tab, exactly mirroring Server's own pattern. A disabled
+  array is excluded from `usable_storage_gb()`, which automatically
+  propagates to storage utilization and failover storage readiness
+  everywhere else in the app.
+  - Found and fixed the same gap in the Word report while wiring this
+    up: the Storage summary table computed its Raw/Usable totals by
+    summing every storage directly, bypassing the model's own
+    aggregate function entirely - a disabled array would still count
+    toward the report's totals. Aligned with Server's existing report
+    pattern: the count column is now explicitly "Storage Systems
+    (enabled)", and the per-array detail table gained a Status column
+    ("Enabled"/"Disabled").
+  - Per-storage-uid lookups (inspecting one specific array's own
+    demand/utilization) are unaffected by enabled status - only the
+    project-wide aggregate excludes a disabled array; looking directly
+    at one still tells the truth about what's assigned to it.
+- **New: `NetworkSwitch.enabled`** - right-click Disable/Enable on the
+  Network tab's switch table. A disabled switch is excluded from
+  `site_port_usage()` (the site-wide port overview at the top of the
+  tab), while `switch_port_usage()` (that switch's own table row)
+  stays unfiltered - inspecting a disabled switch directly still shows
+  its real port numbers, matching how a disabled Server's own row
+  still shows its specs.
+- Both fields default to `True` and round-trip through `.clsz` files
+  cleanly, including backward compatibility with files saved before
+  this existed.
+- 26 new tests covering both entities across the model, calculation,
+  service, right-click UI (including multi-selection and undo), Word
+  report, and persistence layers - 971 passed total.
+
 ## v4.25.0 (Fixed: RAID Calculator silently overwrote an existing pool instead of creating a new one)
 
 Reported directly with exact reproduction steps: open Storage, Add

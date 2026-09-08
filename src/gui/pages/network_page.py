@@ -160,6 +160,10 @@ class NetworkPage(QWidget):
         self.switch_table.edit_requested.connect(self._edit_switch)
         self.switch_table.delete_requested.connect(self._delete_switches)
         self.switch_table.copy_requested.connect(self._duplicate_switches)
+        self.switch_table.set_custom_actions([
+            ("\U0001f6d1 Disable (exclude from capacity)", lambda checked=False: self._set_enabled_for_selected_switches(False)),
+            ("\u2705 Enable", lambda checked=False: self._set_enabled_for_selected_switches(True)),
+        ])
 
         layout.addWidget(self.switch_table)
 
@@ -216,6 +220,10 @@ class NetworkPage(QWidget):
         self.connection_table.edit_requested.connect(self._edit_connection)
         self.connection_table.delete_requested.connect(self._delete_connections)
         self.connection_table.copy_requested.connect(self._duplicate_connections)
+        self.connection_table.set_custom_actions([
+            ("\U0001f6d1 Disable (exclude from capacity)", lambda checked=False: self._set_enabled_for_selected_connections(False)),
+            ("\u2705 Enable", lambda checked=False: self._set_enabled_for_selected_connections(True)),
+        ])
 
         layout.addWidget(self.connection_table)
 
@@ -285,6 +293,13 @@ class NetworkPage(QWidget):
 
     def _selected_switches(self) -> list:
         return [self.switch_model.switch_at(row) for row in self.switch_table.selected_rows()]
+
+    def _set_enabled_for_selected_switches(self, enabled: bool) -> None:
+        switches = self._selected_switches()
+        if not switches:
+            QMessageBox.information(self, "Disable" if not enabled else "Enable", "Select at least one switch in the table.")
+            return
+        self.service.set_enabled_for_switches(switches, enabled)
 
     def _add_switch(self):
         dialog = SwitchDialog(sites=self.service.project.site_names, parent=self)
@@ -374,6 +389,13 @@ class NetworkPage(QWidget):
 
     def _selected_connections(self) -> list:
         return [self.connection_model.connection_at(row) for row in self.connection_table.selected_rows()]
+
+    def _set_enabled_for_selected_connections(self, enabled: bool) -> None:
+        connections = self._selected_connections()
+        if not connections:
+            QMessageBox.information(self, "Disable" if not enabled else "Enable", "Select at least one connection in the table.")
+            return
+        self.service.set_enabled_for_connections(connections, enabled)
 
     def _add_connection(self):
         project = self.service.project

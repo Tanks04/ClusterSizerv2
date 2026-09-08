@@ -376,6 +376,44 @@ class ProjectService(QObject):
             vm.powered_on = powered_on
         self._notify(self.vms_changed)
 
+    def set_enabled_for_storages(self, storages: list[Storage], enabled: bool) -> None:
+        """Same idea as set_enabled_for_servers, for Storage - quickly
+        simulate "this array is down/removed" (maintenance, a real
+        failure, or just testing "what if we lose this one") and see
+        the effect on storage utilization/failover readiness
+        immediately, without deleting its configuration. One undo
+        snapshot for the whole selection."""
+        if not storages:
+            return
+        self._push_undo_snapshot()
+        for storage in storages:
+            storage.enabled = enabled
+        self._notify(self.storages_changed)
+
+    def set_enabled_for_switches(self, switches: list[NetworkSwitch], enabled: bool) -> None:
+        """Same idea as set_enabled_for_servers, for NetworkSwitch -
+        quickly simulate "this switch is down/removed" and see the
+        effect on port capacity/usage immediately, without deleting
+        its configuration. One undo snapshot for the whole selection."""
+        if not switches:
+            return
+        self._push_undo_snapshot()
+        for switch in switches:
+            switch.enabled = enabled
+        self._notify(self.network_changed)
+
+    def set_enabled_for_connections(self, connections: list[NetworkConnection], enabled: bool) -> None:
+        """Same idea, one level more specific - for simulating "this
+        one cable/uplink is down" without disabling the whole switch
+        (which would affect every other port on it too). One undo
+        snapshot for the whole selection."""
+        if not connections:
+            return
+        self._push_undo_snapshot()
+        for connection in connections:
+            connection.enabled = enabled
+        self._notify(self.network_changed)
+
     def update_server(self, index: int, server: Server) -> None:
         self._push_undo_snapshot()
         self._project.servers[index] = server
