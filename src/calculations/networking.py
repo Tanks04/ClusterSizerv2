@@ -113,21 +113,29 @@ def format_usage(usages: list[PortUsage]) -> str:
 
 def site_port_usage(switches: list[NetworkSwitch], connections: list[NetworkConnection]) -> list[PortUsage]:
     """Aggregated free/used per speed, across all switches at one site -
-    for the quick overview at the top of the Network tab."""
-    totals = {speed: 0 for speed in SPEED_OPTIONS}
-    used = {speed: 0 for speed in SPEED_OPTIONS}
+    for the quick overview at the top of the Network tab. Built
+    dynamically rather than pre-seeded with only SPEED_OPTIONS, since a
+    combo-ports switch (see switch_port_usage) reports a composite
+    label like "1G/10G (combo)" that varies per switch depending on
+    which speeds are actually populated - not a member of the fixed
+    speed set, and different combo switches can have different labels."""
+    totals: dict[str, int] = {}
+    used: dict[str, int] = {}
 
     for switch in switches:
         if not switch.enabled:
             continue
         for usage in switch_port_usage(switch, connections):
-            totals[usage.speed] += usage.total
-            used[usage.speed] += usage.used
+            totals[usage.speed] = totals.get(usage.speed, 0) + usage.total
+            used[usage.speed] = used.get(usage.speed, 0) + usage.used
 
     result = []
     for speed in SPEED_OPTIONS:
-        if totals[speed] > 0 or used[speed] > 0:
+        if totals.get(speed, 0) > 0 or used.get(speed, 0) > 0:
             result.append(PortUsage(speed=speed, total=totals[speed], used=used[speed]))
+    for speed in totals:
+        if speed not in SPEED_OPTIONS:
+            result.append(PortUsage(speed=speed, total=totals[speed], used=used.get(speed, 0)))
     return result
 
 

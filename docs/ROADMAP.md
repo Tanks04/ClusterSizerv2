@@ -1,5 +1,38 @@
 # ROADMAP
 
+## v4.27.1 (Fixed: Network tab crashed with a real project - combo-ports switches broke the site-wide port overview)
+
+Reported directly with a real project file that used to work: opening
+Network now crashed. Reproduced immediately by loading the uploaded
+file and constructing every page - the crash was a `KeyError` inside
+`site_port_usage()`.
+
+- **Root cause**: `site_port_usage()` (the aggregate "how many ports
+  used/free across the whole site" summary at the top of the Network
+  tab) pre-seeded its totals with only the fixed `SPEED_OPTIONS` set
+  (1G/10G/25G/etc). But a combo-ports switch (added a few versions
+  back) reports its usage under a composite label like "1G/10G
+  (combo)" - not a member of that fixed set at all - so the very first
+  combo-ports switch in a project crashed the whole tab the moment it
+  tried to add to a dict key that was never initialized.
+- **Fixed**: builds the totals/used dicts dynamically from whatever
+  labels `switch_port_usage()` actually returns, instead of assuming
+  they're all pre-known. Standard speeds still come out in their
+  established `SPEED_OPTIONS` order; combo labels (which can
+  legitimately differ switch to switch - one might be "1G/10G
+  (combo)", another "25G (combo)") are appended after, correctly
+  summed when identical and kept separate when not.
+- Verified the exact reported file - and every other page in the app
+  (Summary, Servers, Storage, VMs, Settings, Reports, Backup) plus
+  full Word report generation - all load and refresh cleanly with it,
+  as requested.
+- 8 new tests covering a single combo switch, two switches with the
+  same combo label (the reported file's exact configuration), two
+  switches with different combo labels staying separate, a mix of
+  combo and normal switches, usage counting, disabled-switch
+  exclusion, and confirming normal (non-combo) switches still produce
+  results in the original speed-ordered sequence - 1004 passed total.
+
 ## v4.27.0 (Fixed: same new-entity RAID Calculator bug in StorageDialog itself; disk type; connection-level disable)
 
 Reported directly with exact reproduction steps, plus two follow-up
