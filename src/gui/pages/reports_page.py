@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QMessageBox,
@@ -72,6 +73,13 @@ class ReportsPage(QWidget):
         buttons.addStretch()
 
         layout.addLayout(buttons)
+
+        self.include_connection_notes_check = QCheckBox("Include connection notes in Word report")
+        self.include_connection_notes_check.setToolTip(
+            "Off by default - most projects don't need notes cluttering the "
+            "connections table. Check this to include them anyway."
+        )
+        layout.addWidget(self.include_connection_notes_check)
 
         self.text_area = QPlainTextEdit()
         self.text_area.setReadOnly(True)
@@ -165,6 +173,7 @@ class ReportsPage(QWidget):
         try:
             document = build_docx_report(
                 self.service.project, self.service.thresholds, app_version=VERSION,
+                include_connection_notes=self.include_connection_notes_check.isChecked(),
             )
             document.save(path)
             QMessageBox.information(self, "Export", "Word report exported.")

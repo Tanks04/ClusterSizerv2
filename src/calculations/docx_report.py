@@ -214,7 +214,7 @@ def _storage_section(document: Document, project: ClusterProject) -> None:
         _add_table(document, ["Storage Array", "Pool", "Disks", "Raw", "Usable", "Zoned To"], pool_rows)
 
 
-def _network_section(document: Document, project: ClusterProject) -> None:
+def _network_section(document: Document, project: ClusterProject, include_connection_notes: bool = False) -> None:
     document.add_heading("Network", level=1)
 
     document.add_heading("Summary", level=2)
@@ -239,12 +239,18 @@ def _network_section(document: Document, project: ClusterProject) -> None:
     server_names = {s.uid: s.name for s in project.servers}
     switch_names = {s.uid: s.name for s in project.switches}
     storage_names = {s.uid: s.name for s in project.storages}
+    headers = ["Type", "Endpoint A", "Endpoint B", "Speed", "Media", "Purpose"]
+    if include_connection_notes:
+        headers.append("Notes")
     conn_rows = []
     for c in project.connections:
         endpoint_a = server_names.get(c.server_uid) or storage_names.get(c.storage_uid) or "-"
         endpoint_b = switch_names.get(c.switch_uid) or storage_names.get(c.storage_uid) or "-"
-        conn_rows.append([c.connection_kind, endpoint_a, endpoint_b, c.speed, c.media, c.purpose])
-    _add_table(document, ["Type", "Endpoint A", "Endpoint B", "Speed", "Media", "Purpose"], conn_rows)
+        row = [c.connection_kind, endpoint_a, endpoint_b, c.speed, c.media, c.purpose]
+        if include_connection_notes:
+            row.append(c.notes or "-")
+        conn_rows.append(row)
+    _add_table(document, headers, conn_rows)
 
 
 def _cluster_section(document: Document, project: ClusterProject, thresholds: Thresholds) -> None:
@@ -481,7 +487,10 @@ def _pricing_section(document: Document, project: ClusterProject) -> None:
                 _add_colored_run(p, f"Expiring within 90 days: {names}", _ORANGE, bold=True)
 
 
-def build_docx_report(project: ClusterProject, thresholds: Thresholds, app_version: str = "") -> "Document":
+def build_docx_report(
+    project: ClusterProject, thresholds: Thresholds, app_version: str = "",
+    include_connection_notes: bool = False,
+) -> "Document":
     if Document is None:
         raise ImportError(_docx_missing_message())
 
@@ -499,7 +508,7 @@ def build_docx_report(project: ClusterProject, thresholds: Thresholds, app_versi
     document.add_page_break()
     _storage_section(document, project)
     document.add_page_break()
-    _network_section(document, project)
+    _network_section(document, project, include_connection_notes)
     document.add_page_break()
     _cluster_section(document, project, thresholds)
     document.add_page_break()

@@ -1,5 +1,28 @@
 # ROADMAP
 
+## v4.28.0 (Custom connection Purpose; optional Notes in the Word report)
+
+Requested directly, with a concrete example: the user needed to flag a
+connection as an ILO/XCC (out-of-band server management) link, wasn't
+covered by the fixed Purpose list, so put it in Notes instead as a
+workaround - which then didn't show up in the exported report at all.
+
+- **Connection Purpose is now an editable combo** - pick one of the
+  existing options (Uplink/Data/Storage/Management/vMotion/Other), or
+  type your own directly (e.g. "ILO/XCC"), matching the same fix
+  already made for disk_type. Saves and reloads correctly either way.
+- **New: optional "Notes" column in the Word report's Connections
+  table** - off by default (most projects don't need notes cluttering
+  that table), a checkbox on the Reports tab ("Include connection
+  notes in Word report") turns it on for this export. New
+  `include_connection_notes` parameter on `build_docx_report()`.
+- 12 new tests covering the editable Purpose combo (still lists the
+  standard options, saves/preloads a custom value, persists through
+  `.clsz`), and the optional Notes column end to end (absent by
+  default, present and correctly populated when the checkbox is
+  ticked in ReportsPage, verified against the actual exported .docx
+  file both ways) - 1016 passed total.
+
 ## v4.27.1 (Fixed: Network tab crashed with a real project - combo-ports switches broke the site-wide port overview)
 
 Reported directly with a real project file that used to work: opening

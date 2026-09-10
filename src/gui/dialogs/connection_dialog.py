@@ -119,6 +119,10 @@ class ConnectionDialog(QDialog):
 
         self.purpose_combo = QComboBox()
         self.purpose_combo.addItems(PURPOSE_OPTIONS)
+        self.purpose_combo.setEditable(True)
+        self.purpose_combo.setToolTip(
+            "Pick a common purpose, or type your own (e.g. \"ILO/XCC\")."
+        )
         layout.addRow("Purpose", self.purpose_combo)
 
         self.notes_edit = QLineEdit()
