@@ -1,5 +1,73 @@
 # ROADMAP
 
+## v4.30.0 (Connection Media: cascading Speed -> Connector -> Detail classification)
+
+Follow-up on last version's corrected Media list, requested directly:
+rather than one flat list, a cascading Speed -> Connector -> Detail
+set of dropdowns so a physically-impossible combination (e.g. 1G on an
+SFP+, which is actually a 10G+ form factor) can't be selected at all -
+useful for networking staff who need a precise, orderable
+classification, and reads cleanly in exported documentation.
+
+- **New: cascading Connector/Detail dropdowns** in `ConnectionDialog`,
+  driven by the existing Speed field. Each level's options depend on
+  the one above (`SPEED_TO_CONNECTORS`, `CONNECTOR_TO_DETAILS`) - e.g.
+  1G only offers RJ45/SFP (not SFP+), picking SFP then offers Copper/
+  Fiber. FC skips the Connector step entirely (the speed already
+  implies it) and goes straight to Detail (Shortwave/Multimode vs
+  Longwave/Singlemode); SAS has neither.
+- **New: free-text "Cable Length"** field (e.g. "3m") - continuous by
+  nature, doesn't fit a dropdown.
+- **The old "Media" field is repurposed as an optional "Exact Part"**
+  text field (e.g. "GLC-T", "FS-10G-DAC-2M") for anyone who wants that
+  level of precision beyond the Connector/Detail classification -
+  no longer a restricted/preset list, since the cascade now handles
+  the classification job.
+- **New: `connection_media_summary()`** - a single shared helper
+  (connections table + Word report both use it) that builds a
+  readable line combining Connector+Detail with the exact part number
+  if set (e.g. "SFP+ DAC (FS-10G-DAC-2M)"), falling back gracefully to
+  the old flat value for a connection saved before this cascade
+  existed.
+- **New: "Cable Length" column** in both the connections table and the
+  Word report.
+- Fully backward compatible - verified directly against a real,
+  actively-developed project file with 30 connections still using the
+  old generic "FC"/"SFP+" values: loads, displays, and exports
+  correctly with zero changes needed to the file itself.
+- 24 new tests covering the cascade mapping, the dialog's dynamic
+  Connector/Detail population (including both FC and SAS special
+  cases), full save/preload round-trips, backward compatibility
+  (`.clsz` files both with and without the new fields), the summary
+  helper's four display scenarios, and both the table and report
+  showing the new data correctly - 1040 passed total.
+
+## v4.29.0 (Connection Media options corrected and expanded)
+
+Reported directly with real technical corrections to the old generic
+list.
+
+- **FC split into SW/LW**: the old plain "FC" entry didn't distinguish
+  shortwave/multimode from longwave/singlemode - now "FC-SW
+  (Shortwave/Multimode)" and "FC-LW (Longwave/Singlemode)".
+- **SFP+/SFP28 entries now show speed and physical type**, matching
+  the request ("barem brzina i jel optika, bakar ili tvornički kabel
+  DAC/AOC"): "SFP+ (10G Fiber-SR)", "SFP+ (10G Fiber-LR)", "SFP+ (10G
+  DAC)", "SFP+ (10G AOC)", and the SFP28 equivalents at 25G.
+- **Added plain "SFP (1G Copper)"/"SFP (1G Fiber)"** - SFP+ is
+  technically a 10G+ transceiver form factor; plain SFP is 1G's actual
+  partner, which the old list didn't have at all.
+- **Media combo is now editable**, matching the same fix already made
+  for disk_type and connection Purpose - an exact part number (e.g.
+  "GLC-T") can be typed directly when a preset isn't precise enough.
+- Backward compatible: an old saved connection with the previous
+  generic "FC" or "SFP+" value still displays and round-trips
+  correctly - the field is free text with suggested presets, not a
+  restricted enum.
+- 12 new tests covering the corrected/expanded list itself, the
+  editable combo (presets and custom values both save correctly), and
+  backward compatibility for old saved values - 1028 passed total.
+
 ## v4.28.0 (Custom connection Purpose; optional Notes in the Word report)
 
 Requested directly, with a concrete example: the user needed to flag a

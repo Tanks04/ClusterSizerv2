@@ -2,7 +2,7 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
-from src.models.network_connection import NetworkConnection
+from src.models.network_connection import NetworkConnection, connection_media_summary
 from src.models.network_switch import NetworkSwitch
 from src.models.server import Server
 from src.models.storage import Storage
@@ -10,7 +10,7 @@ from src.models.storage import Storage
 
 class ConnectionTableModel(QAbstractTableModel):
 
-    HEADERS = ["Type", "Endpoint A", "Endpoint B", "Speed", "Media", "Port Label", "Purpose"]
+    HEADERS = ["Type", "Endpoint A", "Endpoint B", "Speed", "Media", "Cable Length", "Port Label", "Purpose"]
 
     def __init__(
         self,
@@ -87,10 +87,12 @@ class ConnectionTableModel(QAbstractTableModel):
             case 3:
                 return conn.speed
             case 4:
-                return conn.media
+                return connection_media_summary(conn)
             case 5:
-                return conn.switch_port_label or "-"
+                return conn.cable_length or "-"
             case 6:
+                return conn.switch_port_label or "-"
+            case 7:
                 return conn.purpose
 
         return None

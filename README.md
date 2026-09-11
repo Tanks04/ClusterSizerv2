@@ -211,6 +211,9 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Thanks
 
+This tool was built in collaboration with Claude (Anthropic) — from the
+first idea to the last bugfix. 
+
 Iako su i kod i app,pa i ideja ponuđeni besplatno, ako smatrate da 
 Vam se sviđa i da vam skraćuje vrijeme rada, možete uplatiti koji EUR
 za pivu i whisk(e)y autoru programa <3 koji će onda imati više volje 
@@ -226,6 +229,7 @@ Revolut: revolut.me/@ivan50ba6
 The full story of that collaboration (and why it's stated openly) is in
 [`docs/ABOUT.md`](docs/ABOUT.md).
 
+Thanks, Claude. 🥰
 
 ## License
 

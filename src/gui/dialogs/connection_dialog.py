@@ -16,13 +16,15 @@ from src.calculations.networking import (
 )
 from src.models.cluster_project import ClusterProject
 from src.models.network_connection import (
+    CONNECTOR_TO_DETAILS,
+    FC_DETAILS,
     KIND_SERVER_STORAGE,
     KIND_SERVER_SWITCH,
     KIND_STORAGE_SWITCH,
     KIND_SWITCH_SWITCH,
-    MEDIA_OPTIONS,
     PURPOSE_OPTIONS,
     SPEED_OPTIONS,
+    SPEED_TO_CONNECTORS,
     NetworkConnection,
 )
 
@@ -80,6 +82,7 @@ class ConnectionDialog(QDialog):
         self.resize(440, 340)
 
         layout = QFormLayout(self)
+        self.form_layout = layout
 
         self.type_combo = QComboBox()
         for kind in _KIND_SPECS:
@@ -100,11 +103,29 @@ class ConnectionDialog(QDialog):
         self.speed_combo = QComboBox()
         self.speed_combo.addItems(SPEED_OPTIONS)
         self.speed_combo.currentIndexChanged.connect(self._update_usage_hint)
+        self.speed_combo.currentTextChanged.connect(self._refresh_connector_combo)
         layout.addRow("Speed", self.speed_combo)
 
-        self.media_combo = QComboBox()
-        self.media_combo.addItems(MEDIA_OPTIONS)
-        layout.addRow("Media", self.media_combo)
+        self.connector_combo = QComboBox()
+        self.connector_combo.currentTextChanged.connect(self._refresh_detail_combo)
+        layout.addRow("Connector", self.connector_combo)
+
+        self.detail_combo = QComboBox()
+        layout.addRow("Detail", self.detail_combo)
+
+        self.cable_length_edit = QLineEdit()
+        self.cable_length_edit.setPlaceholderText("e.g. 3m")
+        layout.addRow("Cable Length", self.cable_length_edit)
+
+        self.media_edit = QLineEdit()
+        self.media_edit.setPlaceholderText("optional - e.g. \"GLC-T\", \"FS-QSFP-DAC-3M\"")
+        self.media_edit.setToolTip(
+            "Optional exact part number/SKU, if you want to note it beyond "
+            "the Connector/Detail classification above."
+        )
+        layout.addRow("Exact Part", self.media_edit)
+
+        self._refresh_connector_combo(self.speed_combo.currentText())
 
         self.dedicated_link_check = QCheckBox("Dedicated/Proprietary link (e.g. a stacking cable, HA-sync port)")
         self.dedicated_link_check.setToolTip(
@@ -180,6 +201,41 @@ class ConnectionDialog(QDialog):
     # Usage hint
     # ------------------------------------------------------------------
 
+    def _refresh_connector_combo(self, speed: str) -> None:
+        """FC has no Connector step of its own - the speed already
+        implies it, so Detail is populated directly from FC_DETAILS
+        and the Connector row hides entirely. SAS has neither."""
+        current = self.connector_combo.currentText()
+        self.connector_combo.blockSignals(True)
+        self.connector_combo.clear()
+
+        if speed == "FC":
+            self.form_layout.setRowVisible(self.connector_combo, False)
+            self.detail_combo.clear()
+            self.detail_combo.addItems(FC_DETAILS)
+            self.form_layout.setRowVisible(self.detail_combo, True)
+            self.connector_combo.blockSignals(False)
+            return
+
+        options = SPEED_TO_CONNECTORS.get(speed, [])
+        self.form_layout.setRowVisible(self.connector_combo, bool(options))
+        self.connector_combo.addItems(options)
+        restored = self.connector_combo.findText(current)
+        self.connector_combo.setCurrentIndex(restored if restored >= 0 else 0)
+        self.connector_combo.blockSignals(False)
+        self._refresh_detail_combo(self.connector_combo.currentText())
+
+    def _refresh_detail_combo(self, connector: str) -> None:
+        if self.speed_combo.currentText() == "FC":
+            return  # already populated directly by _refresh_connector_combo
+        current = self.detail_combo.currentText()
+        self.detail_combo.clear()
+        options = CONNECTOR_TO_DETAILS.get(connector, [])
+        self.form_layout.setRowVisible(self.detail_combo, bool(options))
+        self.detail_combo.addItems(options)
+        restored = self.detail_combo.findText(current)
+        self.detail_combo.setCurrentIndex(restored if restored >= 0 else 0)
+
     def _update_usage_hint(self) -> None:
         spec = _KIND_SPECS[self._current_kind()]
         _, attr_a, _, usage_fn_a = spec["a"]
@@ -237,7 +293,12 @@ class ConnectionDialog(QDialog):
             self.combo_b.setCurrentIndex(idx)
 
         self.speed_combo.setCurrentText(connection.speed)
-        self.media_combo.setCurrentText(connection.media)
+        self._refresh_connector_combo(self.speed_combo.currentText())
+        self.connector_combo.setCurrentText(connection.connector)
+        self._refresh_detail_combo(self.connector_combo.currentText())
+        self.detail_combo.setCurrentText(connection.media_detail)
+        self.cable_length_edit.setText(connection.cable_length)
+        self.media_edit.setText(connection.media)
         self.dedicated_link_check.setChecked(connection.dedicated_link)
         self.port_label_edit.setText(connection.switch_port_label)
         self.purpose_combo.setCurrentText(connection.purpose)
@@ -264,7 +325,10 @@ class ConnectionDialog(QDialog):
         setattr(connection, uid_field_b, self.combo_b.currentData() or "")
 
         connection.speed = self.speed_combo.currentText()
-        connection.media = self.media_combo.currentText()
+        connection.connector = self.connector_combo.currentText() if self.form_layout.isRowVisible(self.connector_combo) else ""
+        connection.media_detail = self.detail_combo.currentText() if self.form_layout.isRowVisible(self.detail_combo) else ""
+        connection.cable_length = self.cable_length_edit.text()
+        connection.media = self.media_edit.text()
         connection.dedicated_link = self.dedicated_link_check.isChecked()
         connection.switch_port_label = self.port_label_edit.text()
         connection.purpose = self.purpose_combo.currentText()

@@ -6,7 +6,56 @@ from dataclasses import dataclass
 # same categories.
 SPEED_OPTIONS = ["1G", "10G", "25G", "40G", "100G", "FC", "SAS"]
 
-MEDIA_OPTIONS = ["RJ45", "SFP+", "SFP28", "QSFP+", "QSFP28", "FC", "SAS"]
+# Cascading classification for a connection's physical media - Speed ->
+# Connector (form factor) -> Detail (fiber/copper/DAC/AOC or cable
+# category). Each level's valid options depend on the level above, so
+# a physically-nonsensical combination (e.g. 1G on an SFP+, which is
+# actually a 10G+ form factor - SFP is 1G's real partner) can't be
+# selected in the first place. FC has no Connector step of its own -
+# the speed already implies the connector, so its options go straight
+# from Speed to Detail (shortwave vs longwave). SAS has neither -  it's
+# specific enough on its own. A connection with no informative Detail
+# for its connector simply has none.
+SPEED_TO_CONNECTORS: dict[str, list[str]] = {
+    "1G": ["RJ45", "SFP"],
+    "10G": ["RJ45", "SFP+"],
+    "25G": ["SFP28"],
+    "40G": ["QSFP+"],
+    "100G": ["QSFP28"],
+    "FC": [],
+    "SAS": [],
+}
+
+CONNECTOR_TO_DETAILS: dict[str, list[str]] = {
+    "RJ45": ["Cat5e", "Cat6", "Cat6a", "Cat7"],
+    "SFP": ["Copper", "Fiber"],
+    "SFP+": ["SR (Fiber)", "LR (Fiber)", "DAC", "AOC"],
+    "SFP28": ["SR (Fiber)", "LR (Fiber)", "DAC", "AOC"],
+    "QSFP+": ["SR4 (Fiber)", "LR4 (Fiber)", "DAC", "AOC"],
+    "QSFP28": ["SR4 (Fiber)", "LR4 (Fiber)", "DAC", "AOC"],
+}
+
+# FC skips the Connector step entirely - these are its Detail options
+# directly off Speed.
+FC_DETAILS = ["SW (Shortwave/Multimode)", "LW (Longwave/Singlemode)"]
+
+
+def connection_media_summary(connection: "NetworkConnection") -> str:
+    """Readable one-line summary of a connection's physical media -
+    combines the Connector/Detail cascade with the optional exact
+    part number, and falls back gracefully for a connection saved
+    before this cascade existed (old flat values live on in `media`
+    alone). Shared by the connections table and the Word report so
+    this logic exists in exactly one place."""
+    classification = " ".join(p for p in (connection.connector, connection.media_detail) if p)
+    if connection.media and classification:
+        return f"{classification} ({connection.media})"
+    if connection.media:
+        return connection.media
+    if classification:
+        return classification
+    return "-"
+
 
 PURPOSE_OPTIONS = ["Uplink", "Data", "Storage", "Management", "vMotion", "Other"]
 
@@ -57,7 +106,16 @@ class NetworkConnection:
     switch_uid: str
 
     speed: str  # one of SPEED_OPTIONS
-    media: str  # one of MEDIA_OPTIONS
+    media: str = ""  # optional exact part number/SKU, e.g. "GLC-T" - the structured classification is connector/media_detail below
+
+    # Cascading physical classification - each level's valid options
+    # depend on the level above (see SPEED_TO_CONNECTORS/
+    # CONNECTOR_TO_DETAILS/FC_DETAILS). Both optional and independent
+    # of the free-text media/cable_length fields - fill in as much
+    # precision as actually matters for ordering/documentation.
+    connector: str = ""  # form factor, e.g. "SFP+" - empty for FC/SAS, which have none of their own
+    media_detail: str = ""  # e.g. "DAC", "SR (Fiber)", "SW (Shortwave/Multimode)" for FC
+    cable_length: str = ""  # free text, e.g. "3m" - continuous, doesn't fit a dropdown
 
     switch_port_label: str = ""  # descriptive, e.g. "Gi1/0/3", "Uplink #1" - optional
     purpose: str = "Data"  # one of PURPOSE_OPTIONS
@@ -97,7 +155,7 @@ class NetworkConnection:
             server_uid="",
             switch_uid="",
             speed="25G",
-            media="SFP28",
+            connector="SFP28",
             purpose="Data",
             storage_uid="",
             switch_b_uid="",

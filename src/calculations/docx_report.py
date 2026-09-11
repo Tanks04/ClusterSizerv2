@@ -34,6 +34,7 @@ from src.calculations.rack import compute_rack_sizing
 from src.calculations.sizing import build_failover_report, build_reports
 from src.calculations.thresholds import Status, Thresholds
 from src.models.cluster_project import PRIMARY, ClusterProject
+from src.models.network_connection import connection_media_summary
 
 
 def _docx_missing_message() -> str:
@@ -239,14 +240,17 @@ def _network_section(document: Document, project: ClusterProject, include_connec
     server_names = {s.uid: s.name for s in project.servers}
     switch_names = {s.uid: s.name for s in project.switches}
     storage_names = {s.uid: s.name for s in project.storages}
-    headers = ["Type", "Endpoint A", "Endpoint B", "Speed", "Media", "Purpose"]
+    headers = ["Type", "Endpoint A", "Endpoint B", "Speed", "Media", "Cable Length", "Purpose"]
     if include_connection_notes:
         headers.append("Notes")
     conn_rows = []
     for c in project.connections:
         endpoint_a = server_names.get(c.server_uid) or storage_names.get(c.storage_uid) or "-"
         endpoint_b = switch_names.get(c.switch_uid) or storage_names.get(c.storage_uid) or "-"
-        row = [c.connection_kind, endpoint_a, endpoint_b, c.speed, c.media, c.purpose]
+        row = [
+            c.connection_kind, endpoint_a, endpoint_b, c.speed,
+            connection_media_summary(c), c.cable_length or "-", c.purpose,
+        ]
         if include_connection_notes:
             row.append(c.notes or "-")
         conn_rows.append(row)
