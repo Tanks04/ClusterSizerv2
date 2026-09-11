@@ -35,3 +35,12 @@ Create some statistics, make a JSON backup, use **Clear all local data**, verify
 ## Responsive gameplay test
 
 On a phone and a tablet, open X01 and High Score. Verify all 9 quick-score buttons are visible, the keypad and UNDO are reachable without page scrolling, and rotating/resizing the screen does not leave controls outside the viewport.
+
+## v0.32 regression checks
+
+- X01 Master Out: leaving exactly 1 must be a bust.
+- Start Speed Game, return Home through the game menu, wait longer than the target timer: Home must remain visible; Resume must show `Speed Game · <mode>`.
+- Start Checkout Challenge, return Home: Resume must show the current target, not `undefined`.
+- In timed/Crazy Checkout, return Home: no timer/modal may pull the app back into the game.
+- Export backup in HR and EN: filename should start with PikadoBro / DartsBro respectively, and JSON `version` must match the visible app version.
+- Restore a backup containing an active game: the restored active game should open.

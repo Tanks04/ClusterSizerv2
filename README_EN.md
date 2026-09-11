@@ -1,6 +1,6 @@
 # 🎯 DartsBro
 
-**Current test version: v0.31 TEST**
+**Current test version: v0.32 TEST**
 
 🇭🇷 **Hrvatski:** [Otvori README.md](README.md)
 
@@ -67,4 +67,8 @@ DartsBro stores its data locally on the device. Under **Data / Backup**, **Clear
 
 ### Responsive gameplay screen
 
-v0.31 fits active gameplay to the actual visible viewport. On phones, quick-score buttons use a compact layout while the keypad and UNDO remain inside the visible screen to reduce accidental scrolling during practice.
+v0.32 fits active gameplay to the actual visible viewport. On phones, quick-score buttons use a compact layout while the keypad and UNDO remain inside the visible screen to reduce accidental scrolling during practice.
+
+### v0.32 verified bug fixes
+
+Alongside the responsive gameplay work from v0.31, v0.32 fixes Master Out bust when leaving 1, Resume labels for Speed Game and Checkout Challenge, timers continuing after returning Home, backup version metadata, HR/EN backup filenames, restored active-game routing, and AudioContext cleanup after Crazy-mode beeps.

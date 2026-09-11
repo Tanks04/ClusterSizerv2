@@ -1,6 +1,6 @@
 # 🎯 PikadoBro
 
-**Trenutna testna verzija: v0.31 TEST**
+**Trenutna testna verzija: v0.32 TEST**
 
 🇬🇧 **English:** [Open README_EN.md](README_EN.md)
 
@@ -63,4 +63,8 @@ PikadoBro sprema podatke lokalno na uređaju. U **Podaci / Backup** postoji opci
 
 ### Prilagodljiv gameplay ekran
 
-v0.31 prilagođava aktivnu igru stvarnoj visini i širini ekrana. Na mobitelima su quick-score tipke složene kompaktnije, a keypad i UNDO ostaju unutar vidljivog prozora kako bi se smanjilo slučajno scrollanje tijekom bacanja.
+v0.32 prilagođava aktivnu igru stvarnoj visini i širini ekrana. Na mobitelima su quick-score tipke složene kompaktnije, a keypad i UNDO ostaju unutar vidljivog prozora kako bi se smanjilo slučajno scrollanje tijekom bacanja.
+
+### v0.32 provjereni bugfixevi
+
+Uz responsive gameplay iz v0.31, v0.32 ispravlja Master Out bust na preostalih 1, Resume oznake za Speed Game i Checkout Challenge, zaustavljanje timera pri povratku na Početnu, oznaku verzije u JSON backupu, HR/EN naziv backup datoteke, povrat aktivne igre nakon restorea i zatvaranje AudioContexta nakon Crazy beepa.
