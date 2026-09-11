@@ -1,0 +1,190 @@
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f4f4f1;background:#0b0f10;--red:#ff3038;--green:#59e87a;--panel:#171d1f;--line:#343b3e;--muted:#9da5a7}*{box-sizing:border-box}html{background:#090c0d}body{margin:0;background:radial-gradient(circle at 50% 0,#162022,#090c0d 52%);min-height:100dvh;overscroll-behavior:none}.app{width:min(100%,1180px);margin:auto;min-height:100dvh;padding:clamp(14px,2.6vw,34px);display:flex;flex-direction:column}.home{max-width:860px}.homehead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.brand{font-size:clamp(38px,8vw,58px);font-weight:900;font-style:italic;margin:clamp(16px,4vh,34px) 0 2px}.brand span{color:var(--red)}.sub{color:#aab2b4;margin-bottom:clamp(18px,4vh,30px);font-size:clamp(15px,2vw,18px)}.grid{display:grid;gap:10px}.card,.btn,.key,.quick,.langbtn{border:1px solid #2c3437;background:linear-gradient(#202729,#171c1e);color:white;border-radius:10px;min-height:58px;padding:14px 16px;font-size:17px;text-align:left;touch-action:manipulation}.card:active,.btn:active,.key:active,.quick:active,.langbtn:active{transform:scale(.98)}.card b{display:block;font-size:19px}.card small{color:#9fa8aa}.card:disabled{opacity:.52}.red{background:var(--red);border-color:var(--red);text-align:center;font-weight:800}.danger{border-color:#913239;color:#ff8c91}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:2px solid var(--line);padding-bottom:12px}.title{font-size:clamp(22px,4vw,34px);font-weight:900}.roundinfo,.muted{color:var(--muted);font-size:clamp(13px,2vw,17px)}.langswitch{display:flex;gap:5px}.langbtn{min-height:36px;padding:5px 9px;font-size:12px;font-weight:800;text-align:center}.langbtn.on{border-color:var(--red);color:white;background:#482226}.score{text-align:center;font-size:clamp(82px,17vh,154px);line-height:.95;font-weight:900;margin:clamp(16px,3vh,32px) 0 4px}.remaining{text-align:center;color:var(--green);font-size:clamp(30px,6vw,62px);font-weight:900;margin:6px}.visits{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(6px,1.5vw,12px);margin:clamp(8px,2vh,18px) 0}.visit{border-bottom:2px solid var(--line);padding:clamp(8px,1.6vh,14px);text-align:center;font-size:clamp(21px,4vw,30px);min-height:50px}.playarea{display:grid;grid-template-columns:minmax(0,1fr) clamp(74px,12vw,118px);gap:clamp(8px,1.5vw,14px);margin-top:auto}.keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(6px,1vw,10px)}.key{text-align:center;font-size:clamp(22px,4vw,31px);font-weight:800;min-height:clamp(52px,8vh,76px);padding:8px}.quickbar{display:grid;grid-template-rows:repeat(9,1fr);gap:5px;min-height:100%}.quick{text-align:center;padding:5px;font-weight:800;min-height:38px;font-size:clamp(14px,2.1vw,21px)}.big{font-size:clamp(28px,5vw,38px);text-align:center}.setup{max-width:840px}.setup label{display:block;margin:24px 0 8px;font-weight:700}.choices{display:flex;gap:8px;flex-wrap:wrap}.choice{flex:1;min-width:70px;text-align:center}.selected{background:var(--red);border-color:var(--red)}.back{background:none;border:0;color:white;font-size:30px;padding:0 10px 0 0}.maxnote{text-align:center;color:#adb5b7;font-size:14px;letter-spacing:.06em;margin:24px 0 12px}.maxnote strong{color:#fff}.startbtn{width:100%;margin-top:auto}.undobtn{margin-top:12px;width:100%;text-align:center}.gesturehint{font-size:18px;letter-spacing:3px;text-align:center;color:#465054;height:16px;line-height:10px}.error{color:#ff858a;text-align:center;min-height:22px;margin:4px}.modal{position:fixed;z-index:50;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:22px;backdrop-filter:blur(3px)}.modalbox{width:min(440px,100%);background:#151b1d;border:1px solid #394144;border-radius:16px;padding:24px;text-align:center;box-shadow:0 24px 70px #0008}.dartchoices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}.center{text-align:center;width:100%}.resultscore{font-size:42px;font-weight:900;margin:22px 0}.modalactions,.menugrid{display:grid;gap:10px}.modalactions{grid-template-columns:1fr 1fr}.menugrid .btn{text-align:center}
+@media (min-width:720px){.home .grid{grid-template-columns:1fr 1fr}.home .grid .red{grid-column:1/-1}.play-screen{max-width:1180px}.playarea{grid-template-columns:minmax(420px,2fr) minmax(100px,.5fr)}.keys{gap:10px}.quickbar{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);align-self:stretch}.quick{font-size:22px}.undobtn{max-width:320px;align-self:center}.visits{max-width:800px;width:100%;align-self:center}}
+@media (min-width:1000px) and (min-height:700px){.play-screen{display:grid;grid-template-columns:minmax(340px,.82fr) minmax(520px,1.18fr);grid-template-rows:auto auto auto 1fr auto;column-gap:36px}.play-screen .top{grid-column:1/-1}.score{grid-column:1;grid-row:2;margin-top:48px;align-self:start}.visits{grid-column:1;grid-row:3;width:100%}.remaining{grid-column:1;grid-row:4;align-self:start}.error{grid-column:2;grid-row:2;margin-top:34px}.playarea{grid-column:2;grid-row:2/5;align-self:stretch;margin-top:26px}.undobtn{grid-column:2;grid-row:5;width:100%;max-width:none}.gesturehint{grid-column:1;grid-row:5}}
+@media (max-height:720px){.score{font-size:clamp(64px,15vh,100px);margin:10px 0 2px}.visits{margin:5px 0}.remaining{font-size:clamp(26px,5vw,42px)}.key{min-height:48px}.undobtn{min-height:46px;padding:8px}}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.statgrid>div{background:#17191d;border:1px solid #30333a;border-radius:12px;padding:12px 8px;text-align:center}.statgrid b{display:block;font-size:clamp(1.35rem,4vw,2rem);color:#f3f0e9}.statgrid small{display:block;margin-top:5px;color:#999;font-size:.68rem;font-weight:800;letter-spacing:.05em}.scoringline{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px 0 18px}.scoringline span{background:#111317;border-radius:9px;padding:9px 4px;text-align:center;color:#999;font-size:.78rem}.scoringline b{color:#fff}.statsbtn{width:100%;margin-bottom:12px}@media(max-width:480px){.statgrid{grid-template-columns:repeat(2,1fr)}}
+.checkoutflag{align-self:center;margin:2px auto 8px;border:1px solid #475054;background:#14191b;color:#aab2b4;border-radius:999px;padding:7px 14px;min-height:34px;font-size:12px;font-weight:900;letter-spacing:.06em;text-align:center;touch-action:manipulation}.checkoutflag.on{border-color:var(--green);color:var(--green);background:#102018}.checkoutflag.auto{border-color:#315b3b;color:var(--green);background:#102018;opacity:.85}.play-screen>.checkoutflag{max-width:260px}
+@media (min-width:1000px) and (min-height:700px){.play-screen>.checkoutflag{grid-column:1;grid-row:3;align-self:start;justify-self:center;margin:-2px auto 8px;z-index:2}.play-screen .visits{margin-top:54px}.play-screen .score{align-self:start}}
+.trainer-screen{max-width:920px}.targetlabel{text-align:center;color:var(--muted);font-size:13px;font-weight:900;letter-spacing:.12em;margin-top:18px}.targetscore{color:#fff}.split-current{text-align:center;color:var(--green);font-size:clamp(24px,5vw,42px);font-weight:800;margin:4px 0 12px}.splitpreview{margin:30px auto 8px;padding:18px;border:1px solid var(--line);border-radius:12px;text-align:center;color:#d7dcdd;font-weight:800;line-height:1.7}.markgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:auto 0 10px}.markbtn{min-height:clamp(62px,10vh,90px);border:1px solid #343c3f;background:linear-gradient(#202729,#171c1e);color:white;border-radius:10px;font-size:clamp(24px,5vw,34px);font-weight:900}.markbtn.miss{border-color:#6d3034;color:#ff8d92}.bullgrid{grid-template-columns:repeat(4,1fr)}.splitinput .playarea{grid-template-columns:1fr}.trainer-screen .playarea{margin-top:12px}.trainer-screen .quickbar{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
+@media(max-width:560px){.markgrid{grid-template-columns:repeat(5,1fr)}.bullgrid{grid-template-columns:repeat(4,1fr)}.markbtn{min-height:58px}.trainer-screen .score{font-size:clamp(76px,15vh,120px)}}
+
+/* v0.7.2 Split Score refinements */
+.split-game .targetscore.word-target{font-size:clamp(42px,7vw,72px);line-height:1.05;margin:14px auto 10px;text-align:center;width:100%}
+.bull-combos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 10px}
+.bull-combos .markbtn{font-size:clamp(18px,4vw,28px)}
+@media(min-width:700px){.bull-combos{grid-template-columns:repeat(5,minmax(0,1fr))}}
+/* v0.8 Round the World + Bob's 27 */
+.hit-four{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0 12px}.hit-four .markbtn{min-height:clamp(72px,12vh,105px);font-size:clamp(30px,7vw,48px)}.rtw-game .targetscore,.bobs-game .targetscore{margin-top:14px}.rtw-game .visits,.bobs-game .visits{margin-top:18px}
+/* v0.9 Checkout Trainer */
+.manualtargets{width:100%;min-height:58px;border:1px solid #343c3f;background:#171d1f;color:#fff;border-radius:10px;padding:12px 14px;font-size:20px}.checkout-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0 12px}.checkout-actions .markbtn{min-height:clamp(76px,13vh,110px)}.checkout-actions .hit{border-color:#315b3b;color:var(--green);background:#102018}.checkout-target{color:#fff}.crazy-status{text-align:center;color:var(--green);font-weight:900;letter-spacing:.08em;min-height:28px}.checkout-game.flash{animation:checkoutFlash .45s ease-out}@keyframes checkoutFlash{0%{background:#203528}100%{background:transparent}}
+.trainerselect{width:100%;min-height:58px;border:1px solid #343c3f;background:#171d1f;color:#fff;border-radius:10px;padding:10px 14px;font-size:20px;font-weight:800}.trainerselect:focus{outline:1px solid #566164}.checkout-actions .markbtn:disabled{opacity:.24;filter:grayscale(1);cursor:default}.checkout-game .roundinfo span{font-variant-numeric:tabular-nums}.checkout-game .checkout-target{margin-bottom:10px}
+.challenge-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:min(620px,100%);margin:18px auto}.challenge-actions .markbtn{min-height:72px;font-size:clamp(1rem,3vw,1.35rem)}
+.routebox{width:min(650px,100%);margin:4px auto 14px;text-align:center}.checkout-route{font-size:clamp(1.35rem,4vw,2rem);font-weight:900;letter-spacing:.04em;margin:5px 0}.checkout-route.alt{font-size:clamp(1rem,3vw,1.35rem);font-weight:700;opacity:.72}.challenge-summary{display:grid;gap:8px;width:min(620px,100%);margin:18px auto;padding:16px;border:1px solid #354044;border-radius:14px;background:#141b1d}.challenge-summary span{opacity:.82}
+.speed-leg-clock{text-align:center;margin:8px auto 18px;display:flex;flex-direction:column;gap:2px}.speed-leg-clock b{font-size:clamp(2.2rem,10vw,4rem);font-variant-numeric:tabular-nums}.speed-leg-clock small{opacity:.65;letter-spacing:.12em}.speed-game .roundinfo{font-variant-numeric:tabular-nums}.speed-game .checkout-route{text-align:center;margin:-8px auto 10px;font-size:1.15rem}
+/* v0.14 Statistics + backup */
+.stats-page{max-width:920px}.periodpill{align-self:flex-start;margin:18px 0 2px;border:1px solid #3c4649;border-radius:999px;padding:7px 12px;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:.08em}.statssection{margin-top:22px}.statssection h2{font-size:18px;margin:0 0 9px;color:#e6e8e4}.statslist{display:grid;gap:7px}.statsrow{display:grid;grid-template-columns:minmax(110px,1.5fr) repeat(4,minmax(70px,1fr));gap:8px;align-items:center;padding:12px;border:1px solid #2f383b;border-radius:10px;background:#141a1c}.statsrow strong{font-size:15px}.statsrow span{font-size:12px;color:#aeb6b8;text-align:right}.emptybox{margin-top:28px;border:1px dashed #3b4548;border-radius:14px;padding:28px;text-align:center;color:var(--muted)}.data-page .btn{width:100%;text-align:center;margin-top:10px}.data-page{max-width:720px}@media(max-width:620px){.statsrow{grid-template-columns:1fr 1fr}.statsrow strong{grid-column:1/-1}.statsrow span{text-align:left}.statsrow span:nth-child(even){text-align:right}}
+/* v0.16 FixTheThing */
+.fix-target-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0 14px}.fix-target-grid .btn{min-width:0;padding:12px 4px}.fix-darts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(560px,100%);margin:12px auto}.fix-dart{min-height:58px;border:1px solid #303a3d;border-radius:10px;display:grid;place-items:center;font-size:24px;font-weight:900;color:#7f898b;background:#111719}.fix-dart.filled{color:#fff;border-color:#4a5659}.fix-ring-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(560px,100%);margin:8px auto}.fix-keypad{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;width:min(680px,100%);margin:8px auto}.fix-keypad .key{min-height:48px;font-size:18px}.fix-keypad .misskey{color:var(--red)}@media(max-width:520px){.fix-keypad{grid-template-columns:repeat(5,1fr)}.fix-target-grid{grid-template-columns:repeat(5,1fr)}}
+
+/* v0.17 FixTheThing focus-first input */
+.fix-focus{text-align:center;color:var(--green);font-size:clamp(28px,6vw,52px);font-weight:900;letter-spacing:.04em;margin:clamp(16px,3vh,28px) 0 8px}
+.fix-shortcuts-main{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(560px,100%);margin:4px auto 8px}.fix-short-main{text-align:center;font-size:clamp(19px,3.5vw,26px);font-weight:900;border-color:#526064;min-height:54px;padding:8px}
+.fix-shortcuts-neighbors{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;width:min(680px,100%);margin:0 auto 8px}.fix-short-neighbor{text-align:center;font-size:clamp(13px,2.2vw,17px);font-weight:800;min-height:42px;padding:6px 3px;color:#c8cecf}
+@media(max-width:520px){.fix-focus{margin:10px 0 4px}.fix-darts{margin:6px auto}.fix-shortcuts-neighbors{grid-template-columns:repeat(3,1fr)}.fix-ring-row{margin:5px auto}.fix-keypad{margin:5px auto;gap:5px}.fix-keypad .key{min-height:43px}}
+
+.support-note{margin:22px auto 8px;max-width:620px;text-align:center;font-size:.78rem;line-height:1.45;color:#8e9798;padding:0 12px}.support-note a{color:#b7c0c1;text-decoration:none;border-bottom:1px solid #596162}.support-note a:hover{color:#f0f1ec}
+/* v0.23 Practice for me / AI workout editor */
+.workout-head{display:grid;gap:6px;margin:20px 0 14px;padding:16px;border:1px solid #354044;border-radius:14px;background:#141b1d}.workout-head b{color:var(--green);letter-spacing:.05em}.workout-head span{color:#aeb6b8;font-size:.9rem}.workout-list{display:grid;gap:8px;margin:12px 0}.workout-row{display:grid;grid-template-columns:34px minmax(160px,1.4fr) minmax(90px,1fr) minmax(90px,1fr) 48px;gap:8px;align-items:center}.workout-row>.maxnote{grid-column:3/5;text-align:center}.workout-row .trainerselect{min-height:50px;font-size:16px}.workout-num{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#1c2325;color:#aeb6b8;font-weight:900}.workout-remove{min-height:50px;padding:4px;font-size:22px;color:#ff8d92}.workout-results{display:grid;gap:7px;margin:12px 0}.workout-results .statsrow{grid-template-columns:1fr auto auto}
+@media(max-width:520px){.workout-row{grid-template-columns:28px 1fr 1fr 42px;gap:5px}.workout-row>[data-workout-preset]{grid-column:2/4}.workout-row>[data-workout-target]{grid-column:2/3}.workout-row>[data-workout-rounds]{grid-column:3/4}.workout-row>.maxnote{grid-column:2/4}.workout-row>.workout-remove{grid-column:4;grid-row:1/3}.workout-row .trainerselect{font-size:14px;padding:8px 6px}.workout-num{width:27px;height:27px;grid-row:1/3}}
+.fix-other-label{grid-column:1/-1;text-align:center;font-size:.72rem;font-weight:800;letter-spacing:.08em;color:var(--muted);padding:.15rem 0 .05rem}
+
+.app-version{font-size:.68em;font-weight:600;opacity:.58;white-space:nowrap;margin-left:.35em;vertical-align:baseline}
+
+
+/* v0.31 — responsive gameplay / anti-scroll pass */
+html,body,#app{width:100%;min-height:100%}
+body.game-active{height:100dvh;min-height:100dvh;overflow:hidden}
+body.game-active #app{height:100dvh;overflow:hidden}
+
+/* Active gameplay uses the real visible viewport. Safe-area padding helps installed PWAs. */
+body.game-active .app[data-game-surface]{
+  height:100dvh;
+  min-height:0;
+  max-height:100dvh;
+  overflow:hidden;
+  padding-top:max(10px,env(safe-area-inset-top));
+  padding-right:max(10px,env(safe-area-inset-right));
+  padding-bottom:max(8px,env(safe-area-inset-bottom));
+  padding-left:max(10px,env(safe-area-inset-left));
+}
+
+/* Never let the input side force the whole screen wider/taller. */
+body.game-active .playarea,
+body.game-active .inputside,
+body.game-active .keys,
+body.game-active .quickbar{min-width:0;min-height:0}
+
+@media (max-width:719px){
+  body.game-active .app[data-game-surface]{padding:9px 10px 7px}
+  body.game-active .top{padding-bottom:7px;gap:8px;flex:0 0 auto}
+  body.game-active .title{font-size:clamp(19px,5.6vw,26px);line-height:1.05}
+  body.game-active .roundinfo{font-size:12px;white-space:nowrap}
+
+  /* Scores and recent visits stay visible, but do not consume the phone. */
+  body.game-active .score{
+    font-size:clamp(58px,12dvh,104px);
+    line-height:.9;
+    margin:7px 0 1px
+  }
+  body.game-active .targetscore{font-size:clamp(60px,13dvh,108px)}
+  body.game-active .targetlabel{margin-top:7px;font-size:11px}
+  body.game-active .remaining{font-size:clamp(23px,6vw,34px);margin:2px}
+  body.game-active .visits{gap:5px;margin:5px 0}
+  body.game-active .visit{min-height:36px;padding:5px;font-size:clamp(17px,4.8vw,23px)}
+  body.game-active .error{min-height:16px;margin:1px;font-size:12px}
+
+  /* Numeric games: keypad left, ALL quick scores right.
+     Quick scores become a compact 2 x 5 matrix instead of 9 tall rows. */
+  body.game-active .playarea{
+    grid-template-columns:minmax(0,1fr) clamp(116px,35vw,150px);
+    gap:7px;
+    margin-top:auto;
+    align-items:stretch
+  }
+  body.game-active .inputside{
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr);
+    gap:5px
+  }
+  body.game-active .inputside>.visit.big{
+    min-height:35px;
+    margin:0;
+    padding:3px 6px;
+    font-size:clamp(22px,6vw,30px)
+  }
+  body.game-active .keys{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:repeat(4,minmax(39px,1fr));
+    gap:5px
+  }
+  body.game-active .key{
+    min-height:39px;
+    height:auto;
+    padding:3px;
+    font-size:clamp(19px,5.5vw,27px)
+  }
+  body.game-active .quickbar{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-rows:repeat(5,minmax(0,1fr));
+    gap:5px;
+    height:100%
+  }
+  body.game-active .quick{
+    min-height:0;
+    height:auto;
+    padding:3px 2px;
+    font-size:clamp(13px,3.8vw,18px)
+  }
+
+  /* Undo is always reachable. This is a fallback for unusually short screens. */
+  body.game-active .undobtn{
+    flex:0 0 auto;
+    width:100%;
+    min-height:40px;
+    margin-top:6px;
+    padding:6px 10px;
+    position:relative;
+    z-index:3
+  }
+  body.game-active .gesturehint{height:9px;line-height:5px;font-size:14px}
+
+  /* Trainer games also compact vertically on phones. */
+  body.game-active .split-current{font-size:clamp(20px,5vw,30px);margin:2px 0 5px}
+  body.game-active .hit-four{gap:6px;margin:7px 0 6px}
+  body.game-active .hit-four .markbtn{min-height:clamp(50px,8dvh,68px);font-size:clamp(25px,7vw,38px)}
+  body.game-active .checkout-actions,
+  body.game-active .challenge-actions{gap:7px;margin:8px 0 6px}
+  body.game-active .checkout-actions .markbtn,
+  body.game-active .challenge-actions .markbtn{min-height:clamp(54px,9dvh,72px)}
+  body.game-active .markgrid{gap:5px;margin:5px 0}
+  body.game-active .markbtn{min-height:48px}
+  body.game-active .bull-combos{gap:5px;margin:5px 0}
+  body.game-active .maxnote{margin:5px 0;font-size:11px}
+}
+
+/* Extra compact mode for short phones / landscape / browser chrome eating height. */
+@media (max-width:719px) and (max-height:760px){
+  body.game-active .app[data-game-surface]{padding-top:6px;padding-bottom:4px}
+  body.game-active .top{padding-bottom:5px}
+  body.game-active .score{font-size:clamp(48px,10dvh,76px);margin:4px 0 0}
+  body.game-active .targetscore{font-size:clamp(50px,11dvh,82px)}
+  body.game-active .targetlabel{margin-top:4px}
+  body.game-active .visits{margin:3px 0}
+  body.game-active .visit{min-height:31px;padding:3px;font-size:16px}
+  body.game-active .remaining{font-size:22px}
+  body.game-active .keys{grid-template-rows:repeat(4,minmax(34px,1fr));gap:4px}
+  body.game-active .key{min-height:34px;font-size:19px}
+  body.game-active .quickbar{gap:4px}
+  body.game-active .quick{font-size:13px}
+  body.game-active .undobtn{min-height:36px;margin-top:4px}
+  body.game-active .gesturehint{display:none}
+}
+
+/* Tablets keep roomy controls but use a 3x3 quick-score grid. */
+@media (min-width:720px) and (max-width:999px){
+  body.game-active .playarea{grid-template-columns:minmax(0,1fr) minmax(190px,.55fr)}
+  body.game-active .quickbar{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:repeat(3,minmax(0,1fr));
+    gap:7px
+  }
+  body.game-active .quick{min-height:0}
+}
+
+/* Installed-app viewport/orientation changes should settle immediately. */
+@media (orientation:landscape) and (max-height:620px){
+  body.game-active .score{font-size:clamp(44px,16vh,72px)}
+  body.game-active .visits{margin:2px 0}
+  body.game-active .visit{min-height:28px;padding:2px}
+  body.game-active .undobtn{min-height:34px}
+}
